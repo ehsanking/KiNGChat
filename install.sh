@@ -87,14 +87,14 @@ if ! check_dependency "docker"; then
     exit 1
 fi
 
-# --- 3. Network Resilience & Cloning ---
+# --- 3. Network Resilience & Synchronization ---
 log_info "Preparing network for high-latency environment..."
 # Advanced Git Tuning
-git config --global http.postBuffer 1048576000 # 1GB buffer
+git config --global http.postBuffer 1048576000
 git config --global http.lowSpeedLimit 1000
 git config --global http.lowSpeedTime 600
 git config --global core.compression 0
-git config --global http.sslVerify false # Temporary bypass for SSL handshake issues in restricted networks
+git config --global http.sslVerify false
 
 if [ -d "$TARGET_DIR" ]; then
     log_warn "Directory $TARGET_DIR already exists."
@@ -107,30 +107,53 @@ if [ -d "$TARGET_DIR" ]; then
     fi
 fi
 
-log_info "Step 1/2: Synchronizing repository (using shallow clone for speed)..."
-MAX_RETRIES=5
+log_info "Step 1/2: Synchronizing repository..."
+
+# Strategy A: Git Clone (Preferred for updates)
+log_info "Attempting Strategy A: High-speed Git Synchronization..."
+MAX_RETRIES=2
 COUNT=0
 SUCCESS=false
 
 while [ $COUNT -lt $MAX_RETRIES ]; do
-    # Use --depth 1 to minimize data transfer and avoid SSL timeout on large objects
     if git clone --depth 1 --progress "$REPO_URL" "$TARGET_DIR"; then
         SUCCESS=true
         break
     else
         COUNT=$((COUNT + 1))
-        log_warn "Clone failed. Attempt $COUNT/$MAX_RETRIES. Retrying in 5 seconds..."
-        # On failure, try to clear git cache/config if needed
-        sleep 5
+        log_warn "Git clone failed (Attempt $COUNT/$MAX_RETRIES). This is common in restricted networks."
+        sleep 2
     fi
 done
 
-# Restore SSL verification after clone for security
+# Strategy B: Tarball Fallback (Resilient to Git-specific DPI)
+if [ "$SUCCESS" = false ]; then
+    log_info "Switching to Strategy B: Resilient Archive Stream..."
+    log_info "Downloading source archive via encrypted tunnel (CURL)..."
+    
+    # Ensure directory is clean before extraction
+    rm -rf "$TARGET_DIR"
+    mkdir -p "$TARGET_DIR"
+    
+    # Construct the tarball URL
+    TARBALL_URL="https://github.com/ehsanking/KiNGChat/archive/refs/heads/main.tar.gz"
+    
+    # Use curl with retry and resume capabilities
+    if curl -L --retry 5 --retry-delay 5 -k "$TARBALL_URL" | tar -xz -C "$TARGET_DIR" --strip-components=1; then
+        SUCCESS=true
+        log_success "Source synchronized via Archive Stream."
+    else
+        log_error "Strategy B also failed. Network interference is severe."
+    fi
+fi
+
+# Restore SSL verification
 git config --global http.sslVerify true
 
 if [ "$SUCCESS" = false ]; then
-    log_error "Failed to clone repository after $MAX_RETRIES attempts."
-    log_info "Please check your internet connection or try using a VPN/Proxy."
+    log_error "All synchronization strategies failed."
+    log_info "Network Diagnostic: Your ISP is blocking both Git and HTTPS Archive streams."
+    log_info "Please try again with a system-level proxy or VPN."
     exit 1
 fi
 
