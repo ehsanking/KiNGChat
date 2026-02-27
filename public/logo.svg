@@ -1,26 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
   <defs>
     <style>
-      .blue { fill: #0f365b; }
-      .gold { fill: #c49a45; }
-      .white { fill: #ffffff; }
+      .cls-1 { fill: #002d58; }
+      .cls-2 { fill: #b8860b; }
+      .cls-3 { fill: #ffffff; }
     </style>
   </defs>
   
-  <!-- Right Gold Bubble -->
-  <path class="gold" d="M380,160 C435.2,160 480,204.8 480,260 C480,315.2 435.2,360 380,360 C368.5,360 357.5,358 347.2,354.4 C319.5,380.6 282.8,396 242.5,396 C238.5,396 234.5,395.8 230.6,395.4 C268.4,349.5 292,290.5 292,226 C292,202.8 288.5,180.4 282.1,159.2 C309.8,142.6 343.2,132 379.5,132 C379.7,132 379.8,132 380,132 Z"/>
+  <!-- Gold Bubble (Right) -->
+  <path class="cls-2" d="M600,330 C750,330 870,430 870,550 C870,670 750,770 600,770 C570,770 540,766 510,758 C460,810 380,840 300,840 C290,840 280,839 270,838 C350,760 400,660 400,550 C400,440 350,340 270,262 C330,240 400,230 470,230 C520,230 560,235 600,245 Z" />
   
-  <!-- Left Blue Bubble -->
-  <path class="blue" d="M242.5,132 C141.7,132 60,205.7 60,296.5 C60,344.8 83.5,388.2 120.5,417.6 L105,468 L158.4,444.2 C184.2,455.2 212.6,461 242.5,461 C343.3,461 425,387.3 425,296.5 C425,205.7 343.3,132 242.5,132 Z"/>
+  <!-- Blue Bubble (Left) -->
+  <path class="cls-1" d="M400,230 C220,230 80,350 80,500 C80,580 120,650 180,700 L150,820 L280,760 C320,775 360,780 400,780 C580,780 720,660 720,500 C720,340 580,230 400,230 Z" />
   
-  <!-- Crown -->
-  <path class="gold" d="M120,210 L155,290 L242.5,240 L330,290 L365,210 L300,210 L242.5,170 L185,210 Z"/>
-  <rect class="gold" x="140" y="310" width="205" height="15" rx="7.5"/>
-  <circle class="gold" cx="120" cy="200" r="12"/>
-  <circle class="gold" cx="242.5" cy="155" r="12"/>
-  <circle class="gold" cx="365" cy="200" r="12"/>
+  <!-- Crown Base Bar -->
+  <rect class="cls-2" x="320" y="620" width="360" height="40" rx="20" />
+  <rect class="cls-3" x="330" y="630" width="340" height="20" rx="10" fill="none" stroke="#ffffff" stroke-width="5" />
+
+  <!-- Crown Main Body -->
+  <path class="cls-2" d="M280,450 L350,600 L650,600 L720,450 L580,520 L500,380 L420,520 Z" />
   
-  <!-- Crown White Outlines -->
-  <path class="white" d="M135,225 L160,280 L242.5,245 L325,280 L350,225 L300,225 L242.5,190 L185,225 Z" fill="none" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>
-  <rect class="white" x="140" y="310" width="205" height="15" rx="7.5" fill="none" stroke="#ffffff" stroke-width="4"/>
+  <!-- Crown Outlines -->
+  <path class="cls-3" d="M310,480 L365,585 L635,585 L690,480 L580,535 L500,410 L420,535 Z" fill="none" stroke="#ffffff" stroke-width="8" stroke-linejoin="round" />
+  
+  <!-- Crown Circles -->
+  <circle class="cls-2" cx="280" cy="440" r="25" />
+  <circle class="cls-2" cx="500" cy="370" r="25" />
+  <circle class="cls-2" cx="720" cy="440" r="25" />
+  
+  <!-- Circle Outlines -->
+  <circle class="cls-3" cx="280" cy="440" r="10" />
+  <circle class="cls-3" cx="500" cy="370" r="10" />
+  <circle class="cls-3" cx="720" cy="440" r="10" />
 </svg>

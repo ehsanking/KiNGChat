@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import io, { type Socket } from 'socket.io-client';
+import Link from 'next/link';
+import Image from 'next/image';
 import { Send, Search, User, Settings, Shield } from 'lucide-react';
 
 export default function ChatDashboard() {
@@ -50,12 +52,15 @@ export default function ChatDashboard() {
       {/* Sidebar */}
       <div className="w-80 border-r border-zinc-800 flex flex-col bg-zinc-900/50">
         <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2">
-            <Shield className="w-5 h-5" /> KiNGChat
+          <h2 className="text-xl font-bold text-brand-gold flex items-center gap-2">
+            <div className="w-6 h-6 relative">
+              <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+            </div>
+            KiNGChat
           </h2>
-          <button className="p-2 hover:bg-zinc-800 rounded-lg transition-colors">
+          <Link href="/chat/profile" className="p-2 hover:bg-zinc-800 rounded-lg transition-colors">
             <Settings className="w-5 h-5 text-zinc-400" />
-          </button>
+          </Link>
         </div>
         <div className="p-4">
           <div className="relative">
@@ -63,7 +68,7 @@ export default function ChatDashboard() {
             <input
               type="text"
               placeholder="Search username..."
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-brand-gold transition-colors"
             />
           </div>
         </div>
@@ -91,7 +96,7 @@ export default function ChatDashboard() {
           </div>
           <div>
             <h3 className="font-medium">user_1</h3>
-            <p className="text-xs text-emerald-500">E2E Encrypted Session</p>
+            <p className="text-xs text-brand-gold">E2E Encrypted Session</p>
           </div>
         </div>
 
@@ -101,7 +106,7 @@ export default function ChatDashboard() {
               <div
                 className={`max-w-[70%] rounded-2xl px-4 py-2 ${
                   msg.sender === 'me'
-                    ? 'bg-emerald-600 text-white rounded-br-none'
+                    ? 'bg-brand-blue text-white rounded-br-none'
                     : 'bg-zinc-800 text-zinc-100 rounded-bl-none'
                 }`}
               >
@@ -118,11 +123,11 @@ export default function ChatDashboard() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type an encrypted message..."
-              className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+              className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-gold transition-colors"
             />
             <button
               type="submit"
-              className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 p-3 rounded-xl transition-colors flex items-center justify-center"
+              className="bg-brand-gold hover:bg-brand-gold/90 text-zinc-950 p-3 rounded-xl transition-colors flex items-center justify-center"
             >
               <Send className="w-5 h-5" />
             </button>

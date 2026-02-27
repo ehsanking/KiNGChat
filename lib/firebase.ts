@@ -10,7 +10,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Initialize Firebase only if config is provided (making it optional)
 export const app = getApps().length === 0 && firebaseConfig.apiKey ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const messaging = typeof window !== 'undefined' && app ? getMessaging(app) : null;
