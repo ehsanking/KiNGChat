@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  displayName  String?
+  bio          String?
+  profilePhoto String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // E2EE Public Keys (Identity Key + PreKeys)
+  identityKeyPublic String
+  signedPreKey      String
+  signedPreKeySig   String
+
+  // Relationships
+  sentMessages     Message[]      @relation("SentMessages")
+  receivedMessages Message[]      @relation("ReceivedMessages")
+  groupMemberships GroupMember[]
+  oneTimePreKeys   OneTimePreKey[]
+}
+
+model OneTimePreKey {
+  id        String @id @default(uuid())
+  keyId     Int
+  publicKey String
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  senderId    String
+  recipientId String?  // Null if group message
+  groupId     String?  // Null if 1:1 message
+  type        Int      // 0: text, 1: image, 2: file
+  ciphertext  String   // Encrypted payload
+  nonce       String   // IV for encryption
+  createdAt   DateTime @default(now())
+  isDeleted   Boolean  @default(false)
+
+  sender    User   @relation("SentMessages", fields: [senderId], references: [id])
+  recipient User?  @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  group     Group? @relation(fields: [groupId], references: [id])
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  members  GroupMember[]
+  messages Message[]
+}
+
+model GroupMember {
+  id       String @id @default(uuid())
+  groupId  String
+  userId   String
+  role     String @default("MEMBER") // ADMIN, MODERATOR, MEMBER
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+model AdminSettings {
+  id                 String @id @default("1")
+  maxAttachmentSize  Int    @default(10485760) // 10MB
+  reservedUsernames  String @default("admin,administrator,support,moderator,root,sys")
+}
