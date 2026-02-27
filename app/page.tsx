@@ -4,26 +4,26 @@ import EncryptionAnimation from '@/components/EncryptionAnimation';
 import { Shield, Zap, Globe, Lock, UserPlus, Smartphone, EyeOff, Code } from 'lucide-react';
 
 export default function LandingPage() {
-  // Replace YOUR_FILE_ID with your actual Google Drive file ID
-  const googleDriveLogoUrl = "https://s8.uupload.ir/files/transparent-logo_omst.png";
-  
-  // Using local logo as fallback if ID is not provided
-  const logoSrc = "/logo.png"; 
+  // Remote logo URL provided by user
+  const logoSrc = "https://s8.uupload.ir/files/transparent-logo_omst.png";
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Animation */}
-      <EncryptionAnimation />
+      {/* Background Animation - Positioned to cover hero area */}
+      <div className="absolute top-0 left-0 w-full h-[80vh] z-0">
+        <EncryptionAnimation />
+      </div>
 
-      <div className="max-w-3xl text-center space-y-8 flex flex-col items-center relative z-10">
+      <div className="max-w-3xl text-center space-y-8 flex flex-col items-center relative z-10 pt-20 pb-20">
         <div className="w-[128px] h-[128px] relative mb-4 animate-in fade-in zoom-in duration-700">
           <Image
             src={logoSrc}
             alt="KiNGChat Logo"
             width={128}
             height={128}
-            className="object-contain drop-shadow-[0_0_20px_rgba(196,154,69,0.4)]"
+            className="object-contain drop-shadow-[0_0_25px_rgba(196,154,69,0.5)]"
             priority
+            unoptimized // Using unoptimized for external direct links if needed, or just let Next handle it
           />
         </div>
         <h1 className="text-6xl md:text-7xl font-bold tracking-tighter text-brand-gold drop-shadow-sm">

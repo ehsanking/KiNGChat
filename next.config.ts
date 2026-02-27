@@ -37,6 +37,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 's8.uupload.ir',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   output: 'standalone',
