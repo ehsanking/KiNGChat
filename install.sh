@@ -52,11 +52,11 @@ optimize_dns() {
 }
 
 check_dependency() {
-    if ! command -v "$1" &> /dev/null; then
-        log_warn "$1 is not installed."
-        return 1
+    if command -v "$1" &> /dev/null; then
+        log_success "Package '$1' is already installed. Skipping installation."
+        return 0
     fi
-    return 0
+    return 1
 }
 
 # --- 1. Welcome & System Check ---
