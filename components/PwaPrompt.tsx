@@ -27,12 +27,18 @@ export default function PwaPrompt() {
 
     // Check notification permissions
     if ('Notification' in window) {
-      if (Notification.permission === 'default') {
-        // We can ask for permission
-        // Wait a bit before asking so it's not too aggressive
-        setTimeout(() => {
+      const hasDismissed = localStorage.getItem('kingchat_notifications_dismissed');
+      
+      if (Notification.permission === 'default' && !hasDismissed) {
+        // If in standalone mode (PWA opened), prompt more urgently
+        // Otherwise, wait a bit
+        const delay = isStandalone ? 1000 : 5000;
+        
+        const timer = setTimeout(() => {
           setShowNotificationPrompt(true);
-        }, 3000);
+        }, delay);
+        
+        return () => clearTimeout(timer);
       }
     }
   }, []);
@@ -66,6 +72,12 @@ export default function PwaPrompt() {
     } catch (err) {
       console.error('Failed to get notification permission', err);
     }
+    setShowNotificationPrompt(false);
+  };
+
+  const dismissNotificationPrompt = () => {
+    // Store dismissal for 7 days
+    localStorage.setItem('kingchat_notifications_dismissed', 'true');
     setShowNotificationPrompt(false);
   };
 
@@ -118,14 +130,14 @@ export default function PwaPrompt() {
                 Enable
               </button>
               <button 
-                onClick={() => setShowNotificationPrompt(false)}
+                onClick={dismissNotificationPrompt}
                 className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-50 text-xs font-medium rounded-lg transition-colors"
               >
                 Not Now
               </button>
             </div>
           </div>
-          <button onClick={() => setShowNotificationPrompt(false)} className="text-zinc-500 hover:text-zinc-300">
+          <button onClick={dismissNotificationPrompt} className="text-zinc-500 hover:text-zinc-300">
             <X className="w-4 h-4" />
           </button>
         </div>
