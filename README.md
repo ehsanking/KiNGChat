@@ -1,83 +1,69 @@
 # KiNGChat 👑
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-
-**KiNGChat** is a privacy-first, self-hosted web messenger designed for resilience, especially in environments with restricted or disrupted international internet access (like Iran). It features End-to-End Encryption (E2EE), offline-capable PWA, and optional Firebase push notifications.
+Privacy-first, self-hosted web messenger designed for resilience and absolute anonymity.
 
 ---
 
-## 🇮🇷 راهنمای فارسی (Persian Guide)
+## 🌐 English
 
-**کینگ‌چت (KiNGChat)** یک پیام‌رسان وب خودمیزبان (Self-hosted) و مبتنی بر حریم خصوصی است که برای پایداری در شرایط اختلال اینترنت بین‌المللی طراحی شده است. این پیام‌رسان دارای رمزنگاری سرتاسری (E2EE) است و هیچ وابستگی حیاتی به سرویس‌های خارجی ندارد.
+### Overview
+KiNGChat is a modern, end-to-end encrypted messaging platform built with a focus on security, privacy, and independence. Unlike mainstream messengers, KiNGChat requires no phone number, no SIM card, and has zero reliance on foreign centralized infrastructure.
 
-### امکانات کلیدی:
-- **رمزنگاری سرتاسری (E2EE):** پیام‌ها و فایل‌ها روی دستگاه شما رمزنگاری می‌شوند و سرور تنها داده‌های رمزنگاری شده را می‌بیند.
-- **پایداری در شبکه ملی:** بدون نیاز به CDN ها یا سرویس‌های خارجی کار می‌کند.
-- **وب اپلیکیشن پیشرونده (PWA):** قابلیت نصب روی گوشی و دسکتاپ.
-- **نوتیفیکیشن (اختیاری):** پشتیبانی از Firebase برای ارسال پوش نوتیفیکیشن در صورت در دسترس بودن اینترنت بین‌الملل.
-- **مدیریت گروه‌ها و نقش‌ها:** امکان ساخت گروه با دسترسی‌های مختلف.
+### Key Features
+- **End-to-End Encryption (E2E):** All messages are encrypted on the sender's device and decrypted only on the recipient's device.
+- **Zero Metadata Policy:** We do not track your IP, your contacts, or your message timestamps.
+- **No Phone Number Required:** Register and communicate using only a username.
+- **Self-Hosted & Resilient:** Deploy on your own hardware. Works perfectly in isolated or local networks.
+- **PWA Support:** Installable on Android, iOS, and Desktop for a native experience.
+- **Open Source:** Fully auditable code for maximum transparency.
 
-### 🚀 نصب سریع (نصب تک خطی)
+### Setup & Installation
+1. **Clone the repository.**
+2. **Install dependencies:** `npm install`
+3. **Configure Environment:** Create a `.env` file based on `.env.example`.
+4. **Build & Start:**
+   ```bash
+   npm run build
+   npm start
+   ```
 
-برای نصب سریع روی سرور لینوکس خود، دستور زیر را اجرا کنید:
+### Terms of Use
+- Users are responsible for their own data and encryption keys.
+- KiNGChat is provided "as is" for private communication.
+- Any illegal use of the platform is strictly prohibited and is the sole responsibility of the user.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/EHSANKiNG/kingchat/main/install.sh | bash
-```
-
-### 🐳 راهنمای نصب داکر در سرورهای ایران
-
-برای دور زدن تحریم‌ها و نصب داکر در سرورهای ایران، از دستورات زیر استفاده کنید:
-
-**اگر سیستم عامل شما اوبونتو (Ubuntu) است:**
-دستور زیر را برای نصب و استفاده از داکر وارد کنید و نیازی به چیز دیگر نیست:
-```bash
-curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh
-```
-
-**اگر سیستم عامل دیگری به جز اوبونتو دارید:**
-ابتدا داکر را نصب کنید و سپس دستور زیر را برای اضافه کردن میرور ایمیج های داکر و دور زدن تحریمها اجرا کنید:
-```bash
-curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/mirror.sh | sh
-```
-
-سپس با استفاده از `docker-compose` برنامه را اجرا کنید:
-```bash
-docker-compose up -d
-```
+### Disclaimer
+**KiNGChat is a tool for privacy.** The developers do not have access to your messages, keys, or data. We are not responsible for any data loss, security breaches resulting from user negligence, or misuse of the software. Use at your own risk.
 
 ---
 
-## 🇬🇧 English Guide
+## 🇮🇷 فارسی
 
-**KiNGChat** is a self-hosted, privacy-first web messenger built to operate reliably during international internet disruptions. It uses End-to-End Encryption (E2EE) and has zero critical dependencies on foreign services.
+### معرفی
+کینگ‌چت (KiNGChat) یک پیام‌رسان تحت وب با اولویت حریم خصوصی و قابلیت میزبانی شخصی است که برای پایداری و ناشناسی مطلق طراحی شده است. برخلاف پیام‌رسان‌های رایج، کینگ‌چت نیازی به شماره تلفن یا سیم‌کارت ندارد و هیچ وابستگی به زیرساخت‌های متمرکز خارجی ندارد.
 
-### Key Features:
-- **End-to-End Encryption (E2EE):** Messages and attachments are encrypted client-side.
-- **Resilient Infrastructure:** Works fully on local networks without external CDNs.
-- **Progressive Web App (PWA):** Installable on mobile and desktop.
-- **Push Notifications:** Optional Firebase integration.
-- **Group Management:** Role-based access control for groups.
+### ویژگی‌های کلیدی
+- **رمزنگاری سرتاسری (E2E):** تمام پیام‌ها در دستگاه فرستنده رمزگذاری شده و فقط در دستگاه گیرنده بازگشایی می‌شوند.
+- **سیاست متادیتای صفر:** ما آی‌پی، مخاطبین یا زمان پیام‌های شما را ردیابی نمی‌کنیم.
+- **بدون نیاز به شماره تلفن:** فقط با یک نام کاربری ثبت‌نام و گفتگو کنید.
+- **قابل میزبانی شخصی و مقاوم:** روی سخت‌افزار خودتان نصب کنید. در شبکه‌های ایزوله یا محلی به خوبی کار می‌کند.
+- **پشتیبانی از PWA:** قابل نصب روی اندروید، iOS و دسکتاپ برای تجربه کاربری مشابه اپلیکیشن نیتیو.
+- **متن‌باز:** کد کاملاً قابل بازرسی برای حداکثر شفافیت.
 
-### 🚀 One-Line Installation
+### راه‌اندازی و نصب
+۱. **مخزن را کلون کنید.**
+۲. **نصب وابستگی‌ها:** `npm install`
+۳. **تنظیمات محیطی:** فایل `.env` را بر اساس `.env.example` بسازید.
+۴. **ساخت و اجرا:**
+   ```bash
+   npm run build
+   npm start
+   ```
 
-Run the following command on your Linux server:
+### قوانین استفاده
+- کاربران مسئول داده‌ها و کلیدهای رمزنگاری خود هستند.
+- کینگ‌چت "همان‌طور که هست" برای ارتباطات خصوصی ارائه شده است.
+- هرگونه استفاده غیرقانونی از پلتفرم اکیداً ممنوع بوده و مسئولیت آن صرفاً بر عهده کاربر است.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/EHSANKiNG/kingchat/main/install.sh | bash
-```
-
-### 🐳 Docker Setup
-
-1. Install Docker and Docker Compose.
-2. Clone the repository and run:
-```bash
-docker-compose up -d
-```
-
-*(Note for Iranian servers: Please refer to the Persian section for scripts to bypass Docker registry blocks).*
-
----
-**Developer:** EHSANKiNG
-**Version:** 1.0.0
+### سلب مسئولیت
+**کینگ‌چت ابزاری برای حفظ حریم خصوصی است.** توسعه‌دهندگان به پیام‌ها، کلیدها یا داده‌های شما دسترسی ندارند. ما هیچ مسئولیتی در قبال از دست رفتن داده‌ها، نقض امنیت ناشی از سهل‌انگاری کاربر یا سوءاستفاده از نرم‌افزار نداریم. استفاده از این برنامه با مسئولیت خودتان است.
