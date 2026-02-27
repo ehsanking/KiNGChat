@@ -3,7 +3,7 @@
 <img src="https://s8.uupload.ir/files/transparent-logo_omst.png" width="128" height="128" alt="KiNGChat Logo" />
 
 # KiNGChat 👑
-### The Sovereign Messenger for the Private Era
+### The Secure Messenger for the Private Era
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)]()
@@ -24,7 +24,7 @@ git clone https://github.com/ehsanking/KiNGChat.git && cd KiNGChat && docker-com
 ```
 
 ### 🛡️ Why KiNGChat?
-KiNGChat is a **sovereign communication layer** designed for high-stakes privacy and network resilience. It operates entirely on your terms, ensuring your conversations remain private and secure.
+KiNGChat is a **secure communication layer** designed for high-stakes privacy and network resilience. It operates entirely on your terms, ensuring your conversations remain private and secure.
 
 - **Absolute Anonymity:** No phone numbers, no emails, no tracking.
 - **E2E Encryption:** Military-grade encryption at the edge.
@@ -65,7 +65,7 @@ git clone https://github.com/ehsanking/KiNGChat.git && cd KiNGChat && docker-com
 ```
 
 ### 🛡️ چرا کینگ‌چت؟
-کینگ‌چت یک **لایه ارتباطی حاکمیتی** است که برای حفظ حریم خصوصی در سطوح بالا و پایداری شبکه طراحی شده است. این برنامه کاملاً بر اساس شرایط شما عمل کرده و امنیت گفتگوهای شما را تضمین می‌کند.
+کینگ‌چت یک **لایه ارتباطی امنیتی** است که برای حفظ حریم خصوصی در سطوح بالا و پایداری شبکه طراحی شده است. این برنامه کاملاً بر اساس شرایط شما عمل کرده و امنیت گفتگوهای شما را تضمین می‌کند.
 
 - **ناشناسی مطلق:** بدون شماره تلفن، بدون ایمیل، بدون ردیابی.
 - **رمزنگاری سرتاسری:** رمزنگاری در سطح نظامی در لبه شبکه.
