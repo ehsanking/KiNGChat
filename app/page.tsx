@@ -19,8 +19,8 @@ export default function LandingPage() {
         </div>
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
           <a href="#features" className="hover:text-brand-gold transition-colors">Features</a>
-          <a href="#" className="hover:text-brand-gold transition-colors">Security</a>
-          <a href="#" className="hover:text-brand-gold transition-colors">Open Source</a>
+          <Link href="/security" className="hover:text-brand-gold transition-colors">Security</Link>
+          <Link href="/open-source" className="hover:text-brand-gold transition-colors">Open Source</Link>
         </nav>
         <div className="flex items-center gap-4">
           <Link href="/auth/login" className="text-sm font-medium hover:text-brand-gold transition-colors">Log In</Link>
