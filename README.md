@@ -1,69 +1,88 @@
-# KiNGChat 👑
+<div align="center">
 
-Privacy-first, self-hosted web messenger designed for resilience and absolute anonymity.
+<img src="https://s8.uupload.ir/files/transparent-logo_omst.png" width="128" height="128" alt="KiNGChat Logo" />
+
+# KiNGChat 👑
+### The Sovereign Messenger for the Private Era
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)]()
+[![Status](https://img.shields.io/badge/Status-Production--Ready-emerald.svg)]()
+
+[**English**](#-english) | [**فارسی**](#-فارسی)
 
 ---
 
+</div>
+
 ## 🌐 English
 
-### Overview
-KiNGChat is a modern, end-to-end encrypted messaging platform built with a focus on security, privacy, and independence. Unlike mainstream messengers, KiNGChat requires no phone number, no SIM card, and has zero reliance on foreign centralized infrastructure.
+### 🚀 Quick Start (One-Liner)
+Deploy KiNGChat instantly using Docker:
+```bash
+docker-compose up -d
+```
 
-### Key Features
-- **End-to-End Encryption (E2E):** All messages are encrypted on the sender's device and decrypted only on the recipient's device.
-- **Zero Metadata Policy:** We do not track your IP, your contacts, or your message timestamps.
-- **No Phone Number Required:** Register and communicate using only a username.
-- **Self-Hosted & Resilient:** Deploy on your own hardware. Works perfectly in isolated or local networks.
-- **PWA Support:** Installable on Android, iOS, and Desktop for a native experience.
-- **Open Source:** Fully auditable code for maximum transparency.
+### 🛡️ Why KiNGChat?
+KiNGChat is not just another messenger; it's a **sovereign communication layer**. Designed for high-stakes privacy and network resilience, it operates entirely on your terms.
 
-### Setup & Installation
-1. **Clone the repository.**
-2. **Install dependencies:** `npm install`
-3. **Configure Environment:** Create a `.env` file based on `.env.example`.
-4. **Build & Start:**
-   ```bash
-   npm run build
-   npm start
-   ```
+- **Absolute Anonymity:** No phone numbers, no emails, no tracking.
+- **E2E Encryption:** Military-grade encryption at the edge.
+- **Resilient Infrastructure:** Zero reliance on foreign CDNs or centralized push services.
+- **Self-Hosted:** You own the server, you own the keys, you own the conversation.
 
-### Terms of Use
-- Users are responsible for their own data and encryption keys.
-- KiNGChat is provided "as is" for private communication.
-- Any illegal use of the platform is strictly prohibited and is the sole responsibility of the user.
+### 📦 Server Setup (Iran Region Optimization)
+If you are deploying on a server located in Iran, use these optimized scripts to bypass restrictions and install Docker:
 
-### Disclaimer
-**KiNGChat is a tool for privacy.** The developers do not have access to your messages, keys, or data. We are not responsible for any data loss, security breaches resulting from user negligence, or misuse of the software. Use at your own risk.
+**For Ubuntu Users:**
+Simply run this command to install and configure everything:
+```bash
+curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh
+```
+
+**For Other Operating Systems:**
+First, install Docker manually, then run this command to add mirror images and bypass sanctions:
+```bash
+curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/mirror.sh | sh
+```
 
 ---
 
 ## 🇮🇷 فارسی
 
-### معرفی
-کینگ‌چت (KiNGChat) یک پیام‌رسان تحت وب با اولویت حریم خصوصی و قابلیت میزبانی شخصی است که برای پایداری و ناشناسی مطلق طراحی شده است. برخلاف پیام‌رسان‌های رایج، کینگ‌چت نیازی به شماره تلفن یا سیم‌کارت ندارد و هیچ وابستگی به زیرساخت‌های متمرکز خارجی ندارد.
+### 🚀 راه‌اندازی سریع (تک خطی)
+کینگ‌چت را بلافاصله با داکر اجرا کنید:
+```bash
+docker-compose up -d
+```
 
-### ویژگی‌های کلیدی
-- **رمزنگاری سرتاسری (E2E):** تمام پیام‌ها در دستگاه فرستنده رمزگذاری شده و فقط در دستگاه گیرنده بازگشایی می‌شوند.
-- **سیاست متادیتای صفر:** ما آی‌پی، مخاطبین یا زمان پیام‌های شما را ردیابی نمی‌کنیم.
-- **بدون نیاز به شماره تلفن:** فقط با یک نام کاربری ثبت‌نام و گفتگو کنید.
-- **قابل میزبانی شخصی و مقاوم:** روی سخت‌افزار خودتان نصب کنید. در شبکه‌های ایزوله یا محلی به خوبی کار می‌کند.
-- **پشتیبانی از PWA:** قابل نصب روی اندروید، iOS و دسکتاپ برای تجربه کاربری مشابه اپلیکیشن نیتیو.
-- **متن‌باز:** کد کاملاً قابل بازرسی برای حداکثر شفافیت.
+### 🛡️ چرا کینگ‌چت؟
+کینگ‌چت فقط یک پیام‌رسان دیگر نیست؛ بلکه یک **لایه ارتباطی حاکمیتی** است. این برنامه برای حفظ حریم خصوصی در سطوح بالا و پایداری شبکه طراحی شده و کاملاً بر اساس شرایط شما عمل می‌کند.
 
-### راه‌اندازی و نصب
-۱. **مخزن را کلون کنید.**
-۲. **نصب وابستگی‌ها:** `npm install`
-۳. **تنظیمات محیطی:** فایل `.env` را بر اساس `.env.example` بسازید.
-۴. **ساخت و اجرا:**
-   ```bash
-   npm run build
-   npm start
-   ```
+- **ناشناسی مطلق:** بدون شماره تلفن، بدون ایمیل، بدون ردیابی.
+- **رمزنگاری سرتاسری:** رمزنگاری در سطح نظامی در لبه شبکه.
+- **زیرساخت مقاوم:** عدم وابستگی به CDNهای خارجی یا سرویس‌های پوش متمرکز.
+- **میزبانی شخصی:** شما مالک سرور، مالک کلیدها و مالک گفتگوها هستید.
 
-### قوانین استفاده
-- کاربران مسئول داده‌ها و کلیدهای رمزنگاری خود هستند.
-- کینگ‌چت "همان‌طور که هست" برای ارتباطات خصوصی ارائه شده است.
-- هرگونه استفاده غیرقانونی از پلتفرم اکیداً ممنوع بوده و مسئولیت آن صرفاً بر عهده کاربر است.
+### 📦 تنظیمات سرور (بهینه‌سازی برای سرورهای ایران)
+اگر قصد دارید کینگ‌چت را روی سروری در داخل ایران نصب کنید، از دستورات زیر برای نصب داکر و دور زدن محدودیت‌ها استفاده کنید:
 
-### سلب مسئولیت
-**کینگ‌چت ابزاری برای حفظ حریم خصوصی است.** توسعه‌دهندگان به پیام‌ها، کلیدها یا داده‌های شما دسترسی ندارند. ما هیچ مسئولیتی در قبال از دست رفتن داده‌ها، نقض امنیت ناشی از سهل‌انگاری کاربر یا سوءاستفاده از نرم‌افزار نداریم. استفاده از این برنامه با مسئولیت خودتان است.
+**برای کاربران اوبونتو (Ubuntu):**
+اگر سیستم عامل شما اوبونتو است، دستور زیر را برای نصب و استفاده از داکر وارد کنید و نیازی به چیز دیگری نیست:
+```bash
+curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh
+```
+
+**برای سایر سیستم عامل‌ها:**
+اگر سیستم عامل دیگری به جز اوبونتو دارید، ابتدا داکر را نصب کنید و سپس دستور زیر را برای اضافه کردن میرور ایمیج‌های داکر و دور زدن تحریم‌ها اجرا کنید:
+```bash
+curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/mirror.sh | sh
+```
+
+---
+
+### ⚖️ Legal & Disclaimer / سلب مسئولیت حقوقی
+
+**English:** KiNGChat is a tool for privacy. Use of this software for illegal activities is strictly prohibited. The developers hold no responsibility for data loss, misuse, or any legal consequences arising from the operation of this self-hosted software.
+
+**فارسی:** کینگ‌چت ابزاری برای حفظ حریم خصوصی است. استفاده از این نرم‌افزار برای فعالیت‌های غیرقانونی اکیداً ممنوع است. توسعه‌دهندگان هیچ مسئولیتی در قبال از دست رفتن داده‌ها، سوءاستفاده یا هرگونه عواقب قانونی ناشی از اجرای این نرم‌افزار خود-میزبان ندارند.

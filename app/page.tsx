@@ -8,13 +8,32 @@ export default function LandingPage() {
   const logoSrc = "https://s8.uupload.ir/files/transparent-logo_omst.png";
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col items-center p-4 relative overflow-hidden">
+      {/* Navigation Header */}
+      <header className="w-full max-w-7xl flex items-center justify-between py-6 px-4 relative z-20">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 relative">
+            <Image src={logoSrc} alt="Logo" fill sizes="40px" className="object-contain" unoptimized />
+          </div>
+          <span className="text-xl font-bold tracking-tighter text-brand-gold">KiNGChat</span>
+        </div>
+        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
+          <a href="#features" className="hover:text-brand-gold transition-colors">Features</a>
+          <a href="#" className="hover:text-brand-gold transition-colors">Security</a>
+          <a href="#" className="hover:text-brand-gold transition-colors">Open Source</a>
+        </nav>
+        <div className="flex items-center gap-4">
+          <Link href="/auth/login" className="text-sm font-medium hover:text-brand-gold transition-colors">Log In</Link>
+          <Link href="/auth/register" className="px-5 py-2 bg-brand-blue text-white text-sm font-bold rounded-xl hover:bg-brand-blue/90 transition-all">Join Now</Link>
+        </div>
+      </header>
+
       {/* Background Animation - Positioned to cover hero area */}
       <div className="absolute top-0 left-0 w-full h-[80vh] z-0">
         <EncryptionAnimation />
       </div>
 
-      <div className="max-w-3xl text-center space-y-8 flex flex-col items-center relative z-10 pt-20 pb-20">
+      <div className="max-w-3xl text-center space-y-8 flex flex-col items-center relative z-10 pt-24 pb-20">
         <div className="w-[128px] h-[128px] relative mb-4 animate-in fade-in zoom-in duration-700">
           <Image
             src={logoSrc}
@@ -50,7 +69,7 @@ export default function LandingPage() {
       </div>
 
       {/* Features Grid */}
-      <div className="mt-32 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full relative z-10">
+      <div id="features" className="mt-32 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full relative z-10">
         <FeatureCard 
           icon={<Lock className="w-6 h-6 text-brand-gold" />}
           title="E2E Encrypted"
