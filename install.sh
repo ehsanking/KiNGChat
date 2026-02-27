@@ -164,9 +164,9 @@ fi
 
 # --- 4.1. NPM Registry Optimization ---
 log_info "Optimizing package manager for your network..."
-# Always inject Runflare mirror configuration for maximum resilience in Iran
-log_warn "Injecting Runflare NPM mirror (mirror-npm.runflare.com) for maximum speed..."
-echo "registry=https://mirror-npm.runflare.com" > .npmrc
+# Always inject Liara mirror configuration for maximum resilience in Iran
+log_warn "Injecting Liara NPM mirror (package-mirror.liara.ir) for maximum speed..."
+echo "registry=https://package-mirror.liara.ir/repository/npm/" > .npmrc
 echo "strict-ssl=false" >> .npmrc
 echo "fetch-retry-maxtimeout=600000" >> .npmrc
 echo "fetch-retry-mintimeout=100000" >> .npmrc
