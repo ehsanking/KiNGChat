@@ -164,14 +164,14 @@ fi
 
 # --- 4.1. NPM Registry Optimization ---
 log_info "Optimizing package manager for your network..."
-if ! curl -s --connect-timeout 5 https://registry.npmjs.org/ > /dev/null; then
-    log_warn "Official NPM registry is slow. Injecting high-speed mirror..."
-    echo "registry=https://registry.npmmirror.com" > .npmrc
-    echo "fetch-retry-maxtimeout=600000" >> .npmrc
-    echo "fetch-retry-mintimeout=100000" >> .npmrc
-    echo "fetch-retries=10" >> .npmrc
-    log_success "NPM mirror injected."
-fi
+# Always inject Iranian mirror configuration for resilience
+log_warn "Injecting Iranian NPM mirror (registry.npmjs.ir) for maximum speed..."
+echo "registry=https://registry.npmjs.ir" > .npmrc
+echo "strict-ssl=false" >> .npmrc
+echo "fetch-retry-maxtimeout=600000" >> .npmrc
+echo "fetch-retry-mintimeout=100000" >> .npmrc
+echo "fetch-retries=10" >> .npmrc
+log_success "NPM mirror injected."
 
 log_info "Finalizing orchestration..."
 export DOCKER_BUILDKIT=1

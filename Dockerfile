@@ -1,13 +1,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json .npmrc* ./
-# Use a highly reliable mirror and npm install instead of npm ci
-# npm ci strictly uses package-lock.json URLs which are blocked in restricted networks
-RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set fetch-retries 5 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm install --no-audit --no-fund --legacy-peer-deps
+# Use the injected .npmrc for mirror configuration
+RUN npm install --no-audit --no-fund --legacy-peer-deps
 COPY . .
 RUN npx prisma generate
 RUN npm run build
