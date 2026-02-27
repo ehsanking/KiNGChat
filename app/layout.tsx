@@ -2,8 +2,10 @@ import type {Metadata} from 'next';
 import './globals.css'; // Global styles
 
 export const metadata: Metadata = {
-  title: 'My Google AI Studio App',
-  description: 'My Google AI Studio App',
+  title: 'KiNGChat',
+  description: 'Privacy-first, self-hosted web messenger designed for resilience.',
+  manifest: '/manifest.json',
+  themeColor: '#10b981',
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

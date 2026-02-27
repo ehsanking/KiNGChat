@@ -1,0 +1,17 @@
+{
+  "name": "KiNGChat",
+  "short_name": "KiNGChat",
+  "description": "Privacy-first, self-hosted web messenger designed for resilience.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
