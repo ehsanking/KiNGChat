@@ -164,13 +164,14 @@ fi
 
 # --- 4.1. NPM Registry Optimization ---
 log_info "Optimizing package manager for your network..."
-# Always inject Liara mirror configuration for maximum resilience in Iran
-log_warn "Injecting Liara NPM mirror (package-mirror.liara.ir) for maximum speed..."
-echo "registry=https://package-mirror.liara.ir/repository/npm/" > .npmrc
+# Switch to Taobao mirror (registry.npmmirror.com) which is often more reliable than local mirrors
+log_warn "Injecting Taobao NPM mirror (registry.npmmirror.com) for global resilience..."
+echo "registry=https://registry.npmmirror.com" > .npmrc
 echo "strict-ssl=false" >> .npmrc
 echo "fetch-retry-maxtimeout=600000" >> .npmrc
 echo "fetch-retry-mintimeout=100000" >> .npmrc
 echo "fetch-retries=10" >> .npmrc
+echo "maxsockets=4" >> .npmrc
 # Add binary mirrors to prevent hanging on post-install scripts
 echo "sharp_binary_host=https://npmmirror.com/mirrors/sharp" >> .npmrc
 echo "sharp_libvips_binary_host=https://npmmirror.com/mirrors/sharp-libvips" >> .npmrc

@@ -1,9 +1,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json .npmrc* ./
-# Use the injected .npmrc (Liara + Binary Mirrors) for maximum reliability
+# Use the injected .npmrc (Taobao + Binary Mirrors) for maximum reliability
 ENV NPM_CONFIG_LOGLEVEL=verbose
-RUN npm install --no-audit --no-fund --legacy-peer-deps
+RUN npm install --registry=https://registry.npmmirror.com --no-audit --no-fund --legacy-peer-deps --maxsockets=4
 COPY . .
 RUN npx prisma generate
 RUN npm run build
