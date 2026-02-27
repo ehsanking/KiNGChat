@@ -171,7 +171,11 @@ echo "strict-ssl=false" >> .npmrc
 echo "fetch-retry-maxtimeout=600000" >> .npmrc
 echo "fetch-retry-mintimeout=100000" >> .npmrc
 echo "fetch-retries=10" >> .npmrc
-log_success "NPM mirror injected."
+# Add binary mirrors to prevent hanging on post-install scripts
+echo "sharp_binary_host=https://npmmirror.com/mirrors/sharp" >> .npmrc
+echo "sharp_libvips_binary_host=https://npmmirror.com/mirrors/sharp-libvips" >> .npmrc
+echo "profiler_binary_host_mirror=https://npmmirror.com/mirrors/node-inspector/" >> .npmrc
+log_success "NPM mirror and binary hosts injected."
 
 log_info "Finalizing orchestration..."
 export DOCKER_BUILDKIT=1

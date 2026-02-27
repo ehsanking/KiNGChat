@@ -1,8 +1,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json .npmrc* ./
-# Use the Liara mirror for maximum reliability in Iran
-RUN npm install --registry=https://package-mirror.liara.ir/repository/npm/ --no-audit --no-fund --legacy-peer-deps
+# Use the injected .npmrc (Liara + Binary Mirrors) for maximum reliability
+ENV NPM_CONFIG_LOGLEVEL=verbose
+RUN npm install --no-audit --no-fund --legacy-peer-deps
 COPY . .
 RUN npx prisma generate
 RUN npm run build
