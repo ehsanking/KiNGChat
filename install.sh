@@ -157,25 +157,52 @@ if [ "$SUCCESS" = false ]; then
     exit 1
 fi
 
-# --- 4. Deployment ---
+# --- 4. Deployment & Network Optimization ---
 cd "$TARGET_DIR"
 log_success "Repository synchronized successfully."
 
+# --- 4.1. NPM Registry Optimization (Crucial for Iran/Restricted Networks) ---
+log_info "Optimizing package manager for your network..."
+# Test connectivity to official npm registry
+if ! curl -s --connect-timeout 5 https://registry.npmjs.org/ > /dev/null; then
+    log_warn "Official NPM registry is slow or unreachable. Injecting high-speed mirror..."
+    # Create .npmrc to use a mirror and increase timeouts
+    echo "registry=https://registry.npmmirror.com" > .npmrc
+    echo "fetch-retry-maxtimeout=600000" >> .npmrc
+    echo "fetch-retry-mintimeout=100000" >> .npmrc
+    echo "fetch-retries=10" >> .npmrc
+    log_success "NPM mirror (npmmirror.com) injected for build resilience."
+else
+    log_info "NPM registry connectivity is healthy."
+fi
+
 log_info "Step 2/2: Orchestrating services..."
-log_info "Pulling container images (this depends on your network speed)..."
+log_info "Pulling container images and building (this depends on your network speed)..."
+
+# Use BuildKit for better performance and reliability
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 
 # Try to pull with quiet flag first, fallback to standard if it fails
 if docker compose pull -q 2>/dev/null; then
     log_info "Images pulled successfully."
 else
-    log_warn "Standard pull failed or not supported. Proceeding with inline pull..."
+    log_warn "Standard pull failed or not supported. Proceeding with inline build..."
 fi
 
-if docker compose up -d; then
+# Build and start with increased timeout
+if docker compose up -d --build; then
     log_success "KiNGChat services are now operational."
 else
-    log_error "Failed to start services. Check 'docker compose logs' for details."
-    exit 1
+    log_error "Failed to start services. Attempting recovery build..."
+    # If it failed, try one more time with a clean slate for the build cache
+    docker compose build --no-cache
+    if docker compose up -d; then
+        log_success "KiNGChat services recovered and started."
+    else
+        log_error "Critical failure in service orchestration."
+        exit 1
+    fi
 fi
 
 # --- 5. Final Summary ---
