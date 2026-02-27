@@ -22,6 +22,12 @@ fi
 
 echo "✅ Docker is installed."
 
+# Prompt for Domain and Email for SSL
+echo ""
+echo "--- SSL & Domain Configuration ---"
+read -p "Enter your domain name (e.g., chat.example.com): " DOMAIN
+read -p "Enter your email address (for Let's Encrypt SSL renewal notices): " EMAIL
+
 # Create directory
 mkdir -p /opt/kingchat
 cd /opt/kingchat
@@ -29,10 +35,19 @@ cd /opt/kingchat
 echo "📥 Downloading docker-compose.yml..."
 curl -fsSL https://raw.githubusercontent.com/EHSANKiNG/kingchat/main/docker-compose.yml -o docker-compose.yml
 
+echo "⚙️ Generating Caddyfile for automatic SSL..."
+cat <<EOF > Caddyfile
+$DOMAIN {
+    reverse_proxy app:3000
+    tls $EMAIL
+}
+EOF
+
 echo "🚀 Starting KiNGChat..."
 docker-compose up -d
 
 echo "========================================"
 echo "✅ KiNGChat installed successfully!"
-echo "🌐 Access it at: http://localhost:3000"
+echo "🌐 Access it at: https://$DOMAIN"
+echo "🔒 SSL will be automatically provisioned and renewed every 60 days."
 echo "========================================"
