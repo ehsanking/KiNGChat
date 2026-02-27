@@ -1,50 +1,141 @@
 #!/bin/bash
 # KiNGChat Professional Installer
 # 👑 The Secure Messenger for the Private Era
+# Designed for Resilience and Excellence
 
 set -e
 
-# Colors for output
-GOLD='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-echo -e "${GOLD}👑 KiNGChat Installation Started...${NC}"
-
-# Check for Git
-if ! [ -x "$(command -v git)" ]; then
-  echo -e "${BLUE}Installing Git...${NC}"
-  sudo apt-get update && sudo apt-get install -y git
-fi
-
-# Check for Docker
-if ! [ -x "$(command -v docker)" ]; then
-  echo -e "${BLUE}Docker not found. Please install Docker first or use the Iran-optimized script in README.${NC}"
-  exit 1
-fi
-
-# Clone Repository
+# --- Configuration ---
 REPO_URL="https://github.com/ehsanking/KiNGChat.git"
 TARGET_DIR="KiNGChat"
+MIN_RAM_MB=1024
 
-if [ ! -d "$TARGET_DIR" ]; then
-    echo -e "${BLUE}Cloning repository into $TARGET_DIR...${NC}"
-    git clone "$REPO_URL" "$TARGET_DIR"
-else
-    echo -e "${BLUE}Directory $TARGET_DIR already exists. Updating...${NC}"
-    cd "$TARGET_DIR" && git pull && cd ..
+# --- Colors & UI ---
+GOLD='\033[1;33m'
+BLUE='\033[1;34m'
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+CYAN='\033[1;36m'
+NC='\033[0m' # No Color
+
+# --- Helper Functions ---
+print_header() {
+    clear
+    echo -e "${GOLD}"
+    echo "  ██╗  ██╗██╗███╗   ██╗ ██████╗  ██████╗██╗  ██╗ █████╗ ████████╗"
+    echo "  ██║ ██╔╝██║████╗  ██║██╔════╝ ██╔════╝██║  ██║██╔══██╗╚══██╔══╝"
+    echo "  █████╔╝ ██║██╔██╗ ██║██║  ███╗██║     ███████║███████║   ██║   "
+    echo "  ██╔═██╗ ██║██║╚██╗██║██║   ██║██║     ██╔══██║██╔══██║   ██║   "
+    echo "  ██║  ██╗██║██║ ╚████║╚██████╔╝╚██████╗██║  ██║██║  ██║   ██║   "
+    echo "  ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   "
+    echo -e "             ${CYAN}The Secure Messenger for the Private Era${NC}"
+    echo -e "----------------------------------------------------------------"
+}
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warn() { echo -e "${GOLD}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+check_dependency() {
+    if ! command -v "$1" &> /dev/null; then
+        log_warn "$1 is not installed."
+        return 1
+    fi
+    return 0
+}
+
+# --- 1. Welcome & System Check ---
+print_header
+log_info "Initializing KiNGChat Professional Installer..."
+
+# Check RAM
+TOTAL_RAM=$(free -m | awk '/^Mem:/{print $2}')
+if [ "$TOTAL_RAM" -lt "$MIN_RAM_MB" ]; then
+    log_warn "System has less than ${MIN_RAM_MB}MB RAM. Performance may be degraded."
 fi
 
-# Navigate to directory
+# --- 2. Dependency Management ---
+log_info "Checking system dependencies..."
+
+if ! check_dependency "git"; then
+    log_info "Installing Git..."
+    sudo apt-get update -qq && sudo apt-get install -y git -qq
+fi
+
+if ! check_dependency "docker"; then
+    log_error "Docker is required but not found."
+    echo -e "${CYAN}Tip: If you are in Iran, use our optimized script:${NC}"
+    echo -e "curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh"
+    exit 1
+fi
+
+# --- 3. Network Resilience & Cloning ---
+log_info "Preparing network for high-latency environment..."
+# Increase git buffer and timeout for resilient cloning
+git config --global http.postBuffer 524288000
+git config --global http.lowSpeedLimit 0
+git config --global http.lowSpeedTime 999999
+
+if [ -d "$TARGET_DIR" ]; then
+    log_warn "Directory $TARGET_DIR already exists."
+    read -p "Overwrite existing installation? (y/N): " confirm
+    if [[ $confirm == [yY] ]]; then
+        rm -rf "$TARGET_DIR"
+    else
+        log_info "Aborting installation to protect existing data."
+        exit 0
+    fi
+fi
+
+log_info "Step 1/2: Synchronizing repository (this may take a moment)..."
+MAX_RETRIES=3
+COUNT=0
+SUCCESS=false
+
+while [ $COUNT -lt $MAX_RETRIES ]; do
+    if git clone --progress "$REPO_URL" "$TARGET_DIR"; then
+        SUCCESS=true
+        break
+    else
+        COUNT=$((COUNT + 1))
+        log_warn "Clone failed. Attempt $COUNT/$MAX_RETRIES. Retrying in 5 seconds..."
+        sleep 5
+    fi
+done
+
+if [ "$SUCCESS" = false ]; then
+    log_error "Failed to clone repository after $MAX_RETRIES attempts."
+    log_info "Please check your internet connection or use a proxy/VPN."
+    exit 1
+fi
+
+# --- 4. Deployment ---
 cd "$TARGET_DIR"
+log_success "Repository synchronized successfully."
 
-# Start Services
-echo -e "${GOLD}Starting KiNGChat services with Docker Compose...${NC}"
-if [ -x "$(command -v docker-compose)" ]; then
-    docker-compose up -d
+log_info "Step 2/2: Orchestrating services..."
+log_info "Pulling container images (this depends on your network speed)..."
+
+# Try to pull with quiet flag first, fallback to standard if it fails
+if docker compose pull -q 2>/dev/null; then
+    log_info "Images pulled successfully."
 else
-    docker compose up -d
+    log_warn "Standard pull failed or not supported. Proceeding with inline pull..."
 fi
 
-echo -e "${GOLD}✅ KiNGChat is now running!${NC}"
-echo -e "${BLUE}Access your dashboard at http://localhost:3000${NC}"
+if docker compose up -d; then
+    log_success "KiNGChat services are now operational."
+else
+    log_error "Failed to start services. Check 'docker compose logs' for details."
+    exit 1
+fi
+
+# --- 5. Final Summary ---
+echo -e "\n${GOLD}================================================================${NC}"
+log_success "Installation Complete!"
+echo -e "${CYAN}Dashboard:${NC} http://$(curl -s ifconfig.me || echo "localhost"):3000"
+echo -e "${CYAN}Documentation:${NC} https://github.com/ehsanking/KiNGChat"
+echo -e "${GOLD}================================================================${NC}"
+log_info "Thank you for choosing KiNGChat. Stay secure."
+

@@ -61,10 +61,6 @@ KiNGChat is provided "as is" without any warranties. The developers are not resp
 ### 🚀 راه‌اندازی سریع (تک خطی)
 کینگ‌چت را با یک دستور حرفه‌ای نصب و اجرا کنید:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh
-```
-*(یا اگر مخزن اختصاصی دارید:)*
-```bash
 curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/main/install.sh | bash
 ```
 
