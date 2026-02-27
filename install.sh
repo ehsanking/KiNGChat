@@ -37,6 +37,20 @@ log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_warn() { echo -e "${GOLD}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# --- 0. DNS Optimization ---
+optimize_dns() {
+    log_info "Optimizing DNS for global connectivity..."
+    if [ -w "/etc/resolv.conf" ]; then
+        # Backup original resolv.conf
+        cp /etc/resolv.conf /etc/resolv.conf.bak
+        # Set Google and Cloudflare DNS
+        echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1\nnameserver 4.2.2.4" > /etc/resolv.conf
+        log_success "DNS optimized (Google & Cloudflare)."
+    else
+        log_warn "Insufficient permissions to modify /etc/resolv.conf. Skipping DNS optimization."
+    fi
+}
+
 check_dependency() {
     if ! command -v "$1" &> /dev/null; then
         log_warn "$1 is not installed."
@@ -48,6 +62,9 @@ check_dependency() {
 # --- 1. Welcome & System Check ---
 print_header
 log_info "Initializing KiNGChat Professional Installer..."
+
+# Run DNS Optimization
+optimize_dns
 
 # Check RAM
 TOTAL_RAM=$(free -m | awk '/^Mem:/{print $2}')
@@ -72,10 +89,12 @@ fi
 
 # --- 3. Network Resilience & Cloning ---
 log_info "Preparing network for high-latency environment..."
-# Increase git buffer and timeout for resilient cloning
-git config --global http.postBuffer 524288000
-git config --global http.lowSpeedLimit 0
-git config --global http.lowSpeedTime 999999
+# Advanced Git Tuning
+git config --global http.postBuffer 1048576000 # 1GB buffer
+git config --global http.lowSpeedLimit 1000
+git config --global http.lowSpeedTime 600
+git config --global core.compression 0
+git config --global http.sslVerify false # Temporary bypass for SSL handshake issues in restricted networks
 
 if [ -d "$TARGET_DIR" ]; then
     log_warn "Directory $TARGET_DIR already exists."
@@ -88,25 +107,30 @@ if [ -d "$TARGET_DIR" ]; then
     fi
 fi
 
-log_info "Step 1/2: Synchronizing repository (this may take a moment)..."
-MAX_RETRIES=3
+log_info "Step 1/2: Synchronizing repository (using shallow clone for speed)..."
+MAX_RETRIES=5
 COUNT=0
 SUCCESS=false
 
 while [ $COUNT -lt $MAX_RETRIES ]; do
-    if git clone --progress "$REPO_URL" "$TARGET_DIR"; then
+    # Use --depth 1 to minimize data transfer and avoid SSL timeout on large objects
+    if git clone --depth 1 --progress "$REPO_URL" "$TARGET_DIR"; then
         SUCCESS=true
         break
     else
         COUNT=$((COUNT + 1))
         log_warn "Clone failed. Attempt $COUNT/$MAX_RETRIES. Retrying in 5 seconds..."
+        # On failure, try to clear git cache/config if needed
         sleep 5
     fi
 done
 
+# Restore SSL verification after clone for security
+git config --global http.sslVerify true
+
 if [ "$SUCCESS" = false ]; then
     log_error "Failed to clone repository after $MAX_RETRIES attempts."
-    log_info "Please check your internet connection or use a proxy/VPN."
+    log_info "Please check your internet connection or try using a VPN/Proxy."
     exit 1
 fi
 
