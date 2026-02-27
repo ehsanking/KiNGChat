@@ -1,8 +1,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json .npmrc* ./
-# Use the injected .npmrc for mirror configuration
-RUN npm install --no-audit --no-fund --legacy-peer-deps
+# Use the Runflare mirror for maximum reliability in Iran
+RUN npm install --registry=https://mirror-npm.runflare.com --no-audit --no-fund --legacy-peer-deps
 COPY . .
 RUN npx prisma generate
 RUN npm run build
