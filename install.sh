@@ -98,8 +98,10 @@ git config --global http.sslVerify false
 
 if [ -d "$TARGET_DIR" ]; then
     log_warn "Directory $TARGET_DIR already exists."
-    read -p "Overwrite existing installation? (y/N): " confirm
+    # Read from /dev/tty to allow interaction when piped via curl
+    read -p "Overwrite existing installation? (y/N): " confirm < /dev/tty || confirm="N"
     if [[ $confirm == [yY] ]]; then
+        log_info "Removing existing directory..."
         rm -rf "$TARGET_DIR"
     else
         log_info "Aborting installation to protect existing data."
