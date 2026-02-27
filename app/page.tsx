@@ -1,61 +1,105 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import EncryptionAnimation from '@/components/EncryptionAnimation';
+import { Shield, Zap, Globe, Lock, UserPlus, Smartphone, EyeOff, Code } from 'lucide-react';
 
 export default function LandingPage() {
+  // Replace YOUR_FILE_ID with your actual Google Drive file ID
+  const googleDriveLogoUrl = "https://s8.uupload.ir/files/transparent-logo_omst.png";
+  
+  // Using local logo as fallback if ID is not provided
+  const logoSrc = "/logo.png"; 
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-3xl text-center space-y-8 flex flex-col items-center">
-        <div className="w-32 h-32 md:w-48 md:h-48 relative mb-4 animate-in fade-in zoom-in duration-700">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Animation */}
+      <EncryptionAnimation />
+
+      <div className="max-w-3xl text-center space-y-8 flex flex-col items-center relative z-10">
+        <div className="w-[128px] h-[128px] relative mb-4 animate-in fade-in zoom-in duration-700">
           <Image
-            src="/logo.png"
+            src={logoSrc}
             alt="KiNGChat Logo"
-            fill
-            className="object-contain drop-shadow-[0_0_15px_rgba(15,54,91,0.3)]"
+            width={128}
+            height={128}
+            className="object-contain drop-shadow-[0_0_20px_rgba(196,154,69,0.4)]"
             priority
           />
         </div>
-        <h1 className="text-6xl font-bold tracking-tighter text-brand-gold">
+        <h1 className="text-6xl md:text-7xl font-bold tracking-tighter text-brand-gold drop-shadow-sm">
           KiNGChat
         </h1>
-        <p className="text-xl text-zinc-400">
-          Privacy-first, self-hosted web messenger designed for resilience.
-          End-to-end encrypted, zero foreign dependencies.
+        <p className="text-xl text-zinc-400 max-w-xl">
+          The most resilient, privacy-first messenger. 
+          Built for those who demand absolute control over their communication.
         </p>
-        <div className="flex justify-center gap-4 pt-8">
+        <div className="flex flex-wrap justify-center gap-4 pt-8">
           <Link
             href="/auth/register"
-            className="px-8 py-3 bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold rounded-xl transition-colors"
+            className="px-10 py-4 bg-brand-blue hover:bg-brand-blue/90 text-white font-bold rounded-2xl transition-all hover:scale-105 shadow-lg shadow-brand-blue/20"
           >
-            Create Account
+            Get Started
           </Link>
           <Link
             href="/auth/login"
-            className="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-50 font-semibold rounded-xl transition-colors"
+            className="px-10 py-4 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-50 font-bold rounded-2xl transition-all hover:scale-105"
           >
             Sign In
           </Link>
         </div>
       </div>
-      <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full text-left">
-        <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800">
-          <h3 className="text-lg font-semibold text-brand-gold mb-2">E2E Encrypted</h3>
-          <p className="text-zinc-400 text-sm">
-            Messages and attachments are encrypted on your device. The server only sees ciphertext.
-          </p>
-        </div>
-        <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800">
-          <h3 className="text-lg font-semibold text-brand-gold mb-2">Resilient</h3>
-          <p className="text-zinc-400 text-sm">
-            Works fully on local infrastructure. No reliance on foreign CDNs or push services.
-          </p>
-        </div>
-        <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800">
-          <h3 className="text-lg font-semibold text-brand-gold mb-2">Self-Hosted</h3>
-          <p className="text-zinc-400 text-sm">
-            Deploy anywhere. You control the data, the keys, and the network.
-          </p>
-        </div>
+
+      {/* Features Grid */}
+      <div className="mt-32 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full relative z-10">
+        <FeatureCard 
+          icon={<Lock className="w-6 h-6 text-brand-gold" />}
+          title="E2E Encrypted"
+          description="Your messages are encrypted before they even leave your device. Only the recipient can read them."
+        />
+        <FeatureCard 
+          icon={<EyeOff className="w-6 h-6 text-brand-gold" />}
+          title="Zero Metadata"
+          description="We don't log who you talk to, when you talk, or your IP address. Your business is yours."
+        />
+        <FeatureCard 
+          icon={<UserPlus className="w-6 h-6 text-brand-gold" />}
+          title="No Phone Required"
+          description="Register with just a username. No SIM card or phone number needed for absolute anonymity."
+        />
+        <FeatureCard 
+          icon={<Globe className="w-6 h-6 text-brand-gold" />}
+          title="Self-Hosted"
+          description="Run your own KiNGChat server. You own the hardware, the data, and the encryption keys."
+        />
+        <FeatureCard 
+          icon={<Smartphone className="w-6 h-6 text-brand-gold" />}
+          title="PWA Ready"
+          description="Install KiNGChat on any device. It works offline and feels like a native application."
+        />
+        <FeatureCard 
+          icon={<Code className="w-6 h-6 text-brand-gold" />}
+          title="Open Source"
+          description="Transparent and auditable. Our code is open for anyone to inspect and verify its security."
+        />
       </div>
+
+      <footer className="mt-24 py-8 text-zinc-600 text-sm border-t border-zinc-900 w-full text-center">
+        &copy; {new Date().getFullYear()} KiNGChat. All rights reserved.
+      </footer>
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+  return (
+    <div className="p-8 rounded-3xl bg-zinc-900/50 border border-zinc-800 hover:border-brand-gold/30 transition-all group backdrop-blur-sm">
+      <div className="mb-4 p-3 rounded-2xl bg-zinc-950 w-fit group-hover:scale-110 transition-transform">
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold text-zinc-100 mb-2">{title}</h3>
+      <p className="text-zinc-400 text-sm leading-relaxed">
+        {description}
+      </p>
     </div>
   );
 }

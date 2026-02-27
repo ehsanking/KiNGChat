@@ -1,12 +1,15 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import './globals.css'; // Global styles
 import PwaPrompt from '@/components/PwaPrompt';
+
+export const viewport: Viewport = {
+  themeColor: '#0f365b',
+};
 
 export const metadata: Metadata = {
   title: 'KiNGChat',
   description: 'Privacy-first, self-hosted web messenger designed for resilience.',
   manifest: '/manifest.json',
-  themeColor: '#0f365b',
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',

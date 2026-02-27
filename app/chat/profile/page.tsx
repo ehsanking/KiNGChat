@@ -39,7 +39,7 @@ export default function UserProfile() {
         </Link>
         <h1 className="text-xl font-bold flex items-center gap-2">
           <div className="w-6 h-6 relative">
-            <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+            <Image src="/logo.png" alt="Logo" fill sizes="24px" className="object-contain" />
           </div>
           Profile Settings
         </h1>
@@ -58,6 +58,7 @@ export default function UserProfile() {
                     src={profilePhoto} 
                     alt="Profile" 
                     fill 
+                    sizes="128px"
                     className="object-cover"
                     unoptimized
                   />
