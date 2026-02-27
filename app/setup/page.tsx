@@ -78,7 +78,7 @@ export default function SetupWizard() {
             <div>
               <h3 className="text-lg font-medium text-zinc-50 mb-2">2. Firebase Configuration (Optional)</h3>
               <p className="text-sm text-zinc-400 mb-4">
-                Paste your Firebase JSON configuration here to enable push notifications. Leave blank if you don't want to use foreign services.
+                Paste your Firebase JSON configuration here to enable push notifications. Leave blank if you don&apos;t want to use foreign services.
               </p>
             </div>
             

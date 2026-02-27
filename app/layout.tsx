@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   description: 'Privacy-first, self-hosted web messenger designed for resilience.',
   manifest: '/manifest.json',
   themeColor: '#10b981',
+  icons: {
+    icon: '/logo.svg',
+    apple: '/logo.svg',
+  },
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

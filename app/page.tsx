@@ -1,9 +1,19 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-3xl text-center space-y-8">
+      <div className="max-w-3xl text-center space-y-8 flex flex-col items-center">
+        <div className="w-32 h-32 md:w-48 md:h-48 relative mb-4 animate-in fade-in zoom-in duration-700">
+          <Image
+            src="/logo.svg"
+            alt="KiNGChat Logo"
+            fill
+            className="object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+            priority
+          />
+        </div>
         <h1 className="text-6xl font-bold tracking-tighter text-emerald-400">
           KiNGChat
         </h1>
