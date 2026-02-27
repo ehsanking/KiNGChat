@@ -171,7 +171,7 @@ echo "strict-ssl=false" >> .npmrc
 echo "fetch-retry-maxtimeout=600000" >> .npmrc
 echo "fetch-retry-mintimeout=100000" >> .npmrc
 echo "fetch-retries=10" >> .npmrc
-echo "maxsockets=4" >> .npmrc
+echo "maxsockets=10" >> .npmrc
 # Add binary mirrors to prevent hanging on post-install scripts
 echo "sharp_binary_host=https://npmmirror.com/mirrors/sharp" >> .npmrc
 echo "sharp_libvips_binary_host=https://npmmirror.com/mirrors/sharp-libvips" >> .npmrc

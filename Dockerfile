@@ -3,7 +3,9 @@ WORKDIR /app
 COPY package*.json .npmrc* ./
 # Use the injected .npmrc (Taobao + Binary Mirrors) for maximum reliability
 ENV NPM_CONFIG_LOGLEVEL=verbose
-RUN npm install --registry=https://registry.npmmirror.com --no-audit --no-fund --legacy-peer-deps --maxsockets=4
+# Remove package-lock.json to force resolution from the mirror
+RUN rm -f package-lock.json
+RUN npm install --registry=https://registry.npmmirror.com --no-audit --no-fund --legacy-peer-deps --maxsockets=10
 COPY . .
 RUN npx prisma generate
 RUN npm run build
