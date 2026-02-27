@@ -1,53 +1,50 @@
 #!/bin/bash
+# KiNGChat Professional Installer
+# 👑 The Secure Messenger for the Private Era
 
-echo "========================================"
-echo "👑 Installing KiNGChat v1.0.0 👑"
-echo "========================================"
+set -e
+
+# Colors for output
+GOLD='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${GOLD}👑 KiNGChat Installation Started...${NC}"
+
+# Check for Git
+if ! [ -x "$(command -v git)" ]; then
+  echo -e "${BLUE}Installing Git...${NC}"
+  sudo apt-get update && sudo apt-get install -y git
+fi
 
 # Check for Docker
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker not found!"
-    echo "Please install Docker first."
-    echo "If you are in Iran and using Ubuntu, run:"
-    echo "curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh"
-    exit 1
+if ! [ -x "$(command -v docker)" ]; then
+  echo -e "${BLUE}Docker not found. Please install Docker first or use the Iran-optimized script in README.${NC}"
+  exit 1
 fi
 
-# Check for Docker Compose
-if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose not found!"
-    echo "Please install Docker Compose first."
-    exit 1
+# Clone Repository
+REPO_URL="https://github.com/ehsanking/KiNGChat.git"
+TARGET_DIR="KiNGChat"
+
+if [ ! -d "$TARGET_DIR" ]; then
+    echo -e "${BLUE}Cloning repository into $TARGET_DIR...${NC}"
+    git clone "$REPO_URL" "$TARGET_DIR"
+else
+    echo -e "${BLUE}Directory $TARGET_DIR already exists. Updating...${NC}"
+    cd "$TARGET_DIR" && git pull && cd ..
 fi
 
-echo "✅ Docker is installed."
+# Navigate to directory
+cd "$TARGET_DIR"
 
-# Prompt for Domain and Email for SSL
-echo ""
-echo "--- SSL & Domain Configuration ---"
-read -p "Enter your domain name (e.g., chat.example.com): " DOMAIN
-read -p "Enter your email address (for Let's Encrypt SSL renewal notices): " EMAIL
+# Start Services
+echo -e "${GOLD}Starting KiNGChat services with Docker Compose...${NC}"
+if [ -x "$(command -v docker-compose)" ]; then
+    docker-compose up -d
+else
+    docker compose up -d
+fi
 
-# Create directory
-mkdir -p /opt/kingchat
-cd /opt/kingchat
-
-echo "📥 Downloading docker-compose.yml..."
-curl -fsSL https://raw.githubusercontent.com/EHSANKiNG/kingchat/main/docker-compose.yml -o docker-compose.yml
-
-echo "⚙️ Generating Caddyfile for automatic SSL..."
-cat <<EOF > Caddyfile
-$DOMAIN {
-    reverse_proxy app:3000
-    tls $EMAIL
-}
-EOF
-
-echo "🚀 Starting KiNGChat..."
-docker-compose up -d
-
-echo "========================================"
-echo "✅ KiNGChat installed successfully!"
-echo "🌐 Access it at: https://$DOMAIN"
-echo "🔒 SSL will be automatically provisioned and renewed every 60 days."
-echo "========================================"
+echo -e "${GOLD}✅ KiNGChat is now running!${NC}"
+echo -e "${BLUE}Access your dashboard at http://localhost:3000${NC}"

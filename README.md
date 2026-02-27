@@ -18,9 +18,9 @@
 ## 🌐 English
 
 ### 🚀 Quick Start (One-Liner)
-Deploy KiNGChat instantly with a single command:
+Deploy KiNGChat instantly with our professional installer:
 ```bash
-git clone https://github.com/ehsanking/KiNGChat.git && cd KiNGChat && docker-compose up -d
+curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/main/install.sh | bash
 ```
 
 ### 🛡️ Why KiNGChat?
@@ -59,9 +59,13 @@ KiNGChat is provided "as is" without any warranties. The developers are not resp
 ## 🇮🇷 فارسی
 
 ### 🚀 راه‌اندازی سریع (تک خطی)
-کینگ‌چت را با یک دستور ساده نصب و اجرا کنید:
+کینگ‌چت را با یک دستور حرفه‌ای نصب و اجرا کنید:
 ```bash
-git clone https://github.com/ehsanking/KiNGChat.git && cd KiNGChat && docker-compose up -d
+curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh
+```
+*(یا اگر مخزن اختصاصی دارید:)*
+```bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/main/install.sh | bash
 ```
 
 ### 🛡️ چرا کینگ‌چت؟
