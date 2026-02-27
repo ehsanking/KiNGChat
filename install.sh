@@ -87,14 +87,8 @@ if ! check_dependency "docker"; then
     exit 1
 fi
 
-# --- 3. Network Resilience & Synchronization ---
+# --- 3. Infrastructure & Source Synchronization ---
 log_info "Preparing network for high-latency environment..."
-# Advanced Git Tuning
-git config --global http.postBuffer 1048576000
-git config --global http.lowSpeedLimit 1000
-git config --global http.lowSpeedTime 600
-git config --global core.compression 0
-git config --global http.sslVerify false
 
 if [ -d "$TARGET_DIR" ]; then
     log_warn "Directory $TARGET_DIR already exists."
@@ -109,102 +103,86 @@ if [ -d "$TARGET_DIR" ]; then
     fi
 fi
 
-log_info "Step 1/2: Synchronizing repository..."
+mkdir -p "$TARGET_DIR"
+cd "$TARGET_DIR"
 
-# Strategy A: Git Clone (Preferred for updates)
-log_info "Attempting Strategy A: High-speed Git Synchronization..."
-MAX_RETRIES=2
-COUNT=0
-SUCCESS=false
+# --- Step 1: Pulling Infrastructure ---
+log_info "Step 1/2: Pulling Core Infrastructure Images..."
+log_info "Downloading Docker manifests..."
 
-while [ $COUNT -lt $MAX_RETRIES ]; do
-    if git clone --depth 1 --progress "$REPO_URL" "$TARGET_DIR"; then
-        SUCCESS=true
-        break
-    else
-        COUNT=$((COUNT + 1))
-        log_warn "Git clone failed (Attempt $COUNT/$MAX_RETRIES). This is common in restricted networks."
-        sleep 2
-    fi
-done
+# Download docker-compose.yml first to allow pulling
+curl -sL -o docker-compose.yml "https://raw.githubusercontent.com/ehsanking/KiNGChat/main/docker-compose.yml"
 
-# Strategy B: Tarball Fallback (Resilient to Git-specific DPI)
-if [ "$SUCCESS" = false ]; then
-    log_info "Switching to Strategy B: Resilient Archive Stream..."
-    log_info "Downloading source archive via encrypted tunnel (CURL)..."
-    
-    # Ensure directory is clean before extraction
-    rm -rf "$TARGET_DIR"
-    mkdir -p "$TARGET_DIR"
-    
-    # Construct the tarball URL
-    TARBALL_URL="https://github.com/ehsanking/KiNGChat/archive/refs/heads/main.tar.gz"
-    
-    # Use curl with retry and resume capabilities
-    if curl -L --retry 5 --retry-delay 5 -k "$TARBALL_URL" | tar -xz -C "$TARGET_DIR" --strip-components=1; then
-        SUCCESS=true
-        log_success "Source synchronized via Archive Stream."
-    else
-        log_error "Strategy B also failed. Network interference is severe."
-    fi
+# Pull images that don't require building first (db, minio, caddy)
+if docker compose pull db minio caddy -q 2>/dev/null; then
+    log_success "Infrastructure images pulled successfully."
+else
+    log_warn "Background pull failed. Will pull during orchestration."
 fi
 
-# Restore SSL verification
-git config --global http.sslVerify true
+# --- Step 2: Synchronizing Source ---
+log_info "Step 2/2: Synchronizing Application Source..."
+SUCCESS=false
+
+# Strategy A: Resilient Archive Stream (Primary for restricted networks)
+log_info "Attempting Strategy A: Resilient Archive Stream (CURL)..."
+TARBALL_URL="https://github.com/ehsanking/KiNGChat/archive/refs/heads/main.tar.gz"
+
+if curl -L --retry 5 --retry-delay 5 -k "$TARBALL_URL" | tar -xz --strip-components=1; then
+    SUCCESS=true
+    log_success "Source synchronized via Archive Stream."
+else
+    log_warn "Strategy A failed. Attempting Strategy B (Git)..."
+fi
+
+# Strategy B: Git Clone (Fallback)
+if [ "$SUCCESS" = false ]; then
+    log_info "Attempting Strategy B: High-speed Git Synchronization..."
+    # Advanced Git Tuning
+    git config --global http.postBuffer 1048576000
+    git config --global http.sslVerify false
+    
+    # We are already inside TARGET_DIR, so we clone to temp and move
+    if git clone --depth 1 --progress "$REPO_URL" .temp_clone; then
+        mv .temp_clone/* .
+        mv .temp_clone/.* . 2>/dev/null || true
+        rm -rf .temp_clone
+        SUCCESS=true
+        log_success "Source synchronized via Git."
+    fi
+    git config --global http.sslVerify true
+fi
 
 if [ "$SUCCESS" = false ]; then
     log_error "All synchronization strategies failed."
     log_info "Network Diagnostic: Your ISP is blocking both Git and HTTPS Archive streams."
-    log_info "Please try again with a system-level proxy or VPN."
     exit 1
 fi
 
 # --- 4. Deployment & Network Optimization ---
-cd "$TARGET_DIR"
-log_success "Repository synchronized successfully."
+# (We are already in TARGET_DIR)
 
-# --- 4.1. NPM Registry Optimization (Crucial for Iran/Restricted Networks) ---
+# --- 4.1. NPM Registry Optimization ---
 log_info "Optimizing package manager for your network..."
-# Test connectivity to official npm registry
 if ! curl -s --connect-timeout 5 https://registry.npmjs.org/ > /dev/null; then
-    log_warn "Official NPM registry is slow or unreachable. Injecting high-speed mirror..."
-    # Create .npmrc to use a mirror and increase timeouts
+    log_warn "Official NPM registry is slow. Injecting high-speed mirror..."
     echo "registry=https://registry.npmmirror.com" > .npmrc
     echo "fetch-retry-maxtimeout=600000" >> .npmrc
     echo "fetch-retry-mintimeout=100000" >> .npmrc
     echo "fetch-retries=10" >> .npmrc
-    log_success "NPM mirror (npmmirror.com) injected for build resilience."
-else
-    log_info "NPM registry connectivity is healthy."
+    log_success "NPM mirror injected."
 fi
 
-log_info "Step 2/2: Orchestrating services..."
-log_info "Pulling container images and building (this depends on your network speed)..."
-
-# Use BuildKit for better performance and reliability
+log_info "Finalizing orchestration..."
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
-# Try to pull with quiet flag first, fallback to standard if it fails
-if docker compose pull -q 2>/dev/null; then
-    log_info "Images pulled successfully."
-else
-    log_warn "Standard pull failed or not supported. Proceeding with inline build..."
-fi
-
-# Build and start with increased timeout
 if docker compose up -d --build; then
     log_success "KiNGChat services are now operational."
 else
     log_error "Failed to start services. Attempting recovery build..."
-    # If it failed, try one more time with a clean slate for the build cache
     docker compose build --no-cache
-    if docker compose up -d; then
-        log_success "KiNGChat services recovered and started."
-    else
-        log_error "Critical failure in service orchestration."
-        exit 1
-    fi
+    docker compose up -d
 fi
 
 # --- 5. Final Summary ---
