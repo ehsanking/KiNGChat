@@ -7,9 +7,12 @@ ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 # Critical: Set binary mirrors via ENV to ensure they are picked up
 ENV SHARP_BINARY_HOST=https://npmmirror.com/mirrors/sharp
 ENV SHARP_LIBVIPS_BINARY_HOST=https://npmmirror.com/mirrors/sharp-libvips
-ENV PRISMA_ENGINES_MIRROR=https://npmmirror.com/mirrors/prisma/engines
+ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
 ENV SASS_BINARY_SITE=https://npmmirror.com/mirrors/node-sass
 ENV NPM_CONFIG_MAXSOCKETS=4
+
+# Install system dependencies for Prisma (OpenSSL + libc compatibility)
+RUN apk add --no-cache openssl libc6-compat
 
 # Remove package-lock.json to force resolution from the mirror
 RUN rm -f package-lock.json
