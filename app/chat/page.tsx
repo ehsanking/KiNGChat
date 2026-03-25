@@ -49,55 +49,14 @@ import {
   getSystemOverview,
 } from '@/app/actions/admin';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import ChatShell from './ChatShell';
+import type { ChatMessage, ContactUser, Community, MobileTab } from './chat-types';
 import {
   encryptMessage, decryptMessage, getOrCreateSessionKey, getIdentityPrivateKey,
 } from '@/lib/crypto';
 
 // Import shared type definitions to replace use of `any`.
 import type { ChatUser, Report, AdminSettings, AuditLog, SocketMessagePayload } from '@/lib/types';
-
-interface ChatMessage {
-  id: string;
-  text: string;
-  sender: 'me' | 'them';
-  senderId?: string;
-  fileUrl?: string;
-  fileName?: string;
-  fileSize?: number;
-  type?: number;
-  createdAt?: string;
-  encrypted?: boolean;
-}
-
-interface ContactUser {
-  id: string;
-  username: string;
-  numericId: string;
-  displayName?: string | null;
-  bio?: string | null;
-  profilePhoto?: string | null;
-  role: string;
-  badge?: string | null;
-  isVerified: boolean;
-  identityKeyPublic?: string | null;
-  signedPreKey?: string | null;
-  signedPreKeySig?: string | null;
-}
-
-interface Community {
-  id: string;
-  name: string;
-  description?: string | null;
-  avatar?: string | null;
-  type: string;
-  isPublic: boolean;
-  inviteLink?: string | null;
-  memberCount: number;
-  myRole: string;
-}
-
-// Mobile bottom nav tab type
-type MobileTab = 'chats' | 'groups' | 'channels' | 'settings';
 
 function ChatDashboardContent() {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -401,8 +360,7 @@ function ChatDashboardContent() {
     return user.displayName?.trim() || user.username;
   };
 
-  const handleUpdateSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateSettings = async () => {
     if (!currentUser || !adminSettings) return;
     const res = await updateAdminSettings(adminSettings);
     if (res.success) alert('Settings updated successfully');
@@ -642,767 +600,68 @@ function ChatDashboardContent() {
 
   if (!currentUser) return null;
 
-  const chatTarget = selectedRecipient || selectedGroup;
-  const groups = communities.filter(c => c.type === 'GROUP');
-  const channels = communities.filter(c => c.type === 'CHANNEL');
-
-  // ── Shared sub-components ──────────────────────
-
-  const renderSearchBar = () => (
-    <div className="p-3">
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-2.5 text-zinc-500" />
-        <input
-          type="text"
-          placeholder="Search username or ID..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-brand-gold transition-colors"
-        />
-      </div>
-    </div>
-  );
-
-  const renderSearchResults = () => (
-    searchQuery ? (
-      isSearching ? (
-        <div className="p-4 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-zinc-500" /></div>
-      ) : searchResults.length === 0 ? (
-        <div className="p-4 text-center text-xs text-zinc-500">No users found</div>
-      ) : (
-        searchResults.map((user) => (
-          <div key={user.id} className="p-3 flex items-center gap-3 hover:bg-zinc-800/50 cursor-pointer transition-colors border-b border-zinc-800/50">
-            <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden relative shrink-0">
-              {user.profilePhoto ? (
-                <Image src={user.profilePhoto} alt={getUserDisplayName(user)} fill sizes="40px" className="object-cover" unoptimized />
-              ) : (
-                <User className="w-5 h-5 text-zinc-400" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1">
-                <p className="font-medium text-sm truncate">{getUserDisplayName(user)}</p>
-                {user.isVerified && <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" />}
-                {renderBadgeIcon(user.badge)}
-              </div>
-              <p className="text-[10px] text-zinc-500">@{user.username}</p>
-            </div>
-            <button
-              onClick={() => handleAddContact(user)}
-              className="p-1.5 bg-brand-gold/10 text-brand-gold rounded-lg hover:bg-brand-gold/20 transition-colors shrink-0"
-              title="Add to contacts"
-            >
-              <UserPlus className="w-4 h-4" />
-            </button>
-          </div>
-        ))
-      )
-    ) : null
-  );
-
-  const renderContactsList = () => (
-    contacts.length === 0 ? (
-      <div className="p-8 text-center text-zinc-500">
-        <UserPlus className="w-8 h-8 mx-auto mb-2 opacity-30" />
-        <p className="text-xs">Search for users to add contacts</p>
-      </div>
-    ) : (
-      contacts.map((contact) => (
-        <div
-          key={contact.id}
-          onClick={() => handleSelectContact(contact)}
-          className={`p-3 flex items-center gap-3 cursor-pointer transition-colors border-b border-zinc-800/30 ${
-            selectedRecipient?.id === contact.id ? 'bg-zinc-800/70' : 'hover:bg-zinc-800/30'
-          }`}
-        >
-          <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden relative shrink-0">
-            {contact.profilePhoto ? (
-              <Image src={contact.profilePhoto} alt={getUserDisplayName(contact)} fill sizes="40px" className="object-cover" unoptimized />
-            ) : (
-              <User className="w-5 h-5 text-zinc-400" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1">
-              <p className="font-medium text-sm truncate">{getUserDisplayName(contact)}</p>
-              {contact.isVerified && <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" />}
-              {renderBadgeIcon(contact.badge)}
-            </div>
-            <p className="text-[10px] text-zinc-500">ID: {contact.numericId}</p>
-          </div>
-        </div>
-      ))
-    )
-  );
-
-  const renderCommunityList = (list: Community[], emptyIcon: React.ReactNode, emptyText: string) => (
-    list.length === 0 ? (
-      <div className="p-8 text-center text-zinc-500">
-        {emptyIcon}
-        <p className="text-xs mt-2">{emptyText}</p>
-      </div>
-    ) : (
-      list.map((group) => (
-        <div
-          key={group.id}
-          onClick={() => handleSelectGroup(group)}
-          className={`p-3 flex items-center gap-3 cursor-pointer transition-colors border-b border-zinc-800/30 ${
-            selectedGroup?.id === group.id ? 'bg-zinc-800/70' : 'hover:bg-zinc-800/30'
-          }`}
-        >
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-            group.type === 'CHANNEL' ? 'bg-blue-500/20' : 'bg-emerald-500/20'
-          }`}>
-            {group.type === 'CHANNEL' ? (
-              <Megaphone className="w-5 h-5 text-blue-400" />
-            ) : (
-              <Users className="w-5 h-5 text-emerald-400" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{group.name}</p>
-            <p className="text-[10px] text-zinc-500">
-              {group.memberCount} members
-            </p>
-          </div>
-        </div>
-      ))
-    )
-  );
-
-  const renderChatView = () => (
-    chatTarget ? (
-      <>
-        {/* Chat Header */}
-        <div className="p-3 md:p-4 border-b border-zinc-800 flex items-center gap-3 bg-zinc-900/30">
-          {/* Back button for mobile */}
-          <button
-            onClick={handleMobileBack}
-            className="md:hidden p-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden relative shrink-0">
-            {selectedRecipient ? (
-              selectedRecipient.profilePhoto ? (
-                <Image src={selectedRecipient.profilePhoto} alt={getUserDisplayName(selectedRecipient)} fill sizes="40px" className="object-cover" unoptimized />
-              ) : (
-                <User className="w-5 h-5 text-zinc-400" />
-              )
-            ) : selectedGroup?.type === 'CHANNEL' ? (
-              <Megaphone className="w-5 h-5 text-blue-400" />
-            ) : (
-              <Users className="w-5 h-5 text-emerald-400" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1">
-              {selectedRecipient ? (
-                <button onClick={openRecipientProfileModal} className="font-medium hover:text-brand-gold transition-colors truncate">
-                  {getUserDisplayName(selectedRecipient)}
-                </button>
-              ) : (
-                <p className="font-medium truncate">{selectedGroup?.name}</p>
-              )}
-              {selectedRecipient?.isVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />}
-              {renderBadgeIcon(selectedRecipient?.badge)}
-            </div>
-            <div className="flex items-center gap-2">
-              {isOtherUserTyping ? (
-                <p className="text-xs text-brand-gold">Typing...</p>
-              ) : sessionKey ? (
-                <p className="text-xs text-emerald-500 flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> E2E Encrypted
-                </p>
-              ) : selectedGroup ? (
-                <p className="text-xs text-zinc-500">{selectedGroup.memberCount} members</p>
-              ) : (
-                <p className="text-xs text-zinc-500">
-                  {selectedRecipient ? `ID: ${selectedRecipient.numericId}` : ''}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3">
-          {loadingMessages ? (
-            <div className="h-full flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
-              <Shield className="w-12 h-12" />
-              <p className="text-sm max-w-xs">Messages are end-to-end encrypted. Start the conversation.</p>
-            </div>
-          ) : (
-            messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  dir={getTextDirection(msg.text)}
-                  className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-3 md:px-4 py-2 ${
-                    msg.sender === 'me'
-                      ? 'bg-brand-blue text-white rounded-br-none'
-                      : 'bg-zinc-800 text-zinc-100 rounded-bl-none'
-                  }`}
-                >
-                  {msg.type === 2 ? (
-                    <div className="flex items-center gap-3 bg-zinc-900/50 p-2 md:p-3 rounded-xl border border-zinc-800">
-                      <div className="p-2 bg-brand-gold/10 rounded-lg">
-                        <FileIcon className="w-5 h-5 md:w-6 md:h-6 text-brand-gold" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{msg.fileName}</p>
-                        <p className="text-[10px] text-zinc-500">{msg.fileSize ? (msg.fileSize / 1024).toFixed(1) : 0} KB</p>
-                      </div>
-                      <a href={msg.fileUrl} download={msg.fileName} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-brand-gold">
-                        <Download className="w-5 h-5" />
-                      </a>
-                    </div>
-                  ) : (
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
-                  )}
-                  {msg.encrypted && (
-                    <div className="flex items-center gap-1 mt-1 opacity-50">
-                      <Lock className="w-2.5 h-2.5" />
-                      <span className="text-[9px]">encrypted</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-          {isOtherUserTyping && (
-            <div className="flex justify-start">
-              <div className="bg-zinc-800 text-zinc-400 rounded-2xl px-4 py-2 rounded-bl-none flex gap-2 items-center">
-                <span className="text-xs">Typing...</span>
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Message Input */}
-        <div className="p-2 md:p-4 bg-zinc-900/50 border-t border-zinc-800">
-          <form onSubmit={sendMessage} className="flex gap-2">
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="p-2.5 md:p-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-400 hover:text-brand-gold transition-colors disabled:opacity-50"
-            >
-              {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
-            </button>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              dir={getTextDirection(input)}
-              placeholder={sessionKey ? 'Type an encrypted message...' : 'Type a message...'}
-              className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm focus:outline-none focus:border-brand-gold transition-colors"
-            />
-            <button type="submit" className="bg-brand-gold hover:bg-brand-gold/90 text-zinc-950 p-2.5 md:p-3 rounded-xl transition-colors flex items-center justify-center">
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
-        </div>
-      </>
-    ) : (
-      /* No chat selected — only visible on desktop */
-      <div className="flex-1 hidden md:flex flex-col items-center justify-center text-center p-8 space-y-6">
-        <div className="w-24 h-24 relative opacity-20">
-          <Image src="/logo.png" alt="Logo" fill className="object-contain" unoptimized />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-zinc-400">Welcome to KiNGChat</h2>
-          <p className="text-zinc-500 max-w-sm">Search for a user to add to your contacts, or create a group/channel to start a conversation.</p>
-        </div>
-        <div className="flex gap-4">
-          <div className="flex items-center gap-2 text-xs text-zinc-600">
-            <Lock className="w-4 h-4" />
-            <span>E2E Encrypted</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-zinc-600">
-            <Shield className="w-4 h-4" />
-            <span>Privacy First</span>
-          </div>
-        </div>
-      </div>
-    )
-  );
-
-  const renderAdminPanel = () => (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="p-4 md:p-6 border-b border-zinc-800 bg-zinc-900/30">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl md:text-2xl font-bold text-brand-gold">System Management</h2>
-          <button onClick={() => setActiveView('chat')} className="px-3 md:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs md:text-sm font-medium transition-colors">
-            Back to Chat
-          </button>
-        </div>
-        <div className="flex gap-2 md:gap-4 overflow-x-auto no-scrollbar border-b border-zinc-800">
-          {(['overview', 'users', 'reports', 'settings', 'data', 'audit'] as const).map((tab) => (
-            <button key={tab} onClick={() => setAdminTab(tab)}
-              className={`pb-2 px-1 text-xs md:text-sm font-medium transition-colors relative whitespace-nowrap ${adminTab === tab ? 'text-brand-gold' : 'text-zinc-500 hover:text-zinc-300'}`}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              {adminTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-gold" />}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        {isLoadingAdmin ? (
-          <div className="h-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-brand-gold" /></div>
-        ) : adminTab === 'overview' && adminOverview ? (
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            {[
-              { label: 'Total Users', value: adminOverview.users.total, color: 'brand-gold' },
-              { label: 'New Today', value: adminOverview.users.today, color: 'emerald-500' },
-              { label: 'New This Month', value: adminOverview.users.month, color: 'blue-500' },
-              { label: 'New This Year', value: adminOverview.users.year, color: 'purple-500' },
-            ].map((stat) => (
-              <div key={stat.label} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 md:p-6 text-center">
-                <p className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</p>
-                <p className="text-[10px] md:text-xs text-zinc-500 uppercase tracking-wider">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        ) : adminTab === 'users' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {adminUsers.map((user) => (
-              <div key={user.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center shrink-0"><User className="w-5 h-5 text-zinc-400" /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <p className="font-medium truncate">{user.username}</p>
-                      {user.isVerified && <BadgeCheck className="w-3 h-3 text-blue-500" />}
-                      {renderBadgeIcon(user.badge)}
-                    </div>
-                    <p className="text-[10px] text-zinc-500">ID: {user.numericId}</p>
-                  </div>
-                  <div className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${user.role === 'ADMIN' ? 'bg-brand-gold/20 text-brand-gold' : 'bg-zinc-800 text-zinc-400'}`}>
-                    {user.role}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-                  <span className={`text-[10px] ${user.isBanned ? 'text-red-500' : 'text-emerald-500'}`}>
-                    {user.isBanned ? 'Banned' : 'Active'}
-                  </span>
-                  {user.role !== 'ADMIN' && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <select value={user.badge || ''} onChange={(e) => handleUpdateUserBadges(user.id, e.target.value || null, user.isVerified)}
-                        className="bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-[10px] text-zinc-400 focus:outline-none focus:border-brand-gold">
-                        <option value="">No Badge</option>
-                        <option value="Support">Support</option>
-                        <option value="Seller">Seller</option>
-                        <option value="Technical">Technical</option>
-                        <option value="Ads">Ads</option>
-                      </select>
-                      <button onClick={() => handleUpdateUserBadges(user.id, user.badge, !user.isVerified)}
-                        className={`p-1 rounded transition-colors ${user.isVerified ? 'bg-blue-500/20 text-blue-500' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
-                        title="Toggle Verified"><BadgeCheck className="w-3 h-3" /></button>
-                      <button onClick={() => handleToggleBan(user.id)}
-                        className={`text-[10px] px-3 py-1 rounded-lg transition-colors ${user.isBanned ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                        {user.isBanned ? 'Unban' : 'Ban'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : adminTab === 'settings' && adminSettings ? (
-          <form onSubmit={handleUpdateSettings} className="max-w-2xl space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              {[
-                { label: 'User Registration', key: 'isRegistrationEnabled', desc: 'Allow new users' },
-                { label: 'CAPTCHA Protection', key: 'isCaptchaEnabled', desc: 'Require CAPTCHA' },
-              ].map(({ label, key, desc }) => (
-                <div key={key} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
-                  <div><p className="text-sm font-medium">{label}</p><p className="text-[10px] text-zinc-500">{desc}</p></div>
-                  <button type="button" onClick={() => setAdminSettings({ ...adminSettings, [key]: !adminSettings[key] })}
-                    className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${adminSettings[key] ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${adminSettings[key] ? 'left-7' : 'left-1'}`} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button type="submit" className="bg-brand-gold text-zinc-950 px-6 py-2 rounded-xl font-bold hover:bg-brand-gold/90 transition-colors">
-              Save System Settings
-            </button>
-          </form>
-        ) : adminTab === 'audit' ? (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-x-auto">
-            <table className="w-full text-left text-sm min-w-[600px]">
-              <thead className="bg-zinc-950/50 text-zinc-400 border-b border-zinc-800">
-                <tr><th className="px-4 md:px-6 py-4 font-medium">Time</th><th className="px-4 md:px-6 py-4 font-medium">Action</th><th className="px-4 md:px-6 py-4 font-medium">Admin</th><th className="px-4 md:px-6 py-4 font-medium">IP</th></tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/50">
-                {adminAuditLogs.length === 0 ? (
-                  <tr><td colSpan={4} className="px-6 py-10 text-center text-zinc-500 italic">No audit logs found</td></tr>
-                ) : adminAuditLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-zinc-800/30">
-                    <td className="px-4 md:px-6 py-4 text-zinc-400 whitespace-nowrap text-xs md:text-sm">{new Date(log.createdAt).toLocaleString()}</td>
-                    <td className="px-4 md:px-6 py-4"><span className={`px-2 py-1 rounded-md text-[10px] font-bold ${log.action.includes('SUCCESS') ? 'bg-emerald-500/10 text-emerald-400' : log.action.includes('FAILED') ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>{log.action}</span></td>
-                    <td className="px-4 md:px-6 py-4 text-zinc-300 text-xs md:text-sm">{log.admin?.username || '-'}</td>
-                    <td className="px-4 md:px-6 py-4 text-zinc-500 font-mono text-xs">{log.ip || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-20 text-zinc-500"><p>Select a tab to view data.</p></div>
-        )}
-      </div>
-    </div>
-  );
-
-  // Mobile Settings Panel
-  const renderMobileSettings = () => (
-    <div className="flex-1 overflow-y-auto">
-      <div className="p-4 border-b border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center overflow-hidden relative">
-            {currentUser.profilePhoto ? (
-              <Image src={currentUser.profilePhoto} alt={getUserDisplayName(currentUser)} fill sizes="56px" className="object-cover" unoptimized />
-            ) : (
-              <User className="w-6 h-6 text-emerald-500" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1">
-              <p className="text-base font-semibold truncate">{getUserDisplayName(currentUser)}</p>
-              {currentUser.isVerified && <BadgeCheck className="w-4 h-4 text-blue-500" />}
-              {renderBadgeIcon(currentUser.badge)}
-            </div>
-            <p className="text-xs text-zinc-500">@{currentUser.username}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-[10px] text-zinc-500">ID: {currentUser.numericId}</p>
-              <button onClick={() => copyToClipboard(currentUser.numericId)} className="p-0.5 hover:bg-zinc-800 rounded transition-colors" title="Copy ID">
-                {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3 text-zinc-500" />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="p-2 space-y-1">
-        <Link href="/chat/profile" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800/50 transition-colors">
-          <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-            <User className="w-5 h-5 text-blue-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium">Profile & Account</p>
-            <p className="text-[10px] text-zinc-500">Edit profile, 2FA, security settings</p>
-          </div>
-        </Link>
-        {currentUser.role === 'ADMIN' && (
-          <button
-            onClick={() => { setActiveView('admin'); setAdminTab('overview'); }}
-            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800/50 transition-colors text-left"
-          >
-            <div className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-brand-gold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">Admin Panel</p>
-              <p className="text-[10px] text-zinc-500">Manage users, settings, reports</p>
-            </div>
-          </button>
-        )}
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800/50 transition-colors text-left"
-        >
-          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
-            <LogOut className="w-5 h-5 text-red-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-red-400">Log Out</p>
-            <p className="text-[10px] text-zinc-500">Sign out of your account</p>
-          </div>
-        </button>
-      </div>
-    </div>
-  );
-
-  // ── Main Layout ──────────────────────────────────
-
   return (
-    <div className="flex h-[100dvh] bg-zinc-950 text-zinc-50 font-sans">
-
-      {/* ===== DESKTOP: Sidebar (hidden on mobile) ===== */}
-      <div className="hidden md:flex w-80 border-r border-zinc-800 flex-col bg-zinc-900/50">
-        {/* Header */}
-        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-brand-gold flex items-center gap-2">
-            <div className="w-6 h-6 relative">
-              <Image src="/logo.png" alt="Logo" fill sizes="24px" className="object-contain" unoptimized />
-            </div>
-            KiNGChat
-          </h2>
-          <div className="flex items-center gap-1">
-            {currentUser.role === 'ADMIN' && (
-              <button
-                onClick={() => { setActiveView(activeView === 'admin' ? 'chat' : 'admin'); setAdminTab('overview'); }}
-                className={`p-2 rounded-lg transition-colors ${activeView === 'admin' ? 'bg-brand-gold text-zinc-950' : 'hover:bg-zinc-800 text-zinc-400'}`}
-                title="Admin Panel"
-              >
-                <Shield className="w-5 h-5" />
-              </button>
-            )}
-            <Link href="/chat/profile" className="p-2 hover:bg-zinc-800 rounded-lg transition-colors">
-              <Settings className="w-5 h-5 text-zinc-400" />
-            </Link>
-            <button onClick={handleLogout} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors text-red-400">
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Selector */}
-        <div className="flex border-b border-zinc-800">
-          <button
-            onClick={() => setSidebarTab('contacts')}
-            className={`flex-1 py-2.5 text-xs font-medium transition-colors ${sidebarTab === 'contacts' ? 'text-brand-gold border-b-2 border-brand-gold' : 'text-zinc-500'}`}
-          >
-            <div className="flex items-center justify-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5" />
-              Contacts
-            </div>
-          </button>
-          <button
-            onClick={() => setSidebarTab('groups')}
-            className={`flex-1 py-2.5 text-xs font-medium transition-colors ${sidebarTab === 'groups' ? 'text-brand-gold border-b-2 border-brand-gold' : 'text-zinc-500'}`}
-          >
-            <div className="flex items-center justify-center gap-1.5">
-              <Users className="w-3.5 h-3.5" />
-              Groups & Channels
-            </div>
-          </button>
-        </div>
-
-        {/* Search */}
-        {renderSearchBar()}
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {searchQuery ? renderSearchResults() : sidebarTab === 'contacts' ? (
-            renderContactsList()
-          ) : (
-            <>
-              <div className="p-3">
-                <button
-                  onClick={() => setShowCreateGroup(true)}
-                  className="w-full py-2 bg-brand-gold/10 text-brand-gold rounded-xl text-xs font-medium hover:bg-brand-gold/20 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Create Group or Channel
-                </button>
-              </div>
-              {renderCommunityList(communities, <Users className="w-8 h-8 mx-auto opacity-30" />, 'No groups or channels yet')}
-            </>
-          )}
-        </div>
-
-        {/* Current User Info */}
-        <div className="p-3 border-t border-zinc-800 bg-zinc-900/80">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center overflow-hidden relative">
-              {currentUser.profilePhoto ? (
-                <Image src={currentUser.profilePhoto} alt={getUserDisplayName(currentUser)} fill sizes="32px" className="object-cover" unoptimized />
-              ) : (
-                <User className="w-4 h-4 text-emerald-500" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1">
-                <p className="text-sm font-medium truncate">{getUserDisplayName(currentUser)}</p>
-                {currentUser.isVerified && <BadgeCheck className="w-3 h-3 text-blue-500" />}
-                {renderBadgeIcon(currentUser.badge)}
-              </div>
-              <div className="flex items-center gap-2">
-                <p className="text-[10px] text-zinc-500">ID: {currentUser.numericId}</p>
-                <button onClick={() => copyToClipboard(currentUser.numericId)} className="p-0.5 hover:bg-zinc-800 rounded transition-colors" title="Copy ID">
-                  {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3 text-zinc-500" />}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ===== DESKTOP: Main Area ===== */}
-      <div className="hidden md:flex flex-1 flex-col bg-zinc-950">
-        {activeView === 'chat' ? renderChatView() : renderAdminPanel()}
-      </div>
-
-      {/* ===== MOBILE LAYOUT (md:hidden) ===== */}
-      <div className="flex md:hidden flex-1 flex-col bg-zinc-950">
-        {/* If admin view is active on mobile */}
-        {activeView === 'admin' ? (
-          renderAdminPanel()
-        ) : mobileShowChat && chatTarget ? (
-          /* Mobile: show full-screen chat */
-          <div className="flex flex-col h-full">
-            {renderChatView()}
-          </div>
-        ) : (
-          /* Mobile: show tab content + bottom navbar */
-          <div className="flex flex-col h-full">
-            {/* Mobile Header */}
-            <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
-              <h2 className="text-lg font-bold text-brand-gold flex items-center gap-2">
-                <div className="w-5 h-5 relative">
-                  <Image src="/logo.png" alt="Logo" fill sizes="20px" className="object-contain" unoptimized />
-                </div>
-                KiNGChat
-              </h2>
-              <div className="flex items-center gap-1">
-                {mobileTab !== 'settings' && (
-                  <button
-                    onClick={() => setShowCreateGroup(true)}
-                    className="p-2 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400"
-                    title="Create Group/Channel"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Mobile Search (for chats, groups, channels) */}
-            {mobileTab !== 'settings' && renderSearchBar()}
-
-            {/* Mobile Tab Content */}
-            <div className="flex-1 overflow-y-auto">
-              {searchQuery ? renderSearchResults() : mobileTab === 'chats' ? (
-                renderContactsList()
-              ) : mobileTab === 'groups' ? (
-                <>
-                  <div className="p-3">
-                    <button
-                      onClick={() => { setNewGroupType('GROUP'); setShowCreateGroup(true); }}
-                      className="w-full py-2 bg-emerald-500/10 text-emerald-400 rounded-xl text-xs font-medium hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" /> Create Group
-                    </button>
-                  </div>
-                  {renderCommunityList(groups, <Users className="w-8 h-8 mx-auto opacity-30" />, 'No groups yet')}
-                </>
-              ) : mobileTab === 'channels' ? (
-                <>
-                  <div className="p-3">
-                    <button
-                      onClick={() => { setNewGroupType('CHANNEL'); setShowCreateGroup(true); }}
-                      className="w-full py-2 bg-blue-500/10 text-blue-400 rounded-xl text-xs font-medium hover:bg-blue-500/20 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" /> Create Channel
-                    </button>
-                  </div>
-                  {renderCommunityList(channels, <Megaphone className="w-8 h-8 mx-auto opacity-30" />, 'No channels yet')}
-                </>
-              ) : mobileTab === 'settings' ? (
-                renderMobileSettings()
-              ) : null}
-            </div>
-
-            {/* Mobile Bottom Nav */}
-            <nav className="border-t border-zinc-800 bg-zinc-900/90 backdrop-blur-sm flex safe-area-pb">
-              {([
-                { key: 'chats' as MobileTab, icon: MessageSquare, label: 'Chats' },
-                { key: 'groups' as MobileTab, icon: Users, label: 'Groups' },
-                { key: 'channels' as MobileTab, icon: Megaphone, label: 'Channels' },
-                { key: 'settings' as MobileTab, icon: Settings, label: 'Settings' },
-              ]).map(({ key, icon: Icon, label }) => (
-                <button
-                  key={key}
-                  onClick={() => { setMobileTab(key); setSearchQuery(''); setSearchResults([]); }}
-                  className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors ${
-                    mobileTab === key ? 'text-brand-gold' : 'text-zinc-500'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">{label}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
-        )}
-      </div>
-
-      {/* ===== MODALS (shared desktop + mobile) ===== */}
-
-      {/* Create Group/Channel Modal */}
-      {showCreateGroup && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-0 md:p-4" onClick={() => setShowCreateGroup(false)}>
-          <div className="w-full md:max-w-md bg-zinc-900 border-t md:border border-zinc-800 rounded-t-2xl md:rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-              <p className="text-sm font-medium text-zinc-300">Create New</p>
-              <button onClick={() => setShowCreateGroup(false)} className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="p-4 md:p-6 space-y-4">
-              <div className="flex gap-2">
-                <button onClick={() => setNewGroupType('GROUP')}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${newGroupType === 'GROUP' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400'}`}>
-                  <Users className="w-4 h-4 inline mr-1" /> Group
-                </button>
-                <button onClick={() => setNewGroupType('CHANNEL')}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${newGroupType === 'CHANNEL' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-zinc-800 text-zinc-400'}`}>
-                  <Megaphone className="w-4 h-4 inline mr-1" /> Channel
-                </button>
-              </div>
-              <input type="text" placeholder={`${newGroupType === 'CHANNEL' ? 'Channel' : 'Group'} name`} value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-gold transition-colors" />
-              <textarea placeholder="Description (optional)" value={newGroupDesc}
-                onChange={(e) => setNewGroupDesc(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-gold transition-colors h-20 resize-none" />
-              <button onClick={handleCreateGroup} disabled={!newGroupName.trim()}
-                className="w-full bg-brand-gold text-zinc-950 py-2.5 rounded-xl font-bold hover:bg-brand-gold/90 disabled:opacity-50 transition-colors">
-                Create {newGroupType === 'CHANNEL' ? 'Channel' : 'Group'}
-              </button>
-            </div>
-            {/* Safe area padding for mobile */}
-            <div className="h-safe-area-b md:h-0" />
-          </div>
-        </div>
-      )}
-
-      {/* Profile Modal */}
-      {isProfileModalOpen && recipientProfile && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-0 md:p-4" onClick={() => setIsProfileModalOpen(false)}>
-          <div className="w-full md:max-w-sm bg-zinc-900 border-t md:border border-zinc-800 rounded-t-2xl md:rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-              <p className="text-sm text-zinc-300">User Profile</p>
-              <button onClick={() => setIsProfileModalOpen(false)} className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="p-6 flex flex-col items-center text-center gap-3">
-              <div className="w-24 h-24 rounded-full bg-zinc-800 relative overflow-hidden flex items-center justify-center">
-                {recipientProfile.profilePhoto ? (
-                  <Image src={recipientProfile.profilePhoto} alt={getUserDisplayName(recipientProfile)} fill sizes="96px" className="object-cover" unoptimized />
-                ) : (
-                  <User className="w-8 h-8 text-zinc-500" />
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <h4 className="text-lg font-semibold">{getUserDisplayName(recipientProfile)}</h4>
-                {recipientProfile.isVerified && <BadgeCheck className="w-4 h-4 text-blue-500" />}
-                {renderBadgeIcon(recipientProfile.badge)}
-              </div>
-              <p className="text-xs text-zinc-500">@{recipientProfile.username}</p>
-              <p className="text-sm text-zinc-300 min-h-10">{recipientProfile.bio?.trim() || 'No bio yet.'}</p>
-            </div>
-            {/* Safe area padding for mobile */}
-            <div className="h-safe-area-b md:h-0" />
-          </div>
-        </div>
-      )}
-    </div>
+    <ChatShell
+      currentUser={currentUser}
+      activeView={activeView}
+      setActiveView={setActiveView}
+      sidebarTab={sidebarTab}
+      setSidebarTab={setSidebarTab}
+      adminTab={adminTab}
+      setAdminTab={setAdminTab}
+      adminUsers={adminUsers}
+      adminReports={adminReports}
+      adminSettings={adminSettings}
+      adminAuditLogs={adminAuditLogs}
+      adminOverview={adminOverview}
+      isLoadingAdmin={isLoadingAdmin}
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      searchResults={searchResults}
+      isSearching={isSearching}
+      contacts={contacts}
+      communities={communities}
+      selectedRecipient={selectedRecipient}
+      selectedGroup={selectedGroup}
+      copied={copied}
+      isProfileModalOpen={isProfileModalOpen}
+      setIsProfileModalOpen={setIsProfileModalOpen}
+      recipientProfile={recipientProfile}
+      showCreateGroup={showCreateGroup}
+      setShowCreateGroup={setShowCreateGroup}
+      newGroupName={newGroupName}
+      setNewGroupName={setNewGroupName}
+      newGroupType={newGroupType}
+      setNewGroupType={setNewGroupType}
+      newGroupDesc={newGroupDesc}
+      setNewGroupDesc={setNewGroupDesc}
+      mobileTab={mobileTab}
+      setMobileTab={setMobileTab}
+      mobileShowChat={mobileShowChat}
+      setMobileShowChat={setMobileShowChat}
+      sessionKey={sessionKey}
+      isOtherUserTyping={isOtherUserTyping}
+      loadingMessages={loadingMessages}
+      messages={messages}
+      scrollRef={scrollRef}
+      fileInputRef={fileInputRef}
+      input={input}
+      isUploading={isUploading}
+      onAddContact={handleAddContact}
+      onSelectContact={handleSelectContact}
+      onSelectGroup={handleSelectGroup}
+      onCreateGroup={handleCreateGroup}
+      onOpenRecipientProfile={openRecipientProfileModal}
+      onInputChange={setInput}
+      onSubmit={sendMessage}
+      onFileUpload={handleFileUpload}
+      onCopyId={copyToClipboard}
+      onLogout={handleLogout}
+      onToggleBan={handleToggleBan}
+      onUpdateUserBadges={handleUpdateUserBadges}
+      onSettingsChange={setAdminSettings}
+      onSaveSettings={handleUpdateSettings}
+    />
   );
 }
 
