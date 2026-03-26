@@ -50,7 +50,7 @@ export default function LoginPage() {
 
     try {
       // Step 1: Fetch public settings via REST API
-      const settingsRes = await fetch('/api/settings/public');
+      const settingsRes = await fetch('/api/settings/public', { cache: 'no-store' });
       if (!settingsRes.ok) {
         throw new Error(`Settings API returned ${settingsRes.status}`);
       }
@@ -63,7 +63,7 @@ export default function LoginPage() {
       setIsCaptchaEnabled(true);
 
       // Step 2: Fetch captcha via REST API
-      const captchaRes = await fetch('/api/captcha');
+      const captchaRes = await fetch('/api/captcha', { cache: 'no-store' });
       if (!captchaRes.ok) {
         throw new Error(`Captcha API returned ${captchaRes.status}`);
       }

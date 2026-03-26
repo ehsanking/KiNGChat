@@ -46,7 +46,7 @@ export default function RegisterV2Page() {
 
   const fetchCaptcha = async () => {
     try {
-      const response = await fetch('/api/captcha');
+      const response = await fetch('/api/captcha', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setPublicSettings((prev) => ({ ...prev, isCaptchaEnabled: true }));

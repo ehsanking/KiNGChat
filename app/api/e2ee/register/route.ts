@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { registerUser } from '@/app/actions/auth';
+import { assertSameOrigin } from '@/lib/request-security';
 import { verifySignedPreKey } from '@/lib/e2ee-signing';
 
 export async function POST(request: Request) {
   try {
+    assertSameOrigin(request);
     const body = await request.json();
     const username = typeof body?.username === 'string' ? body.username : '';
     const password = typeof body?.password === 'string' ? body.password : '';
