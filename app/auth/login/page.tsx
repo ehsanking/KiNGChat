@@ -24,6 +24,24 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState('');
   const router = useRouter();
   const isCaptchaReady = !isCaptchaEnabled || (!!captchaId && !!captchaImage && !captchaError);
+  const fetchJsonWithRetry = useCallback(async (url: string, attempts = 3) => {
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`${url} returned ${response.status}`);
+        }
+        return await response.json();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown network error');
+        if (attempt < attempts) {
+          await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+        }
+      }
+    }
+    throw lastError ?? new Error('Request failed');
+  }, []);
 
   // Auto-redirect if already logged in by checking the session cookie
   useEffect(() => {
@@ -51,11 +69,7 @@ export default function LoginPage() {
 
     try {
       // Step 1: Fetch public settings via REST API
-      const settingsRes = await fetch('/api/settings/public', { cache: 'no-store' });
-      if (!settingsRes.ok) {
-        throw new Error(`Settings API returned ${settingsRes.status}`);
-      }
-      const settingsData = await settingsRes.json();
+      const settingsData = await fetchJsonWithRetry('/api/settings/public');
       if (settingsData.success && settingsData.settings?.isCaptchaEnabled === false) {
         setIsCaptchaEnabled(false);
         return;
@@ -64,11 +78,7 @@ export default function LoginPage() {
       setIsCaptchaEnabled(true);
 
       // Step 2: Fetch captcha via REST API
-      const captchaRes = await fetch('/api/captcha', { cache: 'no-store' });
-      if (!captchaRes.ok) {
-        throw new Error(`Captcha API returned ${captchaRes.status}`);
-      }
-      const captchaData = await captchaRes.json();
+      const captchaData = await fetchJsonWithRetry('/api/captcha');
 
       if (captchaData.success && captchaData.captchaId && captchaData.image) {
         setCaptchaId(captchaData.captchaId);
@@ -81,7 +91,7 @@ export default function LoginPage() {
       setCaptchaError(true);
       setCaptchaErrorMessage(err instanceof Error ? err.message : 'Unknown captcha error');
     }
-  }, []);
+  }, [fetchJsonWithRetry]);
 
   useEffect(() => {
     fetchCaptcha();

@@ -8,7 +8,7 @@ import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts'
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
 import { generateCaptchaText, generateCaptchaSvg } from '@/lib/captcha';
-import { createCaptchaChallenge, verifyCaptchaChallenge } from '@/lib/captcha-store';
+import { createCaptchaChallengeResilient, verifyCaptchaChallengeResilient } from '@/lib/captcha-store';
 import argon2 from 'argon2';
 import { headers, cookies } from 'next/headers';
 import os from 'os';
@@ -164,7 +164,7 @@ export async function generateCaptcha() {
   try {
     const text = generateCaptchaText(5);
     const svg = generateCaptchaSvg(text);
-    const captchaId = createCaptchaChallenge(text);
+    const captchaId = await createCaptchaChallengeResilient(text);
 
     // Return base64-encoded SVG image
     const svgBase64 = Buffer.from(svg).toString('base64');
@@ -181,7 +181,7 @@ export async function generateCaptcha() {
 
 async function validateCaptcha(captchaId: string, answer: string) {
   if (!captchaId || !answer) return false;
-  return verifyCaptchaChallenge(captchaId, answer);
+  return verifyCaptchaChallengeResilient(captchaId, answer);
 }
 
 /**

@@ -25,11 +25,28 @@ export default function RegisterV2Page() {
   const [status, setStatus] = useState('Ready to create your account.');
   const passwordHint = useMemo(() => 'Use 8+ characters with upper/lowercase letters, a number, and a symbol.', []);
   const isCaptchaReady = !publicSettings.isCaptchaEnabled || (!!captchaId && !!captchaImage && !isCaptchaLoading && !captchaError);
+  const fetchJsonWithRetry = async (url: string, attempts = 3) => {
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`${url} returned ${response.status}`);
+        }
+        return await response.json();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown network error');
+        if (attempt < attempts) {
+          await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+        }
+      }
+    }
+    throw lastError ?? new Error('Request failed');
+  };
 
   const loadPublicSettings = async () => {
     try {
-      const response = await fetch('/api/settings/public', { cache: 'no-store' });
-      const data = await response.json();
+      const data = await fetchJsonWithRetry('/api/settings/public');
       if (data?.success && data?.settings) {
         setPublicSettings({
           isCaptchaEnabled: Boolean(data.settings.isCaptchaEnabled),
@@ -51,8 +68,7 @@ export default function RegisterV2Page() {
     setIsCaptchaLoading(true);
     setCaptchaError('');
     try {
-      const response = await fetch('/api/captcha', { cache: 'no-store' });
-      const data = await response.json();
+      const data = await fetchJsonWithRetry('/api/captcha');
       if (data.success) {
         setPublicSettings((prev) => ({ ...prev, isCaptchaEnabled: true }));
         setCaptchaId(data.captchaId);
