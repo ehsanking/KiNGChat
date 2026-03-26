@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getOrCreateAdminSettings } from '@/lib/admin-settings';
 import { logger } from '@/lib/logger';
 import { getOrSetCache, invalidateCache } from '@/lib/cache';
+import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
 import { generateCaptchaText, generateCaptchaSvg } from '@/lib/captcha';
@@ -343,13 +344,7 @@ export async function loginUser(formData: LoginUserInput) {
 
   // 1. IP Rate Limiting Check
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-  const failedIpAttempts = await prisma.loginAttempt.count({
-    where: {
-      ip,
-      success: false,
-      createdAt: { gte: fiveMinutesAgo }
-    }
-  });
+  const failedIpAttempts = await countFailedIpAttempts(ip, fiveMinutesAgo);
 
   if (failedIpAttempts >= 10) {
     return { error: 'Too many failed attempts from this IP. Please try again later.' };
@@ -361,7 +356,7 @@ export async function loginUser(formData: LoginUserInput) {
     });
 
     if (!user) {
-      await prisma.loginAttempt.create({ data: { ip, username, success: false } });
+      await createLoginAttempt(ip, username, false);
       await logAuditAction('LOGIN_FAILED', undefined, undefined, { username, reason: 'User not found' });
       return { error: 'Invalid username or password' };
     }
@@ -391,7 +386,7 @@ export async function loginUser(formData: LoginUserInput) {
         }
       });
 
-      await prisma.loginAttempt.create({ data: { ip, username, success: false } });
+      await createLoginAttempt(ip, username, false);
       await logAuditAction('LOGIN_FAILED', undefined, user.id, { username, reason: 'Invalid password' });
       return { error: 'Invalid username or password' };
     }
@@ -420,7 +415,7 @@ export async function loginUser(formData: LoginUserInput) {
       }
     }
 
-    await prisma.loginAttempt.create({ data: { ip, username, success: true } });
+    await createLoginAttempt(ip, username, true);
     await logAuditAction('LOGIN_SUCCESS', undefined, user.id, { username });
 
     // Check if 2FA is enabled
