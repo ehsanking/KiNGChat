@@ -107,8 +107,15 @@ if [ -n "$PRISMA_BIN" ]; then
   log "Running Prisma database migrations..."
   if ! run_prisma migrate deploy --schema=./prisma/schema.prisma 2>&1; then
     warn "prisma migrate deploy failed. Trying db push as fallback..."
-    if ! run_prisma db push --schema=./prisma/schema.prisma --accept-data-loss 2>&1; then
+    if ! run_prisma db push --schema=./prisma/schema.prisma --accept-data-loss --skip-generate 2>&1; then
       warn "db push also failed. Database may need manual setup."
+    fi
+  else
+    # Safety net: ensure schema and tables exist even if migration history was out of sync.
+    # This prevents runtime errors like missing AdminSettings on first login.
+    log "Running Prisma schema sync safety check (db push --skip-generate)..."
+    if ! run_prisma db push --schema=./prisma/schema.prisma --skip-generate 2>&1; then
+      warn "Schema sync safety check failed after migrate deploy."
     fi
   fi
 else
