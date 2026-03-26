@@ -210,7 +210,7 @@ export async function registerUser(formData: RegisterUserInput) {
   const settings = await getOrSetCache('adminSettings', async () => {
     let storedSettings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
     if (!storedSettings) {
-      storedSettings = await prisma.adminSettings.create({ data: { id: '1' } });
+      storedSettings = await prisma.adminSettings.create({ data: { id: '1', isCaptchaEnabled: false } });
     }
     return storedSettings;
   });
@@ -335,7 +335,7 @@ export async function loginUser(formData: LoginUserInput) {
   const settings = await getOrSetCache('adminSettings', async () => {
     let storedSettings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
     if (!storedSettings) {
-      storedSettings = await prisma.adminSettings.create({ data: { id: '1' } });
+      storedSettings = await prisma.adminSettings.create({ data: { id: '1', isCaptchaEnabled: false } });
     }
     return storedSettings;
   });
@@ -618,7 +618,7 @@ export async function getPublicSettings() {
     const settings = await getOrSetCache('publicSettings', async () => {
       let storedSettings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
       if (!storedSettings) {
-        storedSettings = await prisma.adminSettings.create({ data: { id: '1' } });
+        storedSettings = await prisma.adminSettings.create({ data: { id: '1', isCaptchaEnabled: false } });
       }
       return {
         isRegistrationEnabled: storedSettings.isRegistrationEnabled,

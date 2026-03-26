@@ -6,7 +6,7 @@
 ### The Secure Messenger for the Private Era
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold.svg)](LICENSE)  
-[![Version](https://img.shields.io/badge/Version-2.5-blue.svg)]()  
+[![Version](https://img.shields.io/badge/Version-3.1-blue.svg)]()
 [![Status](https://img.shields.io/badge/Status-Production--Ready-emerald.svg)]()
 
 [English](README.md) | [فارسی](README.fa.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [中文](README.zh.md) | [Español](README.es.md) | [ไทย](README.th.md) | [Português](README.pt.md) | [Deutsch](README.de.md) | [Dansk](README.da.md) | [Svenska](README.sv.md) | [Türkçe](README.tr.md)
@@ -26,7 +26,7 @@ KiNGChat is an open source, end‑to‑end encrypted messenger built for privacy
 - **Two‑Factor Authentication (2FA):**  Add an extra layer of security using TOTP (Google Authenticator, Authy or compatible apps).  Users can enable, verify and disable 2FA in their profile settings.
 - **Message Persistence & History:**  Messages and attachments are stored in a PostgreSQL database via Prisma and loaded on demand with cursor‑based pagination.
 - **Admin Panel:**  A built‑in administration panel provides user management, system configuration, audit logging and operational dashboards.  Change registration policies, ban or unban users, set upload limits and review moderation actions.
-- **Progressive Web App (PWA):**  Install KiNGChat on your phone or desktop for native‑like performance and offline support.  Detailed guides are included for packaging the PWA into native apps.
+ - **Progressive Web App (PWA) \(experimental\):**  A PWA mode was explored in earlier versions.  Offline caching and install prompts are still available in limited form, but the dedicated PWA plugin has been removed as of v3.1.  Native‑like packaging guides are retained for reference.
 - **Professional Installer:**  A one‑liner installation script performs preflight checks, generates secrets, configures Docker and Caddy, performs database migrations and launches the stack.  Everything is automatic.
 - **Docker Deployment:**  Official Dockerfile and docker-compose configurations are provided for easy production deployment with SSL termination by Caddy.
 - **Modern UX:**  Built with Tailwind CSS, Lucide icons and motion animations, the interface is clean, responsive and accessible.

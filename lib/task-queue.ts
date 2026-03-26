@@ -1,4 +1,91 @@
-import PQueue from 'p-queue';
+/*
+ * A minimal in‑memory task queue with concurrency control.  We avoid
+ * pulling in the full `p-queue` dependency to reduce the bundle size and
+ * simplify error handling.  The SimpleQueue class exposes the same
+ * interface methods used in this module: `add`, `on`, `size` and
+ * `pending`.  Event names correspond to those emitted by p-queue:
+ *   - 'add': fired whenever a task is enqueued
+ *   - 'next': fired when a task is about to start
+ *   - 'completed': fired when a task completes successfully
+ *   - 'error': fired when a task rejects
+ */
+
+type QueueEvent = 'add' | 'next' | 'completed' | 'error';
+
+class SimpleQueue {
+  private concurrency: number;
+  private running: number;
+  private queue: Array<{
+    task: () => Promise<unknown>;
+    resolve: (value: unknown) => void;
+    reject: (reason?: unknown) => void;
+  }>;
+  private listeners: Record<QueueEvent, Array<() => void>>;
+
+  public size: number;
+  public pending: number;
+
+  constructor({ concurrency }: { concurrency: number }) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.queue = [];
+    this.listeners = { add: [], next: [], completed: [], error: [] } as Record<QueueEvent, Array<() => void>>;
+    this.size = 0;
+    this.pending = 0;
+  }
+
+  /** Register an event listener. */
+  on(event: QueueEvent, listener: () => void): void {
+    this.listeners[event].push(listener);
+  }
+
+  /** Emit an event to all registered listeners. */
+  private emit(event: QueueEvent): void {
+    for (const listener of this.listeners[event]) {
+      try {
+        listener();
+      } catch {
+        // Ignore listener errors.
+      }
+    }
+  }
+
+  /** Enqueue a new task and return a promise for its result. */
+  add<T>(task: () => Promise<T>): Promise<T> {
+    this.emit('add');
+    return new Promise<T>((resolve, reject) => {
+      this.queue.push({ task, resolve: resolve as any, reject });
+      this.size = this.queue.length;
+      this.pending = this.running;
+      this.process();
+    });
+  }
+
+  /** Attempt to run tasks while we have available concurrency. */
+  private process(): void {
+    while (this.running < this.concurrency && this.queue.length) {
+      const { task, resolve, reject } = this.queue.shift()!;
+      this.size = this.queue.length;
+      this.emit('next');
+      this.running++;
+      this.pending = this.running;
+      (async () => {
+        try {
+          const result = await task();
+          resolve(result);
+          this.emit('completed');
+        } catch (error) {
+          reject(error);
+          this.emit('error');
+        } finally {
+          this.running--;
+          this.pending = this.running;
+          this.process();
+        }
+      })();
+    }
+  }
+}
 import { logger } from '@/lib/logger';
 import { getRedisClient } from '@/lib/redis-client';
 import { incrementMetric, setGauge } from '@/lib/observability';
@@ -8,7 +95,7 @@ const getQueueConcurrency = () => {
   return Number.isFinite(value) && value > 0 ? value : 5;
 };
 
-const queue = new PQueue({ concurrency: getQueueConcurrency() });
+const queue = new SimpleQueue({ concurrency: getQueueConcurrency() });
 const redisQueueName = process.env.BACKGROUND_JOB_QUEUE_NAME || 'kingchat:jobs';
 const redisDelayedQueueName = `${redisQueueName}:delayed`;
 const redisDeadLetterQueueName = `${redisQueueName}:dead`;

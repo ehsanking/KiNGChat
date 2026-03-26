@@ -1,0 +1,36 @@
+KiNGChat Version 3.0 Doctor Report
+===================================
+
+This document summarizes the high‑level changes applied to migrate KiNGChat from v2.6 to v3.0 and align the project with the recommended package architecture.  The primary goals were to simplify the dependency graph, improve maintainability and ensure that the installer no longer fails because of removed services (e.g. MinIO).  The following adjustments have been made:
+
+1. **Package upgrades and removals**
+   - Bumped the version number in `package.json` to `3.0.0`.
+   - Removed unused dependencies: `@ducanh2912/next-pwa`, `firebase` and `p-queue`.  These packages were either unmaintained or not required for the new architecture.
+   - Removed `tw-animate-css` from `devDependencies` to lighten the build.
+   - Moved `autoprefixer` from regular dependencies to `devDependencies`.  Tailwind uses PostCSS under the hood; keeping `autoprefixer` as a dev dependency is sufficient and avoids bundling it in production.
+
+2. **Updated `next.config.ts`**
+   - Eliminated the dependency on `@ducanh2912/next-pwa` and removed the PWA wrapper.  The configuration now exports `nextConfig` directly with a descriptive comment explaining how to add service worker functionality in the future.  This avoids bundling an unmaintained plugin and simplifies builds.
+
+3. **Stubbed out Firebase integration**
+   - Removed the Firebase imports from `lib/firebase.ts` and replaced the module with a simple shim.  The exported `app` and `messaging` constants now resolve to `null`, and the functions `requestNotificationPermission` and `onMessageListener` call browser APIs or return a resolved promise.  This aligns the project with the new Web Push + service worker strategy for notifications.
+
+4. **Implemented a minimal task queue**
+   - Deleted the `p-queue` dependency and introduced a `SimpleQueue` class directly inside `lib/task-queue.ts`.  The new queue supports configurable concurrency, basic event hooks (`add`, `next`, `completed`, `error`) and tracks active/pending tasks.  This reduces bundle size and avoids pulling in extra dependencies.
+
+5. **Updated the installer context**
+   - No changes to the `install.sh` were necessary for the v3.0 migration because the MinIO service was removed in a previous release.  The installer now correctly detects when no `minio` service exists and defaults to local filesystem storage.
+
+6. **Preserved existing functionality**
+   - All other dependencies, such as `next`, `react`, `prisma`, `socket.io`, `redis`, `argon2` and the various Tailwind/UI helpers remain unchanged.  The version bump and dependency cleanup should not affect application features.  The stubbed Firebase module ensures that components depending on `requestNotificationPermission` still compile, though actual push registration must now be implemented via Web Push in the frontend.
+
+7. **Known limitations**
+   - The project still includes an outdated `package-lock.json` which references removed packages.  Updating this lockfile normally requires running `npm install`, but because this environment is offline the lockfile could not be regenerated.  Users should run `npm install --package-lock-only` in a networked environment to produce a clean lockfile.
+   - The build process may emit warnings about peer dependencies (for example, `lucide-react` expects React 19.2.4).  These warnings do not block the build but should be reviewed in future upgrades.
+
+8. **Next steps**
+   - Implement Web Push subscription logic and service worker registration to replace Firebase messaging.
+   - Consider migrating away from a custom server (`tsx server.ts`) to the standard `next start` runtime for better portability.
+   - Regenerate the lockfile in a networked environment to fully synchronize dependency metadata.
+
+The changes above collectively move KiNGChat toward a cleaner, more maintainable architecture while preserving the core features and aligning with the recommended package list.

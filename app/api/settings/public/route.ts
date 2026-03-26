@@ -15,7 +15,7 @@ export async function GET() {
   try {
     let settings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
     if (!settings) {
-      settings = await prisma.adminSettings.create({ data: { id: '1' } });
+      settings = await prisma.adminSettings.create({ data: { id: '1', isCaptchaEnabled: false } });
     }
 
     return NextResponse.json({

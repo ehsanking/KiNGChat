@@ -7,8 +7,9 @@ const AUTH_ROUTES = ['/auth/login', '/auth/register'];
 const SETUP_ADMIN_ROUTE = '/auth/setup-admin';
 const CHAT_ROUTE = '/chat';
 const LEGACY_CHAT_ROUTE = '/chat-v2';
+const ADMIN_ROUTE = '/admin';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const session = getSessionFromCookieHeader(request.headers.get('cookie'), {
     userAgent: request.headers.get('user-agent'),
     ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip'),
@@ -44,6 +45,42 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
+  // Protect all administrative routes.  If the request path begins with /admin and the user is not
+  // authenticated or not an administrator, redirect them away.  Without this guard, pages under
+  // /admin could expose audit logs, system metrics or sensitive settings to regular users.
+  if (pathname === ADMIN_ROUTE || pathname.startsWith(`${ADMIN_ROUTE}/`)) {
+    if (!session) {
+      const response = NextResponse.redirect(new URL('/auth/login', request.url));
+      applySecurityHeaders(response.headers);
+      return response;
+    }
+    if (session.role !== 'ADMIN') {
+      const response = NextResponse.redirect(new URL('/', request.url));
+      applySecurityHeaders(response.headers);
+      return response;
+    }
+  }
+
+  // Enforce CSRF protection on all state‑changing HTTP methods.  For POST, PUT, PATCH and DELETE
+  // requests we require the origin header to match the configured APP_URL/ALLOWED_ORIGINS and
+  // validate the X-CSRF-Token header against the session.  This is applied globally here so that
+  // individual route handlers don’t need to duplicate these checks.  See lib/request-security.ts for
+  // implementation details.
+  const method = request.method?.toUpperCase() || 'GET';
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    try {
+      // runtime imports are used here to avoid pulling in heavy dependencies into the edge bundle
+      const { assertSameOrigin, validateCsrfToken } = await import('@/lib/request-security');
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      assertSameOrigin(request as unknown as Request);
+      if (session) {
+        validateCsrfToken(request as unknown as Request, session);
+      }
+    } catch (error) {
+      return new Response('Invalid CSRF token or origin', { status: 403 });
+    }
+  }
+
   const response = NextResponse.next();
   response.headers.set('x-request-id', request.headers.get('x-request-id') || createRequestId());
   applySecurityHeaders(response.headers);
@@ -51,5 +88,20 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/auth/login', '/auth/register', '/auth/setup-admin', '/chat', '/chat/:path*', '/chat-v2', '/chat-v2/:path*'],
+  // Apply the middleware to authentication routes, chat, legacy chat, admin pages and all API
+  // endpoints.  Extending the matcher ensures that CSRF and session checks are enforced on
+  // sensitive POST/PUT/DELETE requests within the API.  You can narrow this list if certain
+  // routes should be public.
+  matcher: [
+    '/auth/login',
+    '/auth/register',
+    '/auth/setup-admin',
+    '/chat',
+    '/chat/:path*',
+    '/chat-v2',
+    '/chat-v2/:path*',
+    '/admin',
+    '/admin/:path*',
+    '/api/:path*',
+  ],
 };

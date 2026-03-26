@@ -13,7 +13,10 @@ setupSecrets();
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';
-const port = parseInt(process.env.PORT || '5000', 10);
+// Default to port 3000 unless explicitly overridden by the environment.  A single
+// canonical port eliminates confusion across docker compose files, healthchecks
+// and runtime scripts.  See PHASEA_PRODUCTION_HARDENING.md for more details.
+const port = parseInt(process.env.PORT || '3000', 10);
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 

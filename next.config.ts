@@ -1,17 +1,10 @@
 import type {NextConfig} from 'next';
-import withPWAInit from '@ducanh2912/next-pwa';
 
-const withPWA = withPWAInit({
-  dest: 'public',
-  register: true,
-  disable: process.env.NODE_ENV === 'development',
-  cacheOnFrontEndNav: true,
-  reloadOnOnline: true,
-  workboxOptions: {
-    skipWaiting: true,
-    clientsClaim: true,
-  },
-});
+// The application previously relied on the `@ducanh2912/next-pwa` plugin to enable PWA
+// functionality.  In KiNGChat v3.0 the dependency on this plugin has been removed to
+// simplify the build and reduce bundle size.  If you wish to add a service worker or
+// offline caching in the future, integrate your own workbox configuration instead of
+// depending on an unmaintained plugin.
 
 const cdnUrl = process.env.CDN_URL;
 
@@ -68,4 +61,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+// Export the Next.js configuration directly.  If PWA support is desired, you can
+// register a service worker in `pages/_app.tsx` or a custom hook without wrapping
+// the configuration in a plugin.
+export default nextConfig;

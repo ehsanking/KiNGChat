@@ -2,8 +2,8 @@
 
 @theme {
   --font-sans: var(--font-vazirmatn), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --color-brand-blue: #2aabee;
-  --color-brand-gold: #2aabee;
+  --color-brand-blue: #0f365b;
+  --color-brand-gold: #c49a45;
 }
 
 /* Safe area padding for mobile devices (notch, home indicator) */
@@ -22,47 +22,4 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-
-body {
-  background: #0e1621;
-  color: #f8fafc;
-}
-
-.telegram-shell {
-  background: linear-gradient(180deg, #0e1621 0%, #101a26 100%);
-}
-
-.telegram-main {
-  background: linear-gradient(180deg, #17212b 0%, #101821 100%);
-}
-
-.telegram-sidebar {
-  background: linear-gradient(180deg, rgba(23,33,43,0.96) 0%, rgba(19,28,38,0.98) 100%);
-  backdrop-filter: blur(18px);
-}
-
-.telegram-panel {
-  background: rgba(23, 33, 43, 0.72);
-  backdrop-filter: blur(14px);
-}
-
-.telegram-chat-bg {
-  background-color: #0f1720;
-  background-image:
-    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0),
-    linear-gradient(180deg, rgba(42,171,238,0.04), rgba(15,23,32,0));
-  background-size: 18px 18px, 100% 100%;
-}
-
-.telegram-composer {
-  background: rgba(15, 23, 32, 0.88);
-  backdrop-filter: blur(16px);
-}
-
-.telegram-chip {
-  background: rgba(42, 171, 238, 0.12);
-  color: #6fd3ff;
-  border: 1px solid rgba(42, 171, 238, 0.18);
 }
