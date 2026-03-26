@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { getOrCreateAdminSettings, upsertAdminSettings } from '@/lib/admin-settings';
 import { logger } from '@/lib/logger';
 import { getOrSetCache, invalidateCache } from '@/lib/cache';
 import { revalidatePath } from 'next/cache';
@@ -52,17 +53,9 @@ export async function updateFileUploadSettings(maxSize: number, formats: string)
   }
 
   try {
-    await prisma.adminSettings.upsert({
-      where: { id: '1' },
-      update: {
-        maxAttachmentSize: sanitizedMaxSize,
-        allowedFileFormats: sanitizedFormats,
-      },
-      create: {
-        id: '1',
-        maxAttachmentSize: sanitizedMaxSize,
-        allowedFileFormats: sanitizedFormats,
-      },
+    await upsertAdminSettings({
+      maxAttachmentSize: sanitizedMaxSize,
+      allowedFileFormats: sanitizedFormats,
     });
     invalidateCache('adminSettings');
     invalidateCache('publicSettings');
@@ -98,11 +91,7 @@ export async function updateFirebaseSettings(config: string | null) {
   }
 
   try {
-    await prisma.adminSettings.upsert({
-      where: { id: '1' },
-      update: { firebaseConfig: config },
-      create: { id: '1', firebaseConfig: config },
-    });
+    await upsertAdminSettings({ firebaseConfig: config });
     invalidateCache('adminSettings');
     invalidateCache('publicSettings');
     revalidatePath('/admin/settings');
@@ -349,13 +338,7 @@ export async function getAdminSettings() {
   }
   try {
     const settings = await getOrSetCache('adminSettings', async () => {
-      let storedSettings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
-      if (!storedSettings) {
-        storedSettings = await prisma.adminSettings.create({
-          data: { id: '1' },
-        });
-      }
-      return storedSettings;
+      return getOrCreateAdminSettings();
     });
     return { success: true, settings };
   } catch (error) {
@@ -402,11 +385,7 @@ export async function updateAdminSettings(settingsData: Record<string, unknown>)
       return { error: 'Invalid settings payload.' };
     }
 
-    await prisma.adminSettings.upsert({
-      where: { id: '1' },
-      update,
-      create: { id: '1', ...update },
-    });
+    await upsertAdminSettings(update);
 
     invalidateCache('adminSettings');
     invalidateCache('publicSettings');
@@ -465,7 +444,7 @@ export async function exportSystemData() {
   try {
     const [users, settings, reports] = await Promise.all([
       prisma.user.findMany(),
-      prisma.adminSettings.findUnique({ where: { id: '1' } }),
+      getOrCreateAdminSettings(),
       prisma.report.findMany(),
     ]);
     const data = {

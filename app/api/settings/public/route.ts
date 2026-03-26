@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getOrCreateAdminSettings } from '@/lib/admin-settings';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -13,10 +13,7 @@ export const runtime = 'nodejs';
  */
 export async function GET() {
   try {
-    let settings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
-    if (!settings) {
-      settings = await prisma.adminSettings.create({ data: { id: '1', isCaptchaEnabled: false } });
-    }
+    const settings = await getOrCreateAdminSettings();
 
     return NextResponse.json({
       success: true,

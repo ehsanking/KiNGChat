@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getOrCreateAdminSettings } from '@/lib/admin-settings';
 import { getSessionFromRequest } from '@/lib/session';
 import { assertSameOrigin } from '@/lib/request-security';
 import { storeSecureAttachment } from '@/lib/secure-attachments';
@@ -38,12 +38,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid form data.' }, { status: 400 });
     }
 
-    let settings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
-    if (!settings) {
-      settings = await prisma.adminSettings.create({
-        data: { id: '1', maxAttachmentSize: 10_485_760, allowedFileFormats: '*' },
-      });
-    }
+    const settings = await getOrCreateAdminSettings();
 
     if (file.size > settings.maxAttachmentSize) {
       return NextResponse.json(

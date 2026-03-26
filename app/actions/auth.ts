@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { getOrCreateAdminSettings } from '@/lib/admin-settings';
 import { logger } from '@/lib/logger';
 import { getOrSetCache, invalidateCache } from '@/lib/cache';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
@@ -208,11 +209,7 @@ export async function registerUser(formData: RegisterUserInput) {
 
   // Get settings
   const settings = await getOrSetCache('adminSettings', async () => {
-    let storedSettings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
-    if (!storedSettings) {
-      storedSettings = await prisma.adminSettings.create({ data: { id: '1', isCaptchaEnabled: false } });
-    }
-    return storedSettings;
+    return getOrCreateAdminSettings();
   });
 
   if (!settings.isRegistrationEnabled) {
@@ -333,11 +330,7 @@ export async function loginUser(formData: LoginUserInput) {
 
   // Get settings
   const settings = await getOrSetCache('adminSettings', async () => {
-    let storedSettings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
-    if (!storedSettings) {
-      storedSettings = await prisma.adminSettings.create({ data: { id: '1', isCaptchaEnabled: false } });
-    }
-    return storedSettings;
+    return getOrCreateAdminSettings();
   });
 
   // Validate Captcha
@@ -616,10 +609,7 @@ export async function getSystemOverview(adminId: string) {
 export async function getPublicSettings() {
   try {
     const settings = await getOrSetCache('publicSettings', async () => {
-      let storedSettings = await prisma.adminSettings.findUnique({ where: { id: '1' } });
-      if (!storedSettings) {
-        storedSettings = await prisma.adminSettings.create({ data: { id: '1', isCaptchaEnabled: false } });
-      }
+      const storedSettings = await getOrCreateAdminSettings();
       return {
         isRegistrationEnabled: storedSettings.isRegistrationEnabled,
         isCaptchaEnabled: storedSettings.isCaptchaEnabled,
