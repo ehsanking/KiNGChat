@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# كينغ شات 👑
+# KiNGChat 3.3 👑
 ### تطبيق مراسلة آمن لعصر الخصوصية
 
 [English version](README.md)

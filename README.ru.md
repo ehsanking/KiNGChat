@@ -1,4 +1,4 @@
-# KiNGChat 👑
+# KiNGChat 3.3 👑
 ### Безопасный мессенджер для эпохи приватности
 
 [English version](README.md)

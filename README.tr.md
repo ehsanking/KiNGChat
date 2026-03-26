@@ -1,4 +1,4 @@
-# KiNGChat 👑
+# KiNGChat 3.3 👑
 ### Gizlilik Çağı için Güvenli Mesajlaşma Uygulaması
 
 [English version](README.md)

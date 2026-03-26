@@ -1,4 +1,4 @@
-# KiNGChat 👑
+# KiNGChat 3.3 👑
 ### Den säkra meddelandetjänsten för integritetens era
 
 [Engelsk version](README.md)
