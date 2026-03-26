@@ -23,9 +23,9 @@ export type SessionData = {
 type SessionUserLike = Omit<SessionData, 'csrfToken' | 'issuedAt' | 'sessionVersion' | 'expiresAt'>;
 
 const getSessionSecret = () => {
-  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET || process.env.ENCRYPTION_KEY;
   if (!secret || secret.length < 32) {
-    throw new Error('SESSION_SECRET or JWT_SECRET with at least 32 characters is required.');
+    throw new Error('SESSION_SECRET, JWT_SECRET, or ENCRYPTION_KEY with at least 32 characters is required.');
   }
   return secret;
 };
