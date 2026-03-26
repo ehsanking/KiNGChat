@@ -131,6 +131,11 @@ const buildDraftStorageKey = (currentUserId?: string, recipientId?: string | nul
 
 const buildPendingQueueStorageKey = (currentUserId?: string) => currentUserId ? `kingchat:pending:${currentUserId}` : '';
 
+const adminSettingToggles: Array<{ label: string; key: keyof Pick<AdminSettings, 'isRegistrationEnabled' | 'isCaptchaEnabled'>; desc: string }> = [
+  { label: 'User Registration', key: 'isRegistrationEnabled', desc: 'Allow new users' },
+  { label: 'CAPTCHA Protection', key: 'isCaptchaEnabled', desc: 'Require CAPTCHA' },
+];
+
 const renderDeliveryLabel = (status?: DeliveryState) => {
   switch (status) {
     case 'QUEUED':
@@ -574,9 +579,9 @@ function ChatDashboardContent() {
     else alert(res.error);
   };
 
-  const handleUpdateUserBadges = async (userId: string, badge: string | null, isVerified: boolean) => {
+  const handleUpdateUserBadges = async (userId: string, badge: string | null | undefined, isVerified: boolean) => {
     if (!currentUser) return;
-    const res = await updateUserBadges(userId, badge, isVerified);
+    const res = await updateUserBadges(userId, badge ?? null, isVerified);
     if (res.success) fetchAdminData();
     else alert(res.error);
   };
@@ -1273,10 +1278,7 @@ function ChatDashboardContent() {
         ) : adminTab === 'settings' && adminSettings ? (
           <form onSubmit={handleUpdateSettings} className="max-w-2xl space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              {[
-                { label: 'User Registration', key: 'isRegistrationEnabled', desc: 'Allow new users' },
-                { label: 'CAPTCHA Protection', key: 'isCaptchaEnabled', desc: 'Require CAPTCHA' },
-              ].map(({ label, key, desc }) => (
+              {adminSettingToggles.map(({ label, key, desc }) => (
                 <div key={key} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
                   <div><p className="text-sm font-medium">{label}</p><p className="text-[10px] text-zinc-500">{desc}</p></div>
                   <button type="button" onClick={() => setAdminSettings({ ...adminSettings, [key]: !adminSettings[key] })}
@@ -1671,4 +1673,3 @@ export default function ChatDashboard() {
 // Export the chat dashboard content under a distinct name so that it can be
 // imported from other modules.  This makes it possible to break the monolithic
 // chat page down into smaller components without duplicating the entire file.
-export { ChatDashboardContent };

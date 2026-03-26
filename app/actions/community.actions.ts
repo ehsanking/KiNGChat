@@ -23,9 +23,9 @@ import {
   getMessageHistory as origGetMessageHistory,
 } from './auth';
 
-function getSession() {
+async function getSession() {
   try {
-    const token = cookies().get(SESSION_COOKIE_NAME)?.value;
+    const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
     return verifySessionToken(token);
   } catch {
     return null;
@@ -37,7 +37,7 @@ function getSession() {
  * belongs to.  Requires a valid session.
  */
 export async function getUserCommunities() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -54,7 +54,7 @@ export async function createCommunity(
   description?: string,
   isPublic?: boolean,
 ) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -65,7 +65,7 @@ export async function createCommunity(
  * Joins a group or channel via an invite link.  Requires a valid session.
  */
 export async function joinGroupByInvite(inviteLink: string) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -78,7 +78,7 @@ export async function joinGroupByInvite(inviteLink: string) {
  * valid session.
  */
 export async function addMemberToGroup(groupId: string, targetUserId: string) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -90,7 +90,7 @@ export async function addMemberToGroup(groupId: string, targetUserId: string) {
  * sufficient permissions (OWNER or ADMIN).  Requires a valid session.
  */
 export async function removeMemberFromGroup(groupId: string, targetUserId: string) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -112,7 +112,7 @@ export async function getGroupMembers(groupId: string) {
  * caller must not be the group owner.  Requires a valid session.
  */
 export async function leaveGroup(groupId: string) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -132,7 +132,7 @@ export async function getMessageHistory(
   cursor?: string,
   limit?: number,
 ) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }

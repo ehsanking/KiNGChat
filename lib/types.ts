@@ -12,6 +12,7 @@ export type ChatUser = {
   role: string;
   badge?: string | null;
   isVerified: boolean;
+  isBanned?: boolean;
   needsPasswordChange?: boolean;
 };
 
@@ -43,5 +44,6 @@ export type AuditLog = {
   targetId?: string | null;
   details?: string | null;
   ip?: string | null;
+  admin?: { id?: string; username?: string | null } | null;
   createdAt: string | Date;
 };

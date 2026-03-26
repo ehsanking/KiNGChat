@@ -49,6 +49,12 @@ export default function SetupAdminPage() {
     setIsLoading(true);
     setError('');
 
+    if (!currentUser) {
+      setError('Session not found. Please log in again.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const result = await updateAdminCredentials({
         userId: currentUser.id,

@@ -81,7 +81,7 @@ export async function getRuntimePreKeyBundle(userId: string, preferredDeviceId?:
     signedPreKey: device.signedPreKey,
     signedPreKeySig: device.signedPreKeySig,
     ratchetPublicKey: device.ratchetPublicKey,
-    oneTimePreKeys: reservation ? [{ keyId: reservation.keyId, publicKey: reservation.publicKey, signature: reservation.signature ?? undefined, status: reservation.status }] : [],
+    oneTimePreKeys: reservation ? [{ keyId: reservation.keyId, publicKey: reservation.publicKey, signature: reservation.signature ?? undefined, status: reservation.status as "AVAILABLE" | "RESERVED" | "CONSUMED" | "REVOKED" }] : [],
     e2eeVersion: 'phase4',
   };
 }
