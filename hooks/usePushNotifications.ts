@@ -7,7 +7,7 @@ const publicVapidKey = 'BBnXZtTiw0J0UBCgkJUXppUXiGtrkkgIJZEXpriCQMJ0ClRs9eL3v3Xg
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
+    .replace(/-/g, '+')
     .replace(/_/g, '/');
 
   const rawData = window.atob(base64);

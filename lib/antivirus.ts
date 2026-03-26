@@ -8,7 +8,7 @@ const sniffMime = (buffer: Buffer) => {
   if (buffer.length >= 3 && buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'image/jpeg';
   if (buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === '%PDF') return 'application/pdf';
   if (buffer.length >= 2 && buffer.subarray(0, 2).toString('ascii') === 'PK') return 'application/zip';
-  if (/^[\x09\x0A\x0D\x20-\x7E]*$/.test(buffer.subarray(0, Math.min(buffer.length, 256)).toString('latin1'))) return 'text/plain';
+  if (/^[\t\n\r -~]*$/.test(buffer.subarray(0, Math.min(buffer.length, 256)).toString('latin1'))) return 'text/plain';
   return 'application/octet-stream';
 };
 
