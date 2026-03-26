@@ -18,9 +18,9 @@ import {
   removeContact as origRemoveContact,
 } from './auth';
 
-function getSession() {
+async function getSession() {
   try {
-    const token = cookies().get(SESSION_COOKIE_NAME)?.value;
+    const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
     return verifySessionToken(token);
   } catch {
     return null;
@@ -31,7 +31,7 @@ function getSession() {
  * Returns the authenticated user's contacts.  Requires a valid session.
  */
 export async function getContacts() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -43,7 +43,7 @@ export async function getContacts() {
  * of the user to add.  A valid session is required.
  */
 export async function addContact(contactId: string) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -55,7 +55,7 @@ export async function addContact(contactId: string) {
  * the contact to remove.  A valid session is required.
  */
 export async function removeContact(contactId: string) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }

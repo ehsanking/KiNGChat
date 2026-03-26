@@ -19,9 +19,9 @@ import {
 
 // Helper to read and verify the session cookie.  Returns null if the
 // cookie is missing or invalid.
-function getSession() {
+async function getSession() {
   try {
-    const token = cookies().get(SESSION_COOKIE_NAME)?.value;
+    const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
     return verifySessionToken(token);
   } catch {
     return null;
@@ -34,7 +34,7 @@ function getSession() {
  * `getUserProfile` implementation with the derived userId.
  */
 export async function getUserProfile() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -51,7 +51,7 @@ export async function updateUserProfile(formData: {
   bio?: string;
   profilePhoto?: string | null;
 }) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }

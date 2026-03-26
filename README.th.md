@@ -1,4 +1,4 @@
-# KiNGChat 👑
+# KiNGChat 3.3 👑
 ### แอปส่งข้อความที่ปลอดภัยสำหรับยุคแห่งความเป็นส่วนตัว
 
 [English version](README.md)

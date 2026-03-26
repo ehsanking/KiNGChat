@@ -1,15 +1,14 @@
 "use client";
 
-import { ChatDashboardContent } from './page';
+import ChatDashboard from './page';
 
 /**
- * ChatShell is a thin wrapper around the existing ChatDashboardContent component.
+ * ChatShell is a thin wrapper around the default chat dashboard page component.
  *
- * Splitting this into its own file allows the chat page to be more modular and
- * easier to refactor in the future.  Consumers can import ChatShell instead of
- * reaching into page.tsx directly.  Over time the logic from ChatDashboardContent
- * can be moved here or into further subcomponents without affecting callers.
+ * Keeping this wrapper avoids cross-importing named exports from Next.js page
+ * modules (which is invalid in production builds) while preserving a stable
+ * composition point for future chat UI refactors.
  */
 export default function ChatShell() {
-  return <ChatDashboardContent />;
+  return <ChatDashboard />;
 }

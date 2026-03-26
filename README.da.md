@@ -1,4 +1,4 @@
-# KiNGChat 👑
+# KiNGChat 3.3 👑
 ### Den sikre beskedtjeneste til privatlivets tidsalder
 
 [Engelsk version](README.md)

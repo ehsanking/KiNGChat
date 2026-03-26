@@ -4,11 +4,17 @@ import { useState, useEffect } from 'react';
 import { getUsers, updateUserRole, updateUserBadge, toggleUserVerification } from '@/app/actions/admin';
 import { Shield, BadgeCheck, Search, ShieldAlert, Headset, ShoppingBag, Wrench, Megaphone, Loader2 } from 'lucide-react';
 
-// Import shared type definition for users to avoid using `any`.
-import type { ChatUser } from '@/lib/types';
+type AdminUserRow = {
+  id: string;
+  username: string;
+  displayName?: string | null;
+  role: string;
+  badge?: string | null;
+  isVerified: boolean;
+};
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<ChatUser[]>([]);
+  const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
 

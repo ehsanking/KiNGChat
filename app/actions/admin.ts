@@ -16,8 +16,8 @@ const allowedRoles = new Set(['USER', 'ADMIN']);
  * Retrieves the current session from the request cookies and verifies that the user
  * is an administrator. Throws an error if no session is present or the role is not ADMIN.
  */
-function requireAdminSession() {
-  const cookieHeader = cookies().toString();
+async function requireAdminSession() {
+  const cookieHeader = (await cookies()).toString();
   const session = getSessionFromCookieHeader(cookieHeader);
   if (!session || session.role !== 'ADMIN') {
     throw new Error('Unauthorized');
@@ -36,7 +36,7 @@ function requireAdminSession() {
  */
 export async function updateFileUploadSettings(maxSize: number, formats: string) {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -81,7 +81,7 @@ export async function updateFileUploadSettings(maxSize: number, formats: string)
  */
 export async function updateFirebaseSettings(config: string | null) {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -117,7 +117,7 @@ export async function updateFirebaseSettings(config: string | null) {
 
 export async function getUsers() {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -144,7 +144,7 @@ export async function getUsers() {
 
 export async function updateUserRole(userId: string, role: string) {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -169,7 +169,7 @@ export async function updateUserRole(userId: string, role: string) {
 
 export async function updateUserBadge(userId: string, badge: string | null) {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -190,7 +190,7 @@ export async function updateUserBadge(userId: string, badge: string | null) {
 
 export async function toggleUserVerification(userId: string, isVerified: boolean) {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -251,7 +251,7 @@ async function logAdminAudit(
  */
 export async function getAllUsers() {
   try {
-    const session = requireAdminSession();
+    const session = await requireAdminSession();
     // The requireAdminSession call ensures session.role === 'ADMIN'; if it throws,
     // execution stops here.
     const users = await prisma.user.findMany({
@@ -282,7 +282,7 @@ export async function getAllUsers() {
  */
 export async function toggleBanUser(targetUserId: string) {
   try {
-    const session = requireAdminSession();
+    const session = await requireAdminSession();
     const adminId = session.userId;
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) return { error: 'User not found' };
@@ -313,7 +313,7 @@ export async function toggleBanUser(targetUserId: string) {
  */
 export async function updateUserBadges(targetUserId: string, badge: string | null, isVerified: boolean) {
   try {
-    const session = requireAdminSession();
+    const session = await requireAdminSession();
     const adminId = session.userId;
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) return { error: 'User not found' };
@@ -343,7 +343,7 @@ export async function updateUserBadges(targetUserId: string, badge: string | nul
  */
 export async function getAdminSettings() {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -372,7 +372,7 @@ export async function getAdminSettings() {
  */
 export async function updateAdminSettings(settingsData: Record<string, unknown>) {
   try {
-    const session = requireAdminSession();
+    const session = await requireAdminSession();
     const adminId = session.userId;
 
     // Sanitize input.  Only allow specific fields to be updated.
@@ -429,7 +429,7 @@ export async function updateAdminSettings(settingsData: Record<string, unknown>)
  */
 export async function getAuditLogs(limit = 100) {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -458,7 +458,7 @@ export async function getAuditLogs(limit = 100) {
  */
 export async function exportSystemData() {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -488,7 +488,7 @@ export async function exportSystemData() {
  */
 export async function getAllReports() {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }
@@ -514,7 +514,7 @@ export async function getAllReports() {
  */
 export async function resolveReport(reportId: string, status: 'RESOLVED' | 'DISMISSED') {
   try {
-    const session = requireAdminSession();
+    const session = await requireAdminSession();
     const adminId = session.userId;
 
     await prisma.report.update({
@@ -539,7 +539,7 @@ export async function resolveReport(reportId: string, status: 'RESOLVED' | 'DISM
  */
 export async function getSystemOverview() {
   try {
-    requireAdminSession();
+    await requireAdminSession();
   } catch {
     return { error: 'Unauthorized' };
   }

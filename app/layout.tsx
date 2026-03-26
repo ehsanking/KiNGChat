@@ -1,13 +1,6 @@
 import type {Metadata, Viewport} from 'next';
-import { Vazirmatn } from 'next/font/google';
 import './globals.css'; // Global styles
 import PwaPromptClient from '@/components/PwaPromptClient';
-
-const vazirmatn = Vazirmatn({
-  subsets: ['arabic', 'latin'],
-  variable: '--font-vazirmatn',
-  display: 'swap',
-});
 
 export const viewport: Viewport = {
   themeColor: '#0f365b',
@@ -29,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="en" dir="ltr" className={vazirmatn.variable} suppressHydrationWarning>
+    <html lang="en" dir="ltr" suppressHydrationWarning>
       <body suppressHydrationWarning className="antialiased font-sans">
         {children}
         <PwaPromptClient />

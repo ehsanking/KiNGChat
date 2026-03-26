@@ -1,4 +1,4 @@
-# KiNGChat 👑
+# KiNGChat 3.3 👑
 ### 隐私时代的安全聊天应用
 
 [English version](README.md)

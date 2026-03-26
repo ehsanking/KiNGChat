@@ -19,9 +19,9 @@ import {
   validate2FALogin,
 } from './auth';
 
-function getSession() {
+async function getSession() {
   try {
-    const token = cookies().get(SESSION_COOKIE_NAME)?.value;
+    const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
     return verifySessionToken(token);
   } catch {
     return null;
@@ -34,7 +34,7 @@ function getSession() {
  * session.
  */
 export async function setup2FA() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -46,7 +46,7 @@ export async function setup2FA() {
  * successful.  Requires a valid session.
  */
 export async function verify2FA(token: string) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }
@@ -58,7 +58,7 @@ export async function verify2FA(token: string) {
  * token.  Requires a valid session.
  */
 export async function disable2FA(token: string) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return { error: 'Unauthorized' };
   }

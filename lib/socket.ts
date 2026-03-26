@@ -307,7 +307,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
     });
 
     socket.on('messagesDelivered', async (payload) => {
-      const ids = Array.isArray(payload?.messageIds) ? payload.messageIds.filter((value): value is string => typeof value === 'string') : [];
+      const ids = Array.isArray(payload?.messageIds) ? payload.messageIds.filter((value: unknown): value is string => typeof value === 'string') : [];
       const userId = socket.data.userId;
       if (typeof userId !== 'string' || ids.length === 0) return;
       const result = await markMessagesDelivered(userId, ids);
