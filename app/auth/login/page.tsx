@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [pending2FAUserId, setPending2FAUserId] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const router = useRouter();
+  const isCaptchaReady = !isCaptchaEnabled || (!!captchaId && !!captchaImage && !captchaError);
 
   // Auto-redirect if already logged in by checking the session cookie
   useEffect(() => {
@@ -297,15 +298,20 @@ export default function LoginPage() {
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors uppercase tracking-widest"
                 placeholder="Enter the text above"
                 required
-                disabled={isLoading}
+                disabled={isLoading || !isCaptchaReady}
                 autoComplete="off"
                 spellCheck={false}
               />
             </div>
           )}
+          {isCaptchaEnabled && !isCaptchaReady && (
+            <p className="text-xs text-amber-400">
+              Captcha is not ready yet. Please refresh and wait for it to load before signing in.
+            </p>
+          )}
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || !isCaptchaReady}
             className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-semibold py-3 rounded-xl transition-colors mt-6 flex items-center justify-center gap-2"
           >
             {isLoading ? (

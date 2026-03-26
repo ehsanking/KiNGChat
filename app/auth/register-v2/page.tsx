@@ -14,6 +14,8 @@ export default function RegisterV2Page() {
   const [captchaId, setCaptchaId] = useState('');
   const [captchaImage, setCaptchaImage] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
+  const [isCaptchaLoading, setIsCaptchaLoading] = useState(false);
   const [publicSettings, setPublicSettings] = useState<{ isCaptchaEnabled: boolean; isRegistrationEnabled: boolean }>({
     isCaptchaEnabled: false,
     isRegistrationEnabled: true,
@@ -22,6 +24,7 @@ export default function RegisterV2Page() {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState('Ready to create your account.');
   const passwordHint = useMemo(() => 'Use 8+ characters with upper/lowercase letters, a number, and a symbol.', []);
+  const isCaptchaReady = !publicSettings.isCaptchaEnabled || (!!captchaId && !!captchaImage && !isCaptchaLoading && !captchaError);
 
   const loadPublicSettings = async () => {
     try {
@@ -45,6 +48,8 @@ export default function RegisterV2Page() {
   };
 
   const fetchCaptcha = async () => {
+    setIsCaptchaLoading(true);
+    setCaptchaError('');
     try {
       const response = await fetch('/api/captcha', { cache: 'no-store' });
       const data = await response.json();
@@ -52,9 +57,13 @@ export default function RegisterV2Page() {
         setPublicSettings((prev) => ({ ...prev, isCaptchaEnabled: true }));
         setCaptchaId(data.captchaId);
         setCaptchaImage(data.image);
+      } else {
+        setCaptchaError(data.error || 'Failed to load captcha.');
       }
     } catch {
-      setError('Failed to load captcha.');
+      setCaptchaError('Failed to load captcha.');
+    } finally {
+      setIsCaptchaLoading(false);
     }
   };
 
@@ -116,20 +125,27 @@ export default function RegisterV2Page() {
             <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <p className="text-xs text-zinc-500">{passwordHint}</p>
           </div>
-          {publicSettings.isCaptchaEnabled && captchaImage && (
+          {publicSettings.isCaptchaEnabled && (
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl p-2 flex items-center justify-center">
-                  <img src={captchaImage} alt="Captcha" className="h-[50px] w-auto" />
+                <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl p-2 flex items-center justify-center min-h-[66px]">
+                  {captchaImage ? (
+                    <img src={captchaImage} alt="Captcha" className="h-[50px] w-auto" />
+                  ) : (
+                    <p className="text-xs text-zinc-500 text-center">
+                      {isCaptchaLoading ? 'Loading captcha...' : 'Captcha unavailable'}
+                    </p>
+                  )}
                 </div>
                 <button type="button" onClick={fetchCaptcha} className="p-3 bg-zinc-800 rounded-xl text-zinc-400 hover:text-emerald-500 transition-colors">
                   <RefreshCw className="w-5 h-5" />
                 </button>
               </div>
-              <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Captcha" value={captchaAnswer} onChange={(e) => setCaptchaAnswer(e.target.value)} required />
+              {captchaError && <p className="text-xs text-amber-400 mb-2">{captchaError}</p>}
+              <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50 disabled:opacity-60" placeholder="Captcha" value={captchaAnswer} onChange={(e) => setCaptchaAnswer(e.target.value)} required disabled={!isCaptchaReady || isLoading} />
             </div>
           )}
-          <button type="submit" disabled={isLoading || !publicSettings.isRegistrationEnabled} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+          <button type="submit" disabled={isLoading || !publicSettings.isRegistrationEnabled || !isCaptchaReady} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
             {isLoading ? <><Loader2 className="w-5 h-5 animate-spin" />Creating account...</> : 'Create secure account'}
           </button>
         </form>
