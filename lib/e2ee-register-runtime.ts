@@ -6,6 +6,8 @@ export type RegisterV2Input = {
   signingPublicKey: string;
   signedPreKey: string;
   signedPreKeySig: string;
+  recoveryQuestion: string;
+  recoveryAnswer: string;
   captchaId?: string;
   captchaAnswer?: string;
 };

@@ -18,6 +18,8 @@ export default function RegisterV2Page() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [recoveryQuestion, setRecoveryQuestion] = useState('');
+  const [recoveryAnswer, setRecoveryAnswer] = useState('');
   const [captchaId, setCaptchaId] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [publicSettings, setPublicSettings] = useState<PublicSettings>({
@@ -93,6 +95,8 @@ export default function RegisterV2Page() {
         signingPublicKey: bundle.signingPublicKey,
         signedPreKey: bundle.signedPreKey,
         signedPreKeySig: bundle.signedPreKeySig,
+        recoveryQuestion,
+        recoveryAnswer,
         captchaId,
         captchaAnswer,
       });
@@ -127,6 +131,29 @@ export default function RegisterV2Page() {
           <div className="space-y-2">
             <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <p className="text-xs text-zinc-500">{passwordHint}</p>
+          </div>
+          <div className="space-y-2">
+            <input
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50"
+              placeholder="Your recovery question"
+              value={recoveryQuestion}
+              onChange={(e) => setRecoveryQuestion(e.target.value)}
+              minLength={5}
+              maxLength={200}
+              required
+            />
+            <input
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50"
+              placeholder="Answer to your question (exact text)"
+              value={recoveryAnswer}
+              onChange={(e) => setRecoveryAnswer(e.target.value)}
+              minLength={1}
+              maxLength={200}
+              required
+            />
+            <p className="text-xs text-zinc-500">
+              You can write in any language and format. During account recovery, you must enter the answer exactly as you typed it now.
+            </p>
           </div>
 
           {publicSettings.isCaptchaEnabled ? (

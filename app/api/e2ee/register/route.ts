@@ -14,6 +14,8 @@ export async function POST(request: Request) {
     const signingPublicKey = typeof body?.signingPublicKey === 'string' ? body.signingPublicKey.trim() : '';
     const signedPreKey = typeof body?.signedPreKey === 'string' ? body.signedPreKey.trim() : '';
     const signedPreKeySig = typeof body?.signedPreKeySig === 'string' ? body.signedPreKeySig.trim() : '';
+    const recoveryQuestion = typeof body?.recoveryQuestion === 'string' ? body.recoveryQuestion : '';
+    const recoveryAnswer = typeof body?.recoveryAnswer === 'string' ? body.recoveryAnswer : '';
     const captchaId = typeof body?.captchaId === 'string' ? body.captchaId : '';
     const captchaAnswer = typeof body?.captchaAnswer === 'string' ? body.captchaAnswer : '';
 
@@ -34,6 +36,8 @@ export async function POST(request: Request) {
       signedPreKey,
       signedPreKeySig,
       signingPublicKey,
+      recoveryQuestion,
+      recoveryAnswer,
       captchaId,
       captchaAnswer,
     });

@@ -59,6 +59,8 @@ type RegisterUserInput = {
   signedPreKey: string;
   signedPreKeySig: string;
   signingPublicKey?: string;
+  recoveryQuestion?: string;
+  recoveryAnswer?: string;
   captchaId?: string;
   captchaAnswer?: string;
 };
@@ -184,10 +186,12 @@ export async function registerUser(formData: RegisterUserInput) {
   const signedPreKey = asTrimmedString(formData.signedPreKey);
   const signedPreKeySig = asTrimmedString(formData.signedPreKeySig);
   const signingPublicKey = asTrimmedString(formData.signingPublicKey);
+  const recoveryQuestion = asTrimmedString(formData.recoveryQuestion);
+  const recoveryAnswer = typeof formData.recoveryAnswer === 'string' ? formData.recoveryAnswer : '';
   const captchaId = asTrimmedString(formData.captchaId);
   const captchaAnswer = asTrimmedString(formData.captchaAnswer);
 
-  if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig) {
+  if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig || !recoveryQuestion || recoveryAnswer.length === 0) {
     return { error: 'Missing required registration fields.' };
   }
 
@@ -251,6 +255,14 @@ export async function registerUser(formData: RegisterUserInput) {
     return { error: 'Passwords do not match.' };
   }
 
+  if (recoveryQuestion.length < 5 || recoveryQuestion.length > 200) {
+    return { error: 'Recovery question must be between 5 and 200 characters.' };
+  }
+
+  if (recoveryAnswer.length < 1 || recoveryAnswer.length > 200) {
+    return { error: 'Recovery answer must be between 1 and 200 characters.' };
+  }
+
   try {
     const executeRegistration = async () => {
       const existingUser = await prisma.user.findUnique({
@@ -262,6 +274,7 @@ export async function registerUser(formData: RegisterUserInput) {
       }
 
       const passwordHash = await argon2.hash(password);
+      const recoveryAnswerHash = await argon2.hash(recoveryAnswer);
 
       // Generate a unique numeric ID
       let numericId = generateNumericId();
@@ -288,6 +301,8 @@ export async function registerUser(formData: RegisterUserInput) {
           signedPreKeySig,
           signingPublicKey: signingPublicKey || null,
           e2eeVersion: signingPublicKey ? 'v2' : 'legacy',
+          recoveryQuestion,
+          recoveryAnswerHash,
         },
       });
 

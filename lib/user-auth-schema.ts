@@ -9,6 +9,8 @@ const AUTH_USER_COLUMNS_SQL = [
   'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "totpSecret" TEXT;',
   'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "totpEnabled" BOOLEAN NOT NULL DEFAULT false;',
   'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isApproved" BOOLEAN NOT NULL DEFAULT false;',
+  'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "recoveryQuestion" TEXT;',
+  'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "recoveryAnswerHash" TEXT;',
 ];
 
 const isUserSchemaMismatch = (error: unknown) => {
@@ -21,6 +23,7 @@ const isUserSchemaMismatch = (error: unknown) => {
   const tableMatch = typeof table === 'string' ? table.includes('User') : false;
   const columnMatch = typeof column === 'string'
     ? ['needsPasswordChange', 'failedLoginAttempts', 'lockoutUntil', 'totpSecret', 'totpEnabled', 'isApproved']
+      .concat(['recoveryQuestion', 'recoveryAnswerHash'])
       .some((name) => column.includes(name))
     : false;
 
