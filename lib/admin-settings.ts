@@ -4,14 +4,47 @@ import { logger } from '@/lib/logger';
 
 const ADMIN_SETTINGS_ID = '1';
 
-const isMissingAdminSettingsTableError = (error: unknown) => {
+const ADMIN_SETTINGS_COLUMNS_SQL = [
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "isSetupCompleted" BOOLEAN NOT NULL DEFAULT false;',
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "isRegistrationEnabled" BOOLEAN NOT NULL DEFAULT true;',
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "maxRegistrations" INTEGER;',
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "isCaptchaEnabled" BOOLEAN NOT NULL DEFAULT true;',
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "maxAttachmentSize" INTEGER NOT NULL DEFAULT 10485760;',
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "allowedFileFormats" TEXT NOT NULL DEFAULT \'*\';',
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "reservedUsernames" TEXT NOT NULL DEFAULT \'admin,administrator,support,moderator,root,sys\';',
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "rules" TEXT;',
+  'ALTER TABLE "AdminSettings" ADD COLUMN IF NOT EXISTS "firebaseConfig" TEXT;',
+];
+
+const isAdminSettingsSchemaMismatch = (error: unknown) => {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  if (error.code !== 'P2021') return false;
+  if (error.code !== 'P2021' && error.code !== 'P2022') return false;
+
   const table = (error.meta as { table?: unknown } | undefined)?.table;
-  return typeof table === 'string' && table.includes('AdminSettings');
+  const column = (error.meta as { column?: unknown } | undefined)?.column;
+
+  const tableMatch = typeof table === 'string' && table.includes('AdminSettings');
+  const columnMatch = typeof column === 'string'
+    && [
+      'isSetupCompleted',
+      'isRegistrationEnabled',
+      'maxRegistrations',
+      'isCaptchaEnabled',
+      'maxAttachmentSize',
+      'allowedFileFormats',
+      'reservedUsernames',
+      'rules',
+      'firebaseConfig',
+    ].some((name) => column.includes(name));
+
+  return tableMatch || columnMatch;
 };
 
-async function createAdminSettingsTableIfMissing() {
+let adminSettingsSchemaEnsured = false;
+
+async function ensureAdminSettingsSchema() {
+  if (adminSettingsSchemaEnsured) return;
+
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "AdminSettings" (
       "id" TEXT NOT NULL DEFAULT '1',
@@ -27,6 +60,12 @@ async function createAdminSettingsTableIfMissing() {
       CONSTRAINT "AdminSettings_pkey" PRIMARY KEY ("id")
     );
   `);
+
+  for (const statement of ADMIN_SETTINGS_COLUMNS_SQL) {
+    await prisma.$executeRawUnsafe(statement);
+  }
+
+  adminSettingsSchemaEnsured = true;
 }
 
 export async function getOrCreateAdminSettings() {
@@ -47,10 +86,10 @@ export async function getOrCreateAdminSettings() {
     }
     return settings;
   } catch (error) {
-    if (!isMissingAdminSettingsTableError(error)) throw error;
+    if (!isAdminSettingsSchemaMismatch(error)) throw error;
 
-    logger.warn('AdminSettings table missing. Creating table at runtime fallback path.');
-    await createAdminSettingsTableIfMissing();
+    logger.warn('AdminSettings schema mismatch detected. Applying runtime compatibility patch.');
+    await ensureAdminSettingsSchema();
 
     let settings = await prisma.adminSettings.findUnique({ where: { id: ADMIN_SETTINGS_ID } });
     if (!settings) {
@@ -68,10 +107,10 @@ export async function upsertAdminSettings(update: Record<string, unknown>) {
       create: { id: ADMIN_SETTINGS_ID, ...update },
     });
   } catch (error) {
-    if (!isMissingAdminSettingsTableError(error)) throw error;
+    if (!isAdminSettingsSchemaMismatch(error)) throw error;
 
-    logger.warn('AdminSettings table missing during upsert. Creating table at runtime fallback path.');
-    await createAdminSettingsTableIfMissing();
+    logger.warn('AdminSettings schema mismatch detected during upsert. Applying runtime compatibility patch.');
+    await ensureAdminSettingsSchema();
 
     return prisma.adminSettings.upsert({
       where: { id: ADMIN_SETTINGS_ID },
