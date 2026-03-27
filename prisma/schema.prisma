@@ -250,7 +250,7 @@ model AdminSettings {
   isSetupCompleted   Boolean @default(false)
   isRegistrationEnabled Boolean @default(true)
   maxRegistrations   Int?    // Null means infinite
-  isCaptchaEnabled    Boolean @default(true)
+  isCaptchaEnabled    Boolean @default(false)
   maxAttachmentSize  Int     @default(10485760) // 10MB
   allowedFileFormats String  @default("*") // Comma separated extensions or * for all
   reservedUsernames  String  @default("admin,administrator,support,moderator,root,sys")
