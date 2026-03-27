@@ -7,8 +7,7 @@ import { getOrSetCache, invalidateCache } from '@/lib/cache';
 import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
-import { generateCaptchaText, generateCaptchaSvg } from '@/lib/captcha';
-import { createCaptchaChallengeResilient, verifyCaptchaChallengeResilient } from '@/lib/captcha-store';
+import { verifyTurnstileToken } from '@/lib/turnstile';
 import argon2 from 'argon2';
 import { headers, cookies } from 'next/headers';
 import os from 'os';
@@ -61,15 +60,13 @@ type RegisterUserInput = {
   signedPreKey: string;
   signedPreKeySig: string;
   signingPublicKey?: string;
-  captchaId?: string;
-  captchaAnswer?: string;
+  captchaToken?: string;
 };
 
 type LoginUserInput = {
   username: string;
   password: string;
-  captchaId?: string;
-  captchaAnswer?: string;
+  captchaToken?: string;
 };
 
 type UpdateAdminCredentialsInput = {
@@ -160,28 +157,13 @@ async function logAuditAction(
   }
 }
 
-export async function generateCaptcha() {
-  try {
-    const text = generateCaptchaText(5);
-    const svg = generateCaptchaSvg(text);
-    const captchaId = await createCaptchaChallengeResilient(text);
-
-    // Return base64-encoded SVG image
-    const svgBase64 = Buffer.from(svg).toString('base64');
-    const image = `data:image/svg+xml;base64,${svgBase64}`;
-
-    return { success: true, captchaId, image };
-  } catch (error) {
-    logger.error('Captcha generation error.', {
-      error: error instanceof Error ? error.message : String(error)
-    });
-    return { error: 'Failed to generate captcha' };
-  }
+async function validateCaptcha(captchaToken: string, remoteIp?: string) {
+  const result = await verifyTurnstileToken(captchaToken, remoteIp);
+  return result.success;
 }
 
-async function validateCaptcha(captchaId: string, answer: string) {
-  if (!captchaId || !answer) return false;
-  return verifyCaptchaChallengeResilient(captchaId, answer);
+export async function generateCaptcha() {
+  return { error: 'Image captcha has been removed. Use Turnstile widget token instead.' };
 }
 
 /**
@@ -195,8 +177,7 @@ export async function registerUser(formData: RegisterUserInput) {
   const signedPreKey = asTrimmedString(formData.signedPreKey);
   const signedPreKeySig = asTrimmedString(formData.signedPreKeySig);
   const signingPublicKey = asTrimmedString(formData.signingPublicKey);
-  const captchaId = asTrimmedString(formData.captchaId);
-  const captchaAnswer = asTrimmedString(formData.captchaAnswer);
+  const captchaToken = asTrimmedString(formData.captchaToken);
 
   if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig) {
     return { error: 'Missing required registration fields.' };
@@ -226,9 +207,9 @@ export async function registerUser(formData: RegisterUserInput) {
 
   // Validate Captcha
   if (settings.isCaptchaEnabled) {
-    const isCaptchaValid = await validateCaptcha(captchaId, captchaAnswer);
+    const isCaptchaValid = await validateCaptcha(captchaToken, ip);
     if (!isCaptchaValid) {
-      return { error: 'Invalid or expired captcha. Please try again.' };
+      return { error: 'Captcha validation failed. Please try again.' };
     }
   }
 
@@ -317,8 +298,7 @@ export async function registerUser(formData: RegisterUserInput) {
 export async function loginUser(formData: LoginUserInput) {
   const username = asTrimmedString(formData.username);
   const password = asTrimmedString(formData.password);
-  const captchaId = asTrimmedString(formData.captchaId);
-  const captchaAnswer = asTrimmedString(formData.captchaAnswer);
+  const captchaToken = asTrimmedString(formData.captchaToken);
 
   if (!username || !password) {
     return { error: 'Username and password are required.' };
@@ -336,9 +316,9 @@ export async function loginUser(formData: LoginUserInput) {
 
   // Validate Captcha
   if (settings.isCaptchaEnabled) {
-    const isCaptchaValid = await validateCaptcha(captchaId, captchaAnswer);
+    const isCaptchaValid = await validateCaptcha(captchaToken, ip);
     if (!isCaptchaValid) {
-      return { error: 'Invalid or expired captcha. Please try again.' };
+      return { error: 'Captcha validation failed. Please try again.' };
     }
   }
 
