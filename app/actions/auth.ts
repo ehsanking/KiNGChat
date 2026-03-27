@@ -8,6 +8,7 @@ import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts'
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
 import { createLocalCaptchaChallenge, verifyLocalCaptchaChallenge } from '@/lib/local-captcha';
+import { recoverAuthUserSchemaIfNeeded } from '@/lib/user-auth-schema';
 import argon2 from 'argon2';
 import { headers, cookies } from 'next/headers';
 
@@ -251,46 +252,56 @@ export async function registerUser(formData: RegisterUserInput) {
   }
 
   try {
-    const existingUser = await prisma.user.findUnique({
-      where: { username },
-    });
+    const executeRegistration = async () => {
+      const existingUser = await prisma.user.findUnique({
+        where: { username },
+      });
 
-    if (existingUser) {
-      return { error: 'Username already taken' };
-    }
-
-    const passwordHash = await argon2.hash(password);
-
-    // Generate a unique numeric ID
-    let numericId = generateNumericId();
-    let isUnique = false;
-    let attempts = 0;
-    while (!isUnique && attempts < 10) {
-      const existing = await prisma.user.findUnique({ where: { numericId } });
-      if (!existing) {
-        isUnique = true;
-      } else {
-        numericId = generateNumericId();
-        attempts++;
+      if (existingUser) {
+        return { error: 'Username already taken' };
       }
+
+      const passwordHash = await argon2.hash(password);
+
+      // Generate a unique numeric ID
+      let numericId = generateNumericId();
+      let isUnique = false;
+      let attempts = 0;
+      while (!isUnique && attempts < 10) {
+        const existing = await prisma.user.findUnique({ where: { numericId } });
+        if (!existing) {
+          isUnique = true;
+        } else {
+          numericId = generateNumericId();
+          attempts++;
+        }
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          username,
+          numericId,
+          passwordHash,
+          identityKeyPublic,
+          signedPreKey,
+          signedPreKeySig,
+          signingPublicKey: signingPublicKey || null,
+          e2eeVersion: signingPublicKey ? 'v2' : 'legacy',
+        },
+      });
+
+      await logAuditAction('USER_REGISTERED', undefined, user.id, { username });
+
+      return { success: true, userId: user.id };
+    };
+
+    try {
+      return await executeRegistration();
+    } catch (error) {
+      const recovered = await recoverAuthUserSchemaIfNeeded(error);
+      if (!recovered) throw error;
+      return executeRegistration();
     }
-
-    const user = await prisma.user.create({
-      data: {
-        username,
-        numericId,
-        passwordHash,
-        identityKeyPublic,
-        signedPreKey,
-        signedPreKeySig,
-        signingPublicKey: signingPublicKey || null,
-        e2eeVersion: signingPublicKey ? 'v2' : 'legacy',
-      },
-    });
-
-    await logAuditAction('USER_REGISTERED', undefined, user.id, { username });
-
-    return { success: true, userId: user.id };
   } catch (error) {
     logger.error('Registration error.', {
       error: error instanceof Error ? error.message : String(error)
@@ -339,15 +350,16 @@ export async function loginUser(formData: LoginUserInput) {
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { username },
-    });
+    const executeLogin = async () => {
+      const user = await prisma.user.findUnique({
+        where: { username },
+      });
 
-    if (!user) {
-      await createLoginAttempt(ip, username, false);
-      await logAuditAction('LOGIN_FAILED', undefined, undefined, { username, reason: 'User not found' });
-      return { error: 'Invalid username or password' };
-    }
+      if (!user) {
+        await createLoginAttempt(ip, username, false);
+        await logAuditAction('LOGIN_FAILED', undefined, undefined, { username, reason: 'User not found' });
+        return { error: 'Invalid username or password' };
+      }
 
     // 2. Account Lockout Check
     if (user.lockoutUntil && user.lockoutUntil > new Date()) {
@@ -416,19 +428,28 @@ export async function loginUser(formData: LoginUserInput) {
     }
 
     // In a real app, set session cookie here
-    return { 
-      success: true, 
-      userId: user.id,
-      numericId: user.numericId,
-      username: user.username,
-      role: user.role,
-      badge: user.badge,
-      isVerified: user.isVerified,
-      needsPasswordChange: user.needsPasswordChange,
-      identityKeyPublic: user.identityKeyPublic,
-      signedPreKey: user.signedPreKey,
-      signedPreKeySig: user.signedPreKeySig
+      return { 
+        success: true, 
+        userId: user.id,
+        numericId: user.numericId,
+        username: user.username,
+        role: user.role,
+        badge: user.badge,
+        isVerified: user.isVerified,
+        needsPasswordChange: user.needsPasswordChange,
+        identityKeyPublic: user.identityKeyPublic,
+        signedPreKey: user.signedPreKey,
+        signedPreKeySig: user.signedPreKeySig
+      };
     };
+
+    try {
+      return await executeLogin();
+    } catch (error) {
+      const recovered = await recoverAuthUserSchemaIfNeeded(error);
+      if (!recovered) throw error;
+      return executeLogin();
+    }
   } catch (error) {
     logger.error('Login error.', {
       error: error instanceof Error ? error.message : String(error)
