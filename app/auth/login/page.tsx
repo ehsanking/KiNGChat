@@ -262,7 +262,7 @@ export default function LoginPage() {
             />
           </div>
 
-          {settings.isCaptchaEnabled ? (
+          {settings.isCaptchaEnabled && (
             <LocalCaptcha
               enabled={settings.isCaptchaEnabled}
               onChange={({ captchaId: nextCaptchaId, captchaAnswer: nextCaptchaAnswer }) => {
@@ -270,13 +270,13 @@ export default function LoginPage() {
                 setCaptchaAnswer(nextCaptchaAnswer);
               }}
             />
-          ) : (
+          )}
+
+          {/* Show captcha load error only if captcha is expected to be enabled */}
+          {settings.isCaptchaEnabled && captchaErrorMessage && (
             <div className="bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs p-3 rounded-xl flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5" />
-              <div>
-                Captcha is currently disabled by server settings.
-                {captchaErrorMessage ? ` ${captchaErrorMessage}` : ''}
-              </div>
+              <div>{captchaErrorMessage}</div>
             </div>
           )}
 

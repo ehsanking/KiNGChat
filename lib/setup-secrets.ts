@@ -129,6 +129,14 @@ export function setupSecrets(): void {
     process.env.VAPID_EMAIL = email;
   }
 
+  // If DATABASE_URL is not set anywhere, default to SQLite in development
+  const hasDatabaseUrl = process.env.DATABASE_URL || existing.DATABASE_URL;
+  if (!hasDatabaseUrl && process.env.NODE_ENV !== 'production') {
+    const sqliteFallback = 'file:./prisma/dev.db';
+    generated.DATABASE_URL = sqliteFallback;
+    process.env.DATABASE_URL = sqliteFallback;
+  }
+
   // Apply any values from .env.local that aren't already in the environment
   for (const [key, value] of Object.entries(existing)) {
     if (!process.env[key]) {

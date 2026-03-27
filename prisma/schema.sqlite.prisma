@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -11,7 +11,7 @@ datasource db {
   // NOTE: Prisma does not allow env() for provider; keep this as "postgresql".
   // For SQLite local dev, use the separate schema.sqlite.prisma with `prisma generate --schema=prisma/schema.sqlite.prisma`
   // or simply set DATABASE_URL="file:./prisma/dev.db" with provider="sqlite" in a .env.local override.
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
