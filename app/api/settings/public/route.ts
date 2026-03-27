@@ -14,12 +14,16 @@ export const runtime = 'nodejs';
 export async function GET() {
   try {
     const settings = await getOrCreateAdminSettings();
+    const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY ?? '';
+    const turnstileEnabled = Boolean(turnstileSiteKey && process.env.TURNSTILE_SECRET_KEY);
 
     return NextResponse.json({
       success: true,
       settings: {
-        isCaptchaEnabled: settings.isCaptchaEnabled,
+        isCaptchaEnabled: settings.isCaptchaEnabled && turnstileEnabled,
         isRegistrationEnabled: settings.isRegistrationEnabled,
+        captchaProvider: turnstileEnabled ? 'turnstile' : 'disabled',
+        turnstileSiteKey,
       },
     });
   } catch (error) {
@@ -29,8 +33,10 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       settings: {
-        isCaptchaEnabled: true,
+        isCaptchaEnabled: false,
         isRegistrationEnabled: true,
+        captchaProvider: 'disabled',
+        turnstileSiteKey: '',
       },
       fallback: true,
     });

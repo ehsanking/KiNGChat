@@ -2,20 +2,27 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Shield, Loader2, RefreshCw, KeyRound, AlertTriangle } from 'lucide-react';
-// We no longer import server actions directly here. Instead, the login
-// and two-factor verification are handled via API routes that set
-// session cookies.
+import { Shield, Loader2, KeyRound, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import TurnstileWidget from '@/components/TurnstileWidget';
+
+type PublicSettings = {
+  isCaptchaEnabled: boolean;
+  isRegistrationEnabled: boolean;
+  captchaProvider?: string;
+  turnstileSiteKey?: string;
+};
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [captchaId, setCaptchaId] = useState('');
-  const [captchaImage, setCaptchaImage] = useState('');
-  const [captchaAnswer, setCaptchaAnswer] = useState('');
-  const [isCaptchaEnabled, setIsCaptchaEnabled] = useState(true);
-  const [captchaError, setCaptchaError] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [settings, setSettings] = useState<PublicSettings>({
+    isCaptchaEnabled: false,
+    isRegistrationEnabled: true,
+    captchaProvider: 'disabled',
+    turnstileSiteKey: '',
+  });
   const [captchaErrorMessage, setCaptchaErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +30,9 @@ export default function LoginPage() {
   const [pending2FAUserId, setPending2FAUserId] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const router = useRouter();
-  const isCaptchaReady = !isCaptchaEnabled || (!!captchaId && !!captchaImage && !captchaError);
+
+  const isCaptchaReady = !settings.isCaptchaEnabled || captchaToken.length > 0;
+
   const fetchJsonWithRetry = useCallback(async (url: string, attempts = 3) => {
     let lastError: Error | null = null;
     for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -33,8 +42,8 @@ export default function LoginPage() {
           throw new Error(`${url} returned ${response.status}`);
         }
         return await response.json();
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown network error');
+      } catch (requestError) {
+        lastError = requestError instanceof Error ? requestError : new Error('Unknown network error');
         if (attempt < attempts) {
           await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
         }
@@ -43,7 +52,6 @@ export default function LoginPage() {
     throw lastError ?? new Error('Request failed');
   }, []);
 
-  // Auto-redirect if already logged in by checking the session cookie
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -60,45 +68,32 @@ export default function LoginPage() {
     checkSession();
   }, [router]);
 
-  const fetchCaptcha = useCallback(async () => {
-    setCaptchaError(false);
-    setCaptchaErrorMessage('');
-    setCaptchaImage('');
-    setCaptchaId('');
-    setCaptchaAnswer('');
-
-    try {
-      // Step 1: Fetch public settings via REST API
-      const settingsData = await fetchJsonWithRetry('/api/settings/public');
-      if (settingsData.success && settingsData.settings?.isCaptchaEnabled === false) {
-        setIsCaptchaEnabled(false);
-        return;
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settingsData = await fetchJsonWithRetry('/api/settings/public');
+        if (settingsData?.success && settingsData?.settings) {
+          setSettings(settingsData.settings);
+          return;
+        }
+      } catch (settingsError) {
+        console.error('Public settings load failed:', settingsError);
       }
 
-      setIsCaptchaEnabled(true);
+      setSettings({
+        isCaptchaEnabled: false,
+        isRegistrationEnabled: true,
+        captchaProvider: 'disabled',
+        turnstileSiteKey: '',
+      });
+      setCaptchaErrorMessage('Could not load security settings. Captcha is disabled temporarily.');
+    };
 
-      // Step 2: Fetch captcha via REST API
-      const captchaData = await fetchJsonWithRetry('/api/captcha');
-
-      if (captchaData.success && captchaData.captchaId && captchaData.image) {
-        setCaptchaId(captchaData.captchaId);
-        setCaptchaImage(captchaData.image);
-      } else {
-        throw new Error(captchaData.error || 'Invalid captcha response');
-      }
-    } catch (err) {
-      console.error('Captcha load failed:', err);
-      setCaptchaError(true);
-      setCaptchaErrorMessage(err instanceof Error ? err.message : 'Unknown captcha error');
-    }
+    loadSettings();
   }, [fetchJsonWithRetry]);
 
-  useEffect(() => {
-    fetchCaptcha();
-  }, [fetchCaptcha]);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
     setIsLoading(true);
     setError('');
 
@@ -110,31 +105,30 @@ export default function LoginPage() {
         body: JSON.stringify({
           username,
           password,
-          captchaId,
-          captchaAnswer,
+          captchaToken,
         }),
       });
       const data = await res.json();
+
       if (!res.ok || data.error) {
         setError(data.error || 'Login failed');
-        fetchCaptcha();
+        setCaptchaToken('');
       } else if (data.requires2FA) {
-        // Show 2FA input
         setShow2FA(true);
-        setPending2FAUserId(data.userId!);
+        setPending2FAUserId(data.userId ?? '');
       } else {
         router.push('/chat');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (requestError) {
+      console.error(requestError);
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handle2FAVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handle2FAVerify = async (event: React.FormEvent) => {
+    event.preventDefault();
     setIsLoading(true);
     setError('');
 
@@ -154,8 +148,8 @@ export default function LoginPage() {
       } else if (data.success) {
         router.push('/chat');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (requestError) {
+      console.error(requestError);
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
@@ -172,9 +166,7 @@ export default function LoginPage() {
             </div>
           </div>
           <h2 className="text-2xl font-bold text-center text-zinc-50 mb-2">Two-Factor Authentication</h2>
-          <p className="text-zinc-400 text-center text-sm mb-8">
-            Enter the 6-digit code from your authenticator app.
-          </p>
+          <p className="text-zinc-400 text-center text-sm mb-8">Enter the 6-digit code from your authenticator app.</p>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-xl mb-6 text-center">
@@ -215,7 +207,11 @@ export default function LoginPage() {
           </form>
 
           <button
-            onClick={() => { setShow2FA(false); setTotpCode(''); setError(''); }}
+            onClick={() => {
+              setShow2FA(false);
+              setTotpCode('');
+              setError('');
+            }}
             className="w-full text-center text-zinc-500 text-sm mt-4 hover:text-zinc-300"
           >
             Back to login
@@ -266,59 +262,28 @@ export default function LoginPage() {
               disabled={isLoading}
             />
           </div>
-          {isCaptchaEnabled && (
+
+          {settings.isCaptchaEnabled && settings.turnstileSiteKey ? (
             <div>
               <label className="block text-sm font-medium text-zinc-400 mb-2">Security Check</label>
-              <div className="flex items-center gap-2 mb-2">
-                {captchaError ? (
-                  <div className="flex-1 bg-zinc-950 border border-red-500/50 rounded-xl p-2 h-[66px] flex items-center justify-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-400" />
-                    <span className="text-red-400 text-xs text-center">
-                      {captchaErrorMessage || 'Failed to load'}
-                    </span>
-                  </div>
-                ) : captchaImage ? (
-                  <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl p-2 flex items-center justify-center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={captchaImage}
-                      alt="Captcha"
-                      className="h-[50px] w-auto select-none pointer-events-none"
-                      draggable={false}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl p-2 h-[66px] flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={fetchCaptcha}
-                  className="p-3 bg-zinc-800 rounded-xl text-zinc-400 hover:text-emerald-500 transition-colors"
-                  title="Refresh Captcha"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                </button>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3">
+                <TurnstileWidget siteKey={settings.turnstileSiteKey} onTokenChange={setCaptchaToken} />
               </div>
-              <input
-                type="text"
-                value={captchaAnswer}
-                onChange={(e) => setCaptchaAnswer(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors uppercase tracking-widest"
-                placeholder="Enter the text above"
-                required
-                disabled={isLoading || !isCaptchaReady}
-                autoComplete="off"
-                spellCheck={false}
-              />
+            </div>
+          ) : (
+            <div className="bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs p-3 rounded-xl flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5" />
+              <div>
+                Captcha is currently disabled because Turnstile keys are not configured on this environment.
+                {captchaErrorMessage ? ` ${captchaErrorMessage}` : ''}
+              </div>
             </div>
           )}
-          {isCaptchaEnabled && !isCaptchaReady && (
-            <p className="text-xs text-amber-400">
-              Captcha is not ready yet. Please refresh and wait for it to load before signing in.
-            </p>
+
+          {settings.isCaptchaEnabled && !isCaptchaReady && (
+            <p className="text-xs text-amber-400">Please complete the security challenge before signing in.</p>
           )}
+
           <button
             type="submit"
             disabled={isLoading || !isCaptchaReady}

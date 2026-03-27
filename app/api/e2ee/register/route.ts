@@ -14,8 +14,7 @@ export async function POST(request: Request) {
     const signingPublicKey = typeof body?.signingPublicKey === 'string' ? body.signingPublicKey.trim() : '';
     const signedPreKey = typeof body?.signedPreKey === 'string' ? body.signedPreKey.trim() : '';
     const signedPreKeySig = typeof body?.signedPreKeySig === 'string' ? body.signedPreKeySig.trim() : '';
-    const captchaId = typeof body?.captchaId === 'string' ? body.captchaId : '';
-    const captchaAnswer = typeof body?.captchaAnswer === 'string' ? body.captchaAnswer : '';
+    const captchaToken = typeof body?.captchaToken === 'string' ? body.captchaToken : '';
 
     if (!agreementPublicKey || !signingPublicKey || !signedPreKey || !signedPreKeySig) {
       return NextResponse.json({ error: 'Missing v2 registration bundle.' }, { status: 400 });
@@ -34,8 +33,7 @@ export async function POST(request: Request) {
       signedPreKey,
       signedPreKeySig,
       signingPublicKey,
-      captchaId,
-      captchaAnswer,
+      captchaToken,
     });
 
     if ('error' in result) {

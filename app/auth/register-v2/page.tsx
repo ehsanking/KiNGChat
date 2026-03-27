@@ -2,29 +2,37 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import TurnstileWidget from '@/components/TurnstileWidget';
 import { createRegistrationBundleV2, persistRegistrationBundleV2 } from '@/lib/e2ee-registration';
 import { registerUserWithBundleV2 } from '@/lib/e2ee-register-runtime';
+
+type PublicSettings = {
+  isCaptchaEnabled: boolean;
+  isRegistrationEnabled: boolean;
+  captchaProvider?: string;
+  turnstileSiteKey?: string;
+};
 
 export default function RegisterV2Page() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [captchaId, setCaptchaId] = useState('');
-  const [captchaImage, setCaptchaImage] = useState('');
-  const [captchaAnswer, setCaptchaAnswer] = useState('');
-  const [captchaError, setCaptchaError] = useState('');
-  const [isCaptchaLoading, setIsCaptchaLoading] = useState(false);
-  const [publicSettings, setPublicSettings] = useState<{ isCaptchaEnabled: boolean; isRegistrationEnabled: boolean }>({
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [publicSettings, setPublicSettings] = useState<PublicSettings>({
     isCaptchaEnabled: false,
     isRegistrationEnabled: true,
+    captchaProvider: 'disabled',
+    turnstileSiteKey: '',
   });
+  const [captchaError, setCaptchaError] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState('Ready to create your account.');
   const passwordHint = useMemo(() => 'Use 8+ characters with upper/lowercase letters, a number, and a symbol.', []);
-  const isCaptchaReady = !publicSettings.isCaptchaEnabled || (!!captchaId && !!captchaImage && !isCaptchaLoading && !captchaError);
+  const isCaptchaReady = !publicSettings.isCaptchaEnabled || captchaToken.length > 0;
+
   const fetchJsonWithRetry = async (url: string, attempts = 3) => {
     let lastError: Error | null = null;
     for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -34,8 +42,8 @@ export default function RegisterV2Page() {
           throw new Error(`${url} returned ${response.status}`);
         }
         return await response.json();
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown network error');
+      } catch (requestError) {
+        lastError = requestError instanceof Error ? requestError : new Error('Unknown network error');
         if (attempt < attempts) {
           await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
         }
@@ -44,46 +52,27 @@ export default function RegisterV2Page() {
     throw lastError ?? new Error('Request failed');
   };
 
-  const loadPublicSettings = async () => {
-    try {
-      const data = await fetchJsonWithRetry('/api/settings/public');
-      if (data?.success && data?.settings) {
-        setPublicSettings({
-          isCaptchaEnabled: Boolean(data.settings.isCaptchaEnabled),
-          isRegistrationEnabled: Boolean(data.settings.isRegistrationEnabled),
-        });
-        if (!data.settings.isCaptchaEnabled) {
-          setCaptchaId('');
-          setCaptchaImage('');
-          setCaptchaAnswer('');
+  useEffect(() => {
+    const loadPublicSettings = async () => {
+      try {
+        const data = await fetchJsonWithRetry('/api/settings/public');
+        if (data?.success && data?.settings) {
+          setPublicSettings(data.settings);
           return;
         }
+      } catch {
+        // ignore
       }
-    } catch {}
 
-    await fetchCaptcha();
-  };
+      setCaptchaError('Unable to load security settings.');
+      setPublicSettings({
+        isCaptchaEnabled: false,
+        isRegistrationEnabled: true,
+        captchaProvider: 'disabled',
+        turnstileSiteKey: '',
+      });
+    };
 
-  const fetchCaptcha = async () => {
-    setIsCaptchaLoading(true);
-    setCaptchaError('');
-    try {
-      const data = await fetchJsonWithRetry('/api/captcha');
-      if (data.success) {
-        setPublicSettings((prev) => ({ ...prev, isCaptchaEnabled: true }));
-        setCaptchaId(data.captchaId);
-        setCaptchaImage(data.image);
-      } else {
-        setCaptchaError(data.error || 'Failed to load captcha.');
-      }
-    } catch {
-      setCaptchaError('Failed to load captcha.');
-    } finally {
-      setIsCaptchaLoading(false);
-    }
-  };
-
-  useEffect(() => {
     loadPublicSettings();
   }, []);
 
@@ -106,13 +95,12 @@ export default function RegisterV2Page() {
         signingPublicKey: bundle.signingPublicKey,
         signedPreKey: bundle.signedPreKey,
         signedPreKeySig: bundle.signedPreKeySig,
-        captchaId,
-        captchaAnswer,
+        captchaToken,
       });
 
       if (result?.error) {
         setError(result.error);
-        await fetchCaptcha();
+        setCaptchaToken('');
       } else {
         router.replace('/auth/login');
       }
@@ -141,26 +129,20 @@ export default function RegisterV2Page() {
             <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <p className="text-xs text-zinc-500">{passwordHint}</p>
           </div>
-          {publicSettings.isCaptchaEnabled && (
+
+          {publicSettings.isCaptchaEnabled && publicSettings.turnstileSiteKey ? (
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl p-2 flex items-center justify-center min-h-[66px]">
-                  {captchaImage ? (
-                    <img src={captchaImage} alt="Captcha" className="h-[50px] w-auto" />
-                  ) : (
-                    <p className="text-xs text-zinc-500 text-center">
-                      {isCaptchaLoading ? 'Loading captcha...' : 'Captcha unavailable'}
-                    </p>
-                  )}
-                </div>
-                <button type="button" onClick={fetchCaptcha} className="p-3 bg-zinc-800 rounded-xl text-zinc-400 hover:text-emerald-500 transition-colors">
-                  <RefreshCw className="w-5 h-5" />
-                </button>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">Security Check</label>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3">
+                <TurnstileWidget siteKey={publicSettings.turnstileSiteKey} onTokenChange={setCaptchaToken} />
               </div>
-              {captchaError && <p className="text-xs text-amber-400 mb-2">{captchaError}</p>}
-              <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50 disabled:opacity-60" placeholder="Captcha" value={captchaAnswer} onChange={(e) => setCaptchaAnswer(e.target.value)} required disabled={!isCaptchaReady || isLoading} />
             </div>
+          ) : (
+            <p className="text-xs text-amber-400">Captcha is disabled because Turnstile keys are not configured.</p>
           )}
+
+          {captchaError && <p className="text-xs text-amber-400">{captchaError}</p>}
+
           <button type="submit" disabled={isLoading || !publicSettings.isRegistrationEnabled || !isCaptchaReady} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
             {isLoading ? <><Loader2 className="w-5 h-5 animate-spin" />Creating account...</> : 'Create secure account'}
           </button>
