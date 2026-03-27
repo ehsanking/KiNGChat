@@ -17,6 +17,8 @@ import {
   getPublicSettings as authGetPublicSettings,
   getUserPublicKeys as authGetUserPublicKeys,
   validate2FALogin as authValidate2FALogin,
+  getRecoveryQuestion as authGetRecoveryQuestion,
+  recoverPassword as authRecoverPassword,
 } from './auth';
 
 export async function generateCaptcha(...args: Parameters<typeof authGenerateCaptcha>) {
@@ -45,4 +47,12 @@ export async function getUserPublicKeys(...args: Parameters<typeof authGetUserPu
 
 export async function validate2FALogin(...args: Parameters<typeof authValidate2FALogin>) {
   return authValidate2FALogin(...args);
+}
+
+export async function getRecoveryQuestion(...args: Parameters<typeof authGetRecoveryQuestion>) {
+  return authGetRecoveryQuestion(...args);
+}
+
+export async function recoverPassword(...args: Parameters<typeof authRecoverPassword>) {
+  return authRecoverPassword(...args);
 }

@@ -164,9 +164,7 @@ export default function RegisterV2Page() {
                 setCaptchaAnswer(nextCaptchaAnswer);
               }}
             />
-          ) : (
-            <p className="text-xs text-amber-400">Captcha is disabled by server settings.</p>
-          )}
+          ) : null}
 
           {captchaError && <p className="text-xs text-amber-400">{captchaError}</p>}
 

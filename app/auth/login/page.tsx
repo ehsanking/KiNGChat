@@ -260,6 +260,11 @@ export default function LoginPage() {
               required
               disabled={isLoading}
             />
+            <div className="mt-2 text-right">
+              <Link href="/auth/recover" className="text-xs text-emerald-400 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           {settings.isCaptchaEnabled && (

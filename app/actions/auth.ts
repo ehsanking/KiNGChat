@@ -65,6 +65,17 @@ type RegisterUserInput = {
   captchaAnswer?: string;
 };
 
+type GetRecoveryQuestionInput = {
+  username: string;
+};
+
+type RecoverPasswordInput = {
+  username: string;
+  recoveryAnswer: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
 type LoginUserInput = {
   username: string;
   password: string;
@@ -101,6 +112,8 @@ type AdminSettingsUpdate = {
 };
 
 const asTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+const usernameRegex = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 const getClientIp = async () => {
   const headersList = await headers();
@@ -234,7 +247,6 @@ export async function registerUser(formData: RegisterUserInput) {
   // - 3 to 20 characters
   // - Alphanumeric and underscores only
   // - Must start with a letter
-  const usernameRegex = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
   if (!usernameRegex.test(username) || username.toLowerCase() === 'admin') {
     return { error: 'Invalid username or username is reserved.' };
   }
@@ -245,7 +257,6 @@ export async function registerUser(formData: RegisterUserInput) {
   // - At least one lowercase letter
   // - At least one number
   // - At least one special character
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) {
     return { error: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and a special character.' };
   }
@@ -480,6 +491,131 @@ export async function loginUser(formData: LoginUserInput) {
   }
 }
 
+export async function getRecoveryQuestion(formData: GetRecoveryQuestionInput) {
+  const username = asTrimmedString(formData.username);
+  if (!username) return { error: 'Username is required.' };
+
+  const ip = await getClientIp();
+  const rateResult = await rateLimit(`recovery-question:${ip}:${username}`);
+  if (!rateResult.allowed) {
+    return { error: 'Too many attempts. Please try again later.' };
+  }
+
+  try {
+    const executeGetRecoveryQuestion = async () => {
+      const user = await prisma.user.findUnique({
+        where: { username },
+        select: {
+          recoveryQuestion: true,
+          recoveryAnswerHash: true,
+          isBanned: true,
+        },
+      });
+
+      if (!user || !user.recoveryQuestion || !user.recoveryAnswerHash || user.isBanned) {
+        return { error: 'Recovery is not available for this account.' };
+      }
+
+      return { success: true, recoveryQuestion: user.recoveryQuestion };
+    };
+
+    try {
+      return await executeGetRecoveryQuestion();
+    } catch (error) {
+      const recovered = await recoverAuthUserSchemaIfNeeded(error);
+      if (!recovered) throw error;
+      return executeGetRecoveryQuestion();
+    }
+  } catch (error) {
+    logger.error('Get recovery question error.', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return { error: 'Internal server error' };
+  }
+}
+
+export async function recoverPassword(formData: RecoverPasswordInput) {
+  const username = asTrimmedString(formData.username);
+  const recoveryAnswer = typeof formData.recoveryAnswer === 'string' ? formData.recoveryAnswer : '';
+  const newPassword = asTrimmedString(formData.newPassword);
+  const confirmPassword = asTrimmedString(formData.confirmPassword);
+
+  if (!username || !recoveryAnswer || !newPassword || !confirmPassword) {
+    return { error: 'All fields are required.' };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { error: 'Passwords do not match.' };
+  }
+
+  if (!passwordRegex.test(newPassword)) {
+    return { error: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and a special character.' };
+  }
+
+  const ip = await getClientIp();
+  const rateResult = await rateLimit(`recover-password:${ip}:${username}`);
+  if (!rateResult.allowed) {
+    return { error: 'Too many recovery attempts. Please try again later.' };
+  }
+
+  try {
+    const executeRecoverPassword = async () => {
+      const user = await prisma.user.findUnique({
+        where: { username },
+        select: {
+          id: true,
+          recoveryAnswerHash: true,
+          isBanned: true,
+        },
+      });
+
+      if (!user || !user.recoveryAnswerHash || user.isBanned) {
+        await logAuditAction('PASSWORD_RECOVERY_FAILED', undefined, undefined, {
+          username,
+          reason: 'Invalid recovery setup',
+        });
+        return { error: 'Recovery verification failed.' };
+      }
+
+      const isRecoveryAnswerValid = await argon2.verify(user.recoveryAnswerHash, recoveryAnswer);
+      if (!isRecoveryAnswerValid) {
+        await logAuditAction('PASSWORD_RECOVERY_FAILED', undefined, user.id, {
+          username,
+          reason: 'Invalid recovery answer',
+        });
+        return { error: 'Recovery verification failed.' };
+      }
+
+      const passwordHash = await argon2.hash(newPassword);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          failedLoginAttempts: 0,
+          lockoutUntil: null,
+          needsPasswordChange: false,
+        },
+      });
+
+      await logAuditAction('PASSWORD_RECOVERY_SUCCESS', undefined, user.id, { username });
+      return { success: true };
+    };
+
+    try {
+      return await executeRecoverPassword();
+    } catch (error) {
+      const recovered = await recoverAuthUserSchemaIfNeeded(error);
+      if (!recovered) throw error;
+      return executeRecoverPassword();
+    }
+  } catch (error) {
+    logger.error('Recover password error.', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return { error: 'Internal server error' };
+  }
+}
+
 /**
  * Updates admin credentials after validation.
  */
@@ -507,12 +643,10 @@ export async function updateAdminCredentials(formData: UpdateAdminCredentialsInp
     return { error: 'Passwords do not match.' };
   }
 
-  const usernameRegex = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
   if (!usernameRegex.test(newUsername)) {
     return { error: 'Username must be 3-20 characters, start with a letter, and contain only letters, numbers, or underscores.' };
   }
 
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(newPassword)) {
     return { error: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and a special character.' };
   }
