@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Shield, Loader2, KeyRound, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import ImageCaptcha from '@/components/ImageCaptcha';
+import LocalCaptcha from '@/components/LocalCaptcha';
 
 type PublicSettings = {
   isCaptchaEnabled: boolean;
@@ -263,7 +263,7 @@ export default function LoginPage() {
           </div>
 
           {settings.isCaptchaEnabled ? (
-            <ImageCaptcha
+            <LocalCaptcha
               enabled={settings.isCaptchaEnabled}
               onChange={({ captchaId: nextCaptchaId, captchaAnswer: nextCaptchaAnswer }) => {
                 setCaptchaId(nextCaptchaId);

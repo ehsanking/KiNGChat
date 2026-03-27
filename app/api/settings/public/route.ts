@@ -20,7 +20,7 @@ export async function GET() {
       settings: {
         isCaptchaEnabled: settings.isCaptchaEnabled,
         isRegistrationEnabled: settings.isRegistrationEnabled,
-        captchaProvider: settings.isCaptchaEnabled ? 'image' : 'disabled',
+        captchaProvider: settings.isCaptchaEnabled ? 'local-math' : 'disabled',
       },
     });
   } catch (error) {

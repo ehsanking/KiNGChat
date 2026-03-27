@@ -5,16 +5,16 @@ import { Loader2, RefreshCcw } from 'lucide-react';
 
 type CaptchaPayload = {
   captchaId: string;
-  captchaSvg: string;
+  prompt: string;
   expiresAt: number;
 };
 
-type ImageCaptchaProps = {
+type LocalCaptchaProps = {
   enabled: boolean;
   onChange: (value: { captchaId: string; captchaAnswer: string }) => void;
 };
 
-export default function ImageCaptcha({ enabled, onChange }: ImageCaptchaProps) {
+export default function LocalCaptcha({ enabled, onChange }: LocalCaptchaProps) {
   const [captcha, setCaptcha] = useState<CaptchaPayload | null>(null);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [error, setError] = useState('');
@@ -22,25 +22,26 @@ export default function ImageCaptcha({ enabled, onChange }: ImageCaptchaProps) {
 
   const loadCaptcha = useCallback(async () => {
     if (!enabled) return;
+
     setIsLoading(true);
     setError('');
 
     try {
       const response = await fetch('/api/captcha', { cache: 'no-store' });
       const data = await response.json();
-      if (!response.ok || !data?.success || !data?.captchaId || !data?.captchaSvg) {
-        throw new Error(data?.error || 'Failed to load captcha.');
+      if (!response.ok || !data?.success || !data?.captchaId || !data?.prompt) {
+        throw new Error(data?.error || 'Failed to load captcha challenge.');
       }
 
       setCaptcha({
         captchaId: String(data.captchaId),
-        captchaSvg: String(data.captchaSvg),
+        prompt: String(data.prompt),
         expiresAt: Number(data.expiresAt || Date.now()),
       });
       setCaptchaAnswer('');
       onChange({ captchaId: String(data.captchaId), captchaAnswer: '' });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load captcha.');
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load captcha challenge.');
       setCaptcha(null);
       onChange({ captchaId: '', captchaAnswer: '' });
     } finally {
@@ -60,7 +61,7 @@ export default function ImageCaptcha({ enabled, onChange }: ImageCaptchaProps) {
   }, [enabled, loadCaptcha, onChange]);
 
   const handleAnswerChange = (value: string) => {
-    const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    const normalized = value.replace(/[^0-9]/g, '').slice(0, 3);
     setCaptchaAnswer(normalized);
     onChange({
       captchaId: captcha?.captchaId ?? '',
@@ -75,18 +76,17 @@ export default function ImageCaptcha({ enabled, onChange }: ImageCaptchaProps) {
       <label className="block text-sm font-medium text-zinc-400">Security Check</label>
       <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 space-y-3">
         {isLoading ? (
-          <div className="h-[70px] rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 text-sm">
+          <div className="h-[56px] rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 text-sm">
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
             Loading challenge...
           </div>
-        ) : captcha?.captchaSvg ? (
-          <div
-            className="h-[70px] rounded-lg bg-white/95 overflow-hidden flex items-center justify-center"
-            dangerouslySetInnerHTML={{ __html: captcha.captchaSvg }}
-          />
+        ) : captcha?.prompt ? (
+          <div className="h-[56px] rounded-lg bg-zinc-900 flex items-center justify-between px-4 text-zinc-100 font-mono text-lg tracking-wide">
+            <span>{captcha.prompt}</span>
+          </div>
         ) : (
-          <div className="h-[70px] rounded-lg bg-zinc-900 flex items-center justify-center text-amber-400 text-xs px-2 text-center">
-            Could not load captcha. Please refresh the challenge.
+          <div className="h-[56px] rounded-lg bg-zinc-900 flex items-center justify-center text-amber-400 text-xs px-2 text-center">
+            Could not load challenge. Please refresh.
           </div>
         )}
 
@@ -95,20 +95,22 @@ export default function ImageCaptcha({ enabled, onChange }: ImageCaptchaProps) {
             type="text"
             value={captchaAnswer}
             onChange={(event) => handleAnswerChange(event.target.value)}
-            className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-50 uppercase tracking-widest focus:outline-none focus:border-emerald-500 transition-colors"
-            placeholder="Enter code"
+            className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors"
+            placeholder="Enter the answer"
             autoComplete="off"
-            maxLength={8}
+            maxLength={3}
+            inputMode="numeric"
           />
           <button
             type="button"
             onClick={loadCaptcha}
             className="px-3 py-2.5 border border-zinc-700 rounded-xl text-zinc-200 hover:bg-zinc-800 transition-colors"
-            aria-label="Refresh captcha"
+            aria-label="Refresh challenge"
           >
             <RefreshCcw className="w-4 h-4" />
           </button>
         </div>
+
         {!!captcha?.expiresAt && (
           <p className="text-[11px] text-zinc-500">
             Expires in about {Math.max(1, Math.ceil((captcha.expiresAt - Date.now()) / 60000))} minute(s).

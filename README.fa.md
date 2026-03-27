@@ -1,3 +1,5 @@
+> This README is derived from `README.md` (source of truth).
+
 <div dir="rtl">
 
 <p align="center">

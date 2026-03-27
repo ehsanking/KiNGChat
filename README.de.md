@@ -1,3 +1,5 @@
+> This README is derived from `README.md` (source of truth).
+
 # KiNGChat 3.3 👑
 ### Der sichere Messenger für das Zeitalter der Privatsphäre
 

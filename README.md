@@ -94,6 +94,23 @@ npm run dev
 
 ---
 
+
+## Local Captcha (No External Services)
+
+KiNGChat now uses a **local arithmetic captcha** that is fully self-hosted and does not depend on external providers (no Google reCAPTCHA, hCaptcha, or Cloudflare Turnstile).
+
+Required internal resources:
+
+- Next.js API route: `GET /api/captcha`
+- Stateless signer/verifier in `lib/local-captcha.ts`
+- Client-side UI component `components/LocalCaptcha.tsx`
+- Existing server-side validation flow in auth actions
+
+Optional hardening (recommended):
+
+- Configure `CAPTCHA_SECRET` (16+ chars) for stable token signing across restarts
+- Keep rate limiting enabled for login/register endpoints
+
 ## Docker Deployment
 
 ```bash

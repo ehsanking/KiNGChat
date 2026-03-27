@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import ImageCaptcha from '@/components/ImageCaptcha';
+import LocalCaptcha from '@/components/LocalCaptcha';
 import { createRegistrationBundleV2, persistRegistrationBundleV2 } from '@/lib/e2ee-registration';
 import { registerUserWithBundleV2 } from '@/lib/e2ee-register-runtime';
 
@@ -130,7 +130,7 @@ export default function RegisterV2Page() {
           </div>
 
           {publicSettings.isCaptchaEnabled ? (
-            <ImageCaptcha
+            <LocalCaptcha
               enabled={publicSettings.isCaptchaEnabled}
               onChange={({ captchaId: nextCaptchaId, captchaAnswer: nextCaptchaAnswer }) => {
                 setCaptchaId(nextCaptchaId);

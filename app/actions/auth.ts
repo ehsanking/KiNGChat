@@ -7,8 +7,7 @@ import { getOrSetCache, invalidateCache } from '@/lib/cache';
 import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
-import { verifyCaptchaChallengeResilient, createCaptchaChallengeResilient } from '@/lib/captcha-store';
-import { generateCaptchaSvg, generateCaptchaText } from '@/lib/captcha';
+import { createLocalCaptchaChallenge, verifyLocalCaptchaChallenge } from '@/lib/local-captcha';
 import argon2 from 'argon2';
 import { headers, cookies } from 'next/headers';
 import os from 'os';
@@ -161,17 +160,16 @@ async function logAuditAction(
 }
 
 async function validateCaptcha(captchaId: string, captchaAnswer: string) {
-  return verifyCaptchaChallengeResilient(captchaId, captchaAnswer);
+  return verifyLocalCaptchaChallenge(captchaId, captchaAnswer);
 }
 
 export async function generateCaptcha() {
-  const captchaText = generateCaptchaText();
-  const captchaId = await createCaptchaChallengeResilient(captchaText);
+  const challenge = createLocalCaptchaChallenge();
   return {
     success: true,
-    captchaId,
-    captchaSvg: generateCaptchaSvg(captchaText),
-    expiresAt: Date.now() + 5 * 60 * 1000,
+    captchaId: challenge.captchaId,
+    prompt: challenge.prompt,
+    expiresAt: challenge.expiresAt,
   };
 }
 
