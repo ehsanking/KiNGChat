@@ -1,15 +1,15 @@
 #!/bin/sh
 set -eu
 
-mkdir -p KiNGChat
+mkdir -p ElaheMessenger
 
 rand_hex() { openssl rand -hex "$1"; }
 rand_pass() { openssl rand -base64 36 | tr -d '\n' | tr '/+' 'AB' | cut -c1-32; }
 
-POSTGRES_USER=kingchat
-POSTGRES_DB=kingchat
+POSTGRES_USER=elahe
+POSTGRES_DB=elahe
 POSTGRES_PASSWORD="$(rand_pass)"
-MINIO_ACCESS_KEY=kingchatminio
+MINIO_ACCESS_KEY=elaheminio
 MINIO_SECRET_KEY="$(rand_pass)"
 JWT_SECRET="$(rand_hex 32)"
 SESSION_SECRET="$(rand_hex 32)"
@@ -19,7 +19,7 @@ ADMIN_PASSWORD="$(rand_pass)"
 APP_URL="${APP_URL:-https://chat.example.com}"
 ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-$APP_URL}"
 
-cat > KiNGChat/.env.production <<EOF
+cat > ElaheMessenger/.env.production <<EOF
 APP_ENV=production
 NODE_ENV=production
 APP_URL=${APP_URL}
@@ -38,6 +38,6 @@ ADMIN_USERNAME=${ADMIN_USERNAME}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 EOF
 
-echo "Created KiNGChat/.env.production"
+echo "Created ElaheMessenger/.env.production"
 echo "Admin username: ${ADMIN_USERNAME}"
 echo "Admin password: ${ADMIN_PASSWORD}"

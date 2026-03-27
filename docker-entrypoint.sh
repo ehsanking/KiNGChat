@@ -1,5 +1,5 @@
 #!/bin/sh
-# KiNGChat Docker entrypoint
+# Elahe Messenger Docker entrypoint
 # Runs database migrations, validates security-sensitive env vars, then starts the server
 
 set -eu
@@ -131,13 +131,13 @@ fi
 # Option 1: Custom server via tsx (preferred — includes Socket.IO)
 if [ -f server.ts ]; then
   if [ -x node_modules/.bin/tsx ]; then
-    log "Starting KiNGChat server (custom server.ts via tsx — Socket.IO enabled)..."
+    log "Starting Elahe Messenger server (custom server.ts via tsx — Socket.IO enabled)..."
     exec node_modules/.bin/tsx server.ts
   fi
 
   # Fallback: try npx tsx
   if command -v npx >/dev/null 2>&1; then
-    log "Starting KiNGChat server (custom server.ts via npx tsx — Socket.IO enabled)..."
+    log "Starting Elahe Messenger server (custom server.ts via npx tsx — Socket.IO enabled)..."
     exec npx tsx server.ts
   fi
 fi

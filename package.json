@@ -1,6 +1,6 @@
 {
-  "name": "kingchat",
-  "version": "3.3.0",
+  "name": "elahe-messenger",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "PORT=3000 tsx server.ts",

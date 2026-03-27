@@ -1,6 +1,6 @@
-# KiNGChat v2.6 Architecture Notes
+# Elahe Messenger v2.6 Architecture Notes
 
-KiNGChat v2.6 keeps the existing Next.js + Prisma + Socket.IO stack, but aligns the deployment and diagnostics model with patterns commonly used in modern messaging systems.
+Elahe Messenger v2.6 keeps the existing Next.js + Prisma + Socket.IO stack, but aligns the deployment and diagnostics model with patterns commonly used in modern messaging systems.
 
 ## Practical technology baseline for a modern messenger
 
@@ -22,14 +22,14 @@ KiNGChat v2.6 keeps the existing Next.js + Prisma + Socket.IO stack, but aligns 
 
 ## Telegram-inspired UX direction
 
-The v2.6 UI keeps KiNGChat branding, but adopts a more familiar blue-accent, pane-based chat experience:
+The v2.6 UI keeps Elahe Messenger branding, but adopts a more familiar blue-accent, pane-based chat experience:
 
 - blue primary accent instead of gold-heavy emphasis,
 - cleaner glass panels,
 - wallpaper-like chat backdrop,
 - stronger separation between sidebar, message feed, and composer.
 
-This keeps the product recognizable for users who are already comfortable with mainstream chat layouts while preserving the self-hosted and privacy-first positioning of KiNGChat.
+This keeps the product recognizable for users who are already comfortable with mainstream chat layouts while preserving the self-hosted and privacy-first positioning of Elahe Messenger.
 
 ## v2.6 modular chat workspace
 

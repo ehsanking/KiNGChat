@@ -15,7 +15,7 @@ export default function OpenSourcePage() {
             <div className="w-8 h-8 relative">
               <Image src={logoSrc} alt="Logo" fill sizes="32px" className="object-contain" unoptimized />
             </div>
-            <span className="text-lg font-bold tracking-tighter text-brand-gold">KiNGChat Open Source</span>
+            <span className="text-lg font-bold tracking-tighter text-brand-gold">Elahe Messenger Open Source</span>
           </Link>
           <div className="flex items-center gap-4">
             <a href="#" className="p-2 hover:bg-zinc-900 rounded-lg transition-colors">
@@ -30,7 +30,7 @@ export default function OpenSourcePage() {
             Built by the <span className="text-brand-gold">Community</span>
           </h1>
           <p className="text-zinc-400 text-lg max-w-2xl">
-            Transparency is the foundation of trust. KiNGChat is 100% open source, allowing anyone to inspect, audit, and contribute to our codebase.
+            Transparency is the foundation of trust. Elahe Messenger is 100% open source, allowing anyone to inspect, audit, and contribute to our codebase.
           </p>
         </section>
 
@@ -42,10 +42,10 @@ export default function OpenSourcePage() {
           </div>
           <div className="prose prose-invert text-zinc-400 text-sm leading-relaxed space-y-4">
             <p>
-              KiNGChat is released under the **MIT License**. This is a permissive free software license that puts very few restrictions on reuse, making it highly compatible with other licenses and international standards.
+              Elahe Messenger is released under the **MIT License**. This is a permissive free software license that puts very few restrictions on reuse, making it highly compatible with other licenses and international standards.
             </p>
             <div className="bg-zinc-950 p-6 rounded-2xl font-mono text-xs border border-zinc-800 overflow-x-auto">
-              <p className="mb-4">Copyright (c) {new Date().getFullYear()} KiNGChat Contributors</p>
+              <p className="mb-4">Copyright (c) {new Date().getFullYear()} Elahe Messenger Contributors</p>
               <p>
                 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the &quot;Software&quot;), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
               </p>
@@ -66,7 +66,7 @@ export default function OpenSourcePage() {
             <h2 className="text-2xl font-bold">International Cooperation</h2>
           </div>
           <p className="text-zinc-400 leading-relaxed">
-            Our open-source model follows international best practices for software development and distribution. By adhering to the MIT License, we ensure that KiNGChat remains a global public good, accessible to everyone regardless of borders or political climate.
+            Our open-source model follows international best practices for software development and distribution. By adhering to the MIT License, we ensure that Elahe Messenger remains a global public good, accessible to everyone regardless of borders or political climate.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-6 rounded-2xl bg-zinc-900/50 border border-zinc-800 flex items-start gap-4">
@@ -91,7 +91,7 @@ export default function OpenSourcePage() {
           <h2 className="text-2xl font-bold">Want to contribute?</h2>
           <p className="text-zinc-400">Join our global community of developers and privacy advocates.</p>
           <a 
-            href="https://github.com/ehsanking/KiNGChat" 
+            href="https://github.com/ehsanking/Elahe Messenger" 
             className="inline-flex items-center gap-2 px-8 py-3 bg-brand-gold text-zinc-950 font-bold rounded-xl hover:bg-brand-gold/90 transition-all"
           >
             View on GitHub <ExternalLink className="w-4 h-4" />
@@ -99,7 +99,7 @@ export default function OpenSourcePage() {
         </section>
 
         <footer className="pt-12 pb-8 text-center text-zinc-600 text-xs border-t border-zinc-900">
-          &copy; {new Date().getFullYear()} KiNGChat Open Source Initiative. Released under MIT License.
+          &copy; {new Date().getFullYear()} Elahe Messenger Open Source Initiative. Released under MIT License.
         </footer>
       </div>
     </div>

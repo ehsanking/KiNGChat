@@ -1,5 +1,5 @@
 const FILE_INFO = 'file-key-wrap';
-const HKDF_SALT = 'KiNGChat-E2EE-v2';
+const HKDF_SALT = 'Elahe Messenger-E2EE-v2';
 
 const cryptoApi = () => {
   if (!globalThis.crypto?.subtle) throw new Error('WebCrypto API is required.');

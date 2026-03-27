@@ -1,53 +1,138 @@
-> This README is derived from `README.md` (source of truth).
+<p align="center">
+  <img src="./public/readme-banner.png" alt="Elahe Messenger" width="800" />
+</p>
 
-# KiNGChat 3.3 👑
-### Gizlilik Çağı için Güvenli Mesajlaşma Uygulaması
+<p align="center">
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-gold">
+  <img alt="Stack" src="https://img.shields.io/badge/stack-Next.js%2015%20%7C%20Prisma%20%7C%20PostgreSQL-111827">
+</p>
 
-[English version](README.md)
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.fa.md">فارسی</a> |
+  <a href="README.ru.md">Русский</a> |
+  <a href="README.ar.md">العربية</a> |
+  <a href="README.zh.md">中文</a> |
+  <a href="README.es.md">Español</a> |
+  <a href="README.th.md">ไทย</a> |
+  <a href="README.pt.md">Português</a> |
+  <a href="README.de.md">Deutsch</a> |
+  <a href="README.da.md">Dansk</a> |
+  <a href="README.sv.md">Svenska</a> |
+  <a href="README.tr.md">Türkçe</a>
+</p>
 
-KiNGChat, uçtan uca şifreleme sağlayan açık kaynaklı bir sohbet uygulamasıdır. Ön yüzü Next.js ve React ile, arka yüzü Node.js ile yazılmıştır; veri saklama için Prisma ve PostgreSQL, gerçek zamanlı iletişim için Socket.IO kullanır. Tüm mesajlar tarayıcıda Web Crypto API (ECDH‑P256 anahtar değişimi, HKDF‑SHA256 anahtar türetimi ve AES‑256‑GCM şifreleme) kullanılarak şifrelenir, böylece yalnızca alıcı tarafından çözülebilir.
+---
+
+## Genel Bakış
+
+**Elahe Messenger**, veriler üzerinde tam kontrol isteyen ekipler ve topluluklar için tasarlanmış, açık kaynaklı, kendi barındırmalı, uçtan uca şifreli (E2EE) bir mesajlaşma platformudur. **Next.js 15**, **React 19**, **Socket.IO** ve **PostgreSQL** ile **Prisma ORM** kullanılarak inşa edilmiştir.
+
+> Sunucu hiçbir zaman mesajların düz metnini görmez. Tüm kriptografik işlemler tarayıcıda gerçekleştirilir.
+
+---
 
 ## Özellikler
 
-- **Uçtan uca şifreleme:** Anahtarlar ECDH ile değiştirilir, HKDF ile türetilir ve mesajlar AES‑256‑GCM ile şifrelenir.
-- **Gerçek zamanlı sohbet:** Socket.IO ile anlık mesaj, grup ve kanal iletimi; Redis ile ölçeklenebilir.
-- **Kişi sistemi:** Kullanıcı adını veya sayısal kimliği kullanarak kişileri arayın ve listenize ekleyin.
-- **Gruplar ve kanallar:** Davet bağlantılı, sahip/yönetici/moderatör/üye rol destekli, herkese açık veya özel gruplar ve kanallar oluşturun.
-- **İki faktörlü kimlik doğrulama:** TOTP tabanlı 2FA (Google Authenticator, Authy) desteği.
-- **Mesaj kalıcılığı ve geçmiş:** Tüm mesajlar PostgreSQL'de saklanır ve sayfalama ile geçmişe erişilebilir.
-- **Yönetici paneli:** Kullanıcı yönetimi, sistem ayarları, günlükler ve denetim araçları.
-- **PWA:** Mobil veya masaüstüne yüklenebilir, çevrimdışı çalışabilir web uygulaması.
-- **Kurulum betiği:** Ön koşul kontrolleri, gizli anahtar üretimi, Docker ve Caddy yapılandırması ve veritabanı göçleri gerçekleştiren tek satırlık kurulum.
-- **Docker dağıtımı:** Otomatik SSL sağlayan resmi Dockerfile ve docker‑compose.
-- **Modern arayüz:** Tailwind CSS, Lucide ikonları ve animasyonlar ile modern kullanıcı arayüzü.
+| Kategori | Yetenekler |
+|---|---|
+| 🔐 **Şifreleme** | Tarayıcı taraflı E2EE (ECDH-P256, HKDF-SHA256, AES-256-GCM) |
+| 💬 **Mesajlaşma** | Özel mesajlar, gruplar, kanallar, reaksiyonlar, düzenleme, taslaklar |
+| 👥 **Sosyal** | Kişi yönetimi, topluluklar, davet bağlantıları |
+| 🛡️ **Güvenlik** | TOTP/2FA, hız sınırlaması, yerel matematik captcha, denetim günlüğü |
+| 📦 **DevOps** | Docker Compose, tek satırlık yükleyici, Caddy ile otomatik SSL |
+| 📱 **PWA** | Her cihaza kurulabilir |
 
-## Hızlı Kurulum
+---
+
+## Gereksinimler
+
+| Bağımlılık | Minimum Sürüm |
+|---|---|
+| Node.js | 20 LTS |
+| npm | 10+ |
+| PostgreSQL | 15+ |
+| Redis | 6+ (isteğe bağlı) |
+| Docker + Compose | v2+ |
+
+---
+
+## Hızlı Başlangıç
+
+### Tek Satırlık Yükleyici (Linux/macOS)
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
 ```
 
-## Manuel Kurulum
+### Manuel Kurulum
+
 ```bash
-git clone https://github.com/ehsanking/KiNGChat.git
-cd KiNGChat
-cp .env.example .env
-npm install --legacy-peer-deps
+git clone https://github.com/ehsanking/ElaheMessenger.git
+cd ElaheMessenger
+cp .env.example .env.local
+# .env.local düzenleyin: DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, APP_URL
+npm install
+npx prisma migrate deploy
 npm run build
-npm test # isteğe bağlı
-```
-`.env` dosyasını düzenledikten sonra aşağıdaki komutlardan biriyle çalıştırabilirsiniz:
-```bash
-npm run dev
 npm start
-docker compose up -d --build
 ```
 
-### Kayıt Yansımaları (Mirrors)
-Bazı ülkelerde npm ana deposuna erişim kısıtlıysa bir yansıma ayarlayabilirsiniz:
+---
+
+## Yapılandırma
+
+| Değişken | Varsayılan | Açıklama |
+|---|---|---|
+| `DATABASE_URL` | SQLite (yalnızca dev) | PostgreSQL bağlantı dizesi |
+| `APP_URL` | `http://localhost:3000` | Uygulamanın genel URL'si |
+| `JWT_SECRET` | Otomatik | Oturum token imzalama anahtarı |
+| `ENCRYPTION_KEY` | Otomatik | AES şifreleme anahtarı |
+| `ADMIN_PASSWORD` | Otomatik | **İlk girişten sonra değiştirin** |
+| `REDIS_URL` | Boş | Socket.IO kümelemeyi etkinleştirir |
+
+---
+
+## Docker Dağıtımı
+
 ```bash
-npm config set registry https://registry.npmmirror.com
-yarn config set registry https://registry.npmmirror.com
+# Geliştirme
+docker compose up -d
+
+# Prodüksiyon (otomatik SSL ile)
+docker compose -f compose.prod.yaml up -d --build
 ```
+
+---
+
+## Güvenlik
+
+- **E2EE Şifreleme**: Mesajlar gönderilmeden önce tarayıcıda şifrelenir
+- **Kör Sunucu**: Yalnızca şifreli metin saklar
+- **2FA/TOTP**: RFC 6238, standart kimlik doğrulama uygulamalarıyla uyumlu
+- **Hız Sınırlaması**: HTTP ve WebSocket katmanlarında per-IP limitleri
+
+Güvenlik açıkları: [SECURITY.md](./SECURITY.md)
+
+---
+
+## Katkıda Bulunma
+
+```bash
+npm run dev        # Geliştirme sunucusu
+npm run build      # Prodüksiyon derlemesi
+npm run lint       # ESLint
+npm test           # Testler
+npm run db:setup   # Veritabanı kurulumu
+```
+
+[Conventional Commits](https://www.conventionalcommits.org/) kullanın ve `main`'e PR açın.
+
+---
 
 ## Lisans
-Bu proje MIT lisansı altında yayımlanmaktadır.
+
+[MIT Lisansı](./LICENSE) altında yayınlanmıştır. Copyright © 2025 Elahe Messenger Katkıda Bulunanları.
+
+<p align="center">❤️ ile yapıldı: <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>

@@ -24,7 +24,7 @@ export default function SetupWizard() {
         
         <div className="flex items-center justify-between mb-8 border-b border-zinc-800 pb-4">
           <h2 className="text-2xl font-bold text-emerald-400 flex items-center gap-2">
-            <Shield className="w-6 h-6" /> KiNGChat Setup Wizard
+            <Shield className="w-6 h-6" /> Elahe Messenger Setup Wizard
           </h2>
           <div className="text-sm text-zinc-500">Step {step} of 3</div>
         </div>

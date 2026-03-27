@@ -27,7 +27,7 @@ export default function PwaPrompt() {
 
     // Check notification permissions
     if ('Notification' in window) {
-      const hasDismissed = localStorage.getItem('kingchat_notifications_dismissed');
+      const hasDismissed = localStorage.getItem('elahe_notifications_dismissed');
       
       if (Notification.permission === 'default' && !hasDismissed) {
         // If in standalone mode (PWA opened), prompt more urgently
@@ -77,7 +77,7 @@ export default function PwaPrompt() {
 
   const dismissNotificationPrompt = () => {
     // Store dismissal for 7 days
-    localStorage.setItem('kingchat_notifications_dismissed', 'true');
+    localStorage.setItem('elahe_notifications_dismissed', 'true');
     setShowNotificationPrompt(false);
   };
 

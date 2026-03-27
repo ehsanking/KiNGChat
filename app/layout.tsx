@@ -11,8 +11,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'KiNGChat',
-  description: 'Privacy-first, self-hosted web messenger designed for resilience.',
+  title: 'Elahe Messenger',
+  description: 'Privacy-first, self-hosted end-to-end encrypted messenger. Own your data.',
   manifest: '/manifest.json',
   icons: {
     icon: '/logo.png',

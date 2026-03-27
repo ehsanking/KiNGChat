@@ -119,10 +119,10 @@ const buildConversationId = (currentUserId?: string, recipientId?: string | null
 
 const buildDraftStorageKey = (currentUserId?: string, recipientId?: string | null, groupId?: string | null) => {
   const conversationId = buildConversationId(currentUserId, recipientId, groupId);
-  return conversationId ? `kingchat:draft:${currentUserId}:${conversationId}` : '';
+  return conversationId ? `elahe:draft:${currentUserId}:${conversationId}` : '';
 };
 
-const buildPendingQueueStorageKey = (currentUserId?: string) => currentUserId ? `kingchat:pending:${currentUserId}` : '';
+const buildPendingQueueStorageKey = (currentUserId?: string) => currentUserId ? `elahe:pending:${currentUserId}` : '';
 
 const adminSettingToggles: Array<{ label: string; key: keyof Pick<AdminSettings, 'isRegistrationEnabled' | 'isCaptchaEnabled'>; desc: string }> = [
   { label: 'User Registration', key: 'isRegistrationEnabled', desc: 'Allow new users' },
@@ -625,7 +625,7 @@ function ChatDashboardContent() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `kingchat_export_${new Date().toISOString()}.json`;
+      a.download = `elahe_export_${new Date().toISOString()}.json`;
       a.click();
     } else alert(res.error);
   };
@@ -1186,7 +1186,7 @@ function ChatDashboardContent() {
           <Image src="/logo.png" alt="Logo" fill className="object-contain" unoptimized />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-zinc-400">Welcome to KiNGChat</h2>
+          <h2 className="text-2xl font-bold text-zinc-400">Welcome to Elahe Messenger</h2>
           <p className="text-zinc-500 max-w-sm">Search for a user to add to your contacts, or create a group/channel to start a conversation.</p>
         </div>
         <div className="flex gap-4">
@@ -1409,7 +1409,7 @@ function ChatDashboardContent() {
             <div className="w-6 h-6 relative">
               <Image src="/logo.png" alt="Logo" fill sizes="24px" className="object-contain" unoptimized />
             </div>
-            KiNGChat
+            Elahe Messenger
           </h2>
           <div className="flex items-center gap-1">
             {currentUser.role === 'ADMIN' && (
@@ -1525,7 +1525,7 @@ function ChatDashboardContent() {
                 <div className="w-5 h-5 relative">
                   <Image src="/logo.png" alt="Logo" fill sizes="20px" className="object-contain" unoptimized />
                 </div>
-                KiNGChat
+                Elahe Messenger
               </h2>
               <div className="flex items-center gap-1">
                 {mobileTab !== 'settings' && (

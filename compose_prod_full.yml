@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prod
-    image: kingchat-app:production
-    container_name: kingchat-app
+    image: elahe-app:production
+    container_name: elahe-app
     restart: unless-stopped
     env_file:
       - .env.production
@@ -31,7 +31,7 @@ services:
 
   db:
     image: postgres:16-alpine
-    container_name: kingchat-db
+    container_name: elahe-db
     restart: unless-stopped
     env_file:
       - .env.production
@@ -50,7 +50,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    container_name: kingchat-caddy
+    container_name: elahe-caddy
     restart: unless-stopped
     depends_on:
       app:

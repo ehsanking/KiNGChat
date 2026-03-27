@@ -1,7 +1,7 @@
 {
-  "name": "KiNGChat - Secure Messenger",
-  "short_name": "KiNGChat",
-  "description": "Privacy-first, self-hosted web messenger designed for resilience. End-to-end encrypted communication.",
+  "name": "Elahe Messenger",
+  "short_name": "Elahe",
+  "description": "Privacy-first, self-hosted end-to-end encrypted messenger. Own your data.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

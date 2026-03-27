@@ -74,7 +74,7 @@ function printSecretsBox(generated: Record<string, string>, adminUser: string) {
   const line = '='.repeat(60);
   const keys = Object.keys(generated).sort().join(', ');
   console.log(`\n${line}`);
-  console.log('KiNGChat — Security keys generated');
+  console.log('Elahe Messenger — Security keys generated');
   console.log(line);
   console.log(`Admin username: ${adminUser}`);
   console.log(`Generated keys stored in .env.local: ${keys}`);
@@ -86,7 +86,7 @@ function printSecretsBox(generated: Record<string, string>, adminUser: string) {
 function printExistingPasswordReminder(adminUser: string) {
   const line = '='.repeat(60);
   console.log(`\n${line}`);
-  console.log('KiNGChat — Admin credentials reminder');
+  console.log('Elahe Messenger — Admin credentials reminder');
   console.log(line);
   console.log(`Admin username: ${adminUser}`);
   console.log('Admin password value is intentionally not printed.');

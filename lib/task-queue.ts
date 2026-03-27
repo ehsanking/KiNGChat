@@ -96,7 +96,7 @@ const getQueueConcurrency = () => {
 };
 
 const queue = new SimpleQueue({ concurrency: getQueueConcurrency() });
-const redisQueueName = process.env.BACKGROUND_JOB_QUEUE_NAME || 'kingchat:jobs';
+const redisQueueName = process.env.BACKGROUND_JOB_QUEUE_NAME || 'elahe:jobs';
 const redisDelayedQueueName = `${redisQueueName}:delayed`;
 const redisDeadLetterQueueName = `${redisQueueName}:dead`;
 

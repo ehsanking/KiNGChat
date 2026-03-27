@@ -1,5 +1,5 @@
 /**
- * KiNGChat E2EE Crypto Module
+ * Elahe Messenger E2EE Crypto Module
  * Uses WebCrypto API for client-side end-to-end encryption.
  *
  * Key Exchange: ECDH P-256
@@ -10,7 +10,7 @@
  * The server only ever sees public keys and encrypted ciphertext.
  */
 
-const DB_NAME = 'kingchat_e2ee';
+const DB_NAME = 'elahe_e2ee';
 const DB_VERSION = 1;
 const KEY_STORE = 'keys';
 
@@ -146,7 +146,7 @@ export async function deriveSharedSecret(
     {
       name: 'HKDF',
       hash: 'SHA-256',
-      salt: new TextEncoder().encode('KiNGChat-E2EE-v1'),
+      salt: new TextEncoder().encode('Elahe Messenger-E2EE-v1'),
       info: new TextEncoder().encode('message-encryption'),
     },
     rawKey,

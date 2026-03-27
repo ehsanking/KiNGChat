@@ -65,7 +65,7 @@ const schemaPath = sqlite
 
 const schemaArg = `--schema=${schemaPath}`;
 
-console.log(`\n🗄️  KiNGChat DB Setup`);
+console.log(`\n🗄️  Elahe Messenger DB Setup`);
 console.log(`   Provider : ${sqlite ? 'SQLite (local dev)' : 'PostgreSQL'}`);
 console.log(`   Schema   : ${schemaPath}`);
 console.log(`   URL      : ${databaseUrl.replace(/:\/\/[^@]+@/, '://*****@')}\n`);

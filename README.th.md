@@ -1,53 +1,94 @@
-> This README is derived from `README.md` (source of truth).
+<p align="center">
+  <img src="./public/readme-banner.png" alt="Elahe Messenger" width="800" />
+</p>
 
-# KiNGChat 3.3 👑
-### แอปส่งข้อความที่ปลอดภัยสำหรับยุคแห่งความเป็นส่วนตัว
+<p align="center">
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-gold">
+  <img alt="Stack" src="https://img.shields.io/badge/stack-Next.js%2015%20%7C%20Prisma%20%7C%20PostgreSQL-111827">
+</p>
 
-[English version](README.md)
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.fa.md">فارسی</a> |
+  <a href="README.ru.md">Русский</a> |
+  <a href="README.ar.md">العربية</a> |
+  <a href="README.zh.md">中文</a> |
+  <a href="README.es.md">Español</a> |
+  <a href="README.th.md">ไทย</a> |
+  <a href="README.pt.md">Português</a> |
+  <a href="README.de.md">Deutsch</a> |
+  <a href="README.da.md">Dansk</a> |
+  <a href="README.sv.md">Svenska</a> |
+  <a href="README.tr.md">Türkçe</a>
+</p>
 
-KiNGChat เป็นแอปส่งข้อความแบบโอเพ่นซอร์สที่มีการเข้ารหัสแบบ end‑to‑end สร้างขึ้นด้วย Next.js และ React สำหรับส่วนหน้า Node.js ที่ส่วนหลัง ใช้ Prisma และ PostgreSQL ในการจัดเก็บข้อมูล และใช้ Socket.IO สำหรับการสื่อสารแบบเรียลไทม์ ข้อความทั้งหมดจะถูกเข้ารหัสในเบราว์เซอร์ด้วย Web Crypto API (การแลกเปลี่ยนคีย์ ECDH‑P256, HKDF‑SHA256 และการเข้ารหัส AES‑256‑GCM) ผู้รับเท่านั้นที่สามารถถอดรหัสได้
+---
+
+## ภาพรวม
+
+**Elahe Messenger** คือแพลตฟอร์มส่งข้อความโอเพ่นซอร์ส โฮสต์ด้วยตนเอง พร้อมการเข้ารหัสแบบ End-to-End (E2EE) ออกแบบสำหรับทีมและชุมชนที่ต้องการควบคุมข้อมูลของตนเองอย่างสมบูรณ์ สร้างด้วย **Next.js 15**, **React 19**, **Socket.IO** และ **Prisma ORM** พร้อม **PostgreSQL**
+
+> เซิร์ฟเวอร์ไม่เคยเห็นข้อความธรรมดา การดำเนินการเข้ารหัสทั้งหมดเกิดขึ้นในเบราว์เซอร์
+
+---
 
 ## คุณสมบัติ
 
-- **การเข้ารหัสจากต้นทางถึงปลายทาง:** แลกเปลี่ยนคีย์ผ่าน ECDH อนุพันธ์ด้วย HKDF และเข้ารหัสข้อความด้วย AES‑256‑GCM
-- **แชทแบบเรียลไทม์:** ส่งข้อความ กลุ่ม และช่องแบบทันทีด้วย Socket.IO พร้อมรองรับการขยายผ่าน Redis
-- **ระบบรายชื่อผู้ติดต่อ:** ค้นหาและเพิ่มผู้ใช้ตามชื่อหรือ ID
-- **กลุ่มและช่อง:** สร้างกลุ่มและช่องสาธารณะหรือส่วนตัวพร้อมลิงก์เชิญและบทบาทเจ้าของ ผู้ดูแล ผู้ตรวจสอบ และสมาชิก
-- **การยืนยันตัวตนสองชั้น:** รองรับ TOTP (Google Authenticator, Authy) เพื่อความปลอดภัยเพิ่มเติม
-- **การจัดเก็บและประวัติ:** บันทึกข้อความในฐานข้อมูล PostgreSQL และโหลดประวัติแบบแบ่งหน้า
-- **แผงผู้ดูแล:** จัดการผู้ใช้ การตั้งค่า และบันทึก
-- **แอปเว็บก้าวหน้า (PWA):** ติดตั้งแอปบนโทรศัพท์หรือเดสก์ท็อปและทำงานออฟไลน์ได้
-- **สคริปต์ติดตั้ง:** สคริปต์บรรทัดเดียวที่ตรวจสอบระบบ สร้างคีย์ ตั้งค่า Docker และ Caddy และเรียกใช้การย้ายข้อมูล
-- **การปรับใช้ Docker:** Dockerfile และ docker‑compose อย่างเป็นทางการพร้อม SSL อัตโนมัติ
-- **ส่วนต่อประสานทันสมัย:** อินเตอร์เฟซสวยงามด้วย Tailwind CSS ไอคอน Lucide และแอนิเมชัน
+| หมวดหมู่ | ความสามารถ |
+|---|---|
+| 🔐 **การเข้ารหัส** | E2EE ในเบราว์เซอร์ (ECDH-P256, HKDF-SHA256, AES-256-GCM) |
+| 💬 **ข้อความ** | DM, กลุ่ม, ช่อง, ปฏิกิริยา, แก้ไข, ร่าง |
+| 👥 **สังคม** | จัดการผู้ติดต่อ, ชุมชน, ลิงก์เชิญ |
+| 🛡️ **ความปลอดภัย** | TOTP/2FA, จำกัดอัตรา, captcha คณิตศาสตร์ท้องถิ่น, บันทึกการตรวจสอบ |
+| 📦 **DevOps** | Docker Compose, ติดตั้งด้วยคำสั่งเดียว, SSL อัตโนมัติผ่าน Caddy |
+| 📱 **PWA** | ติดตั้งได้บนทุกอุปกรณ์ |
 
-## การติดตั้งแบบรวดเร็ว
-```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/main/install.sh | bash
-```
+---
 
-## การติดตั้งแบบแมนนวล
+## ความต้องการ
+
+| การพึ่งพา | เวอร์ชันขั้นต่ำ |
+|---|---|
+| Node.js | 20 LTS |
+| npm | 10+ |
+| PostgreSQL | 15+ |
+| Redis | 6+ (ไม่บังคับ) |
+| Docker + Compose | v2+ |
+
+---
+
+## เริ่มต้นอย่างรวดเร็ว
+
 ```bash
-git clone https://github.com/ehsanking/KiNGChat.git
-cd KiNGChat
-cp .env.example .env
-npm install --legacy-peer-deps
-npm run build
-npm test # ตัวเลือก
-```
-แก้ไข `.env` แล้วเรียกใช้งานด้วย:
-```bash
-npm run dev
-npm start
-docker compose up -d --build
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
 ```
 
-### การใช้แหล่งมิเรอร์
-หากไม่สามารถเข้าถึงรีจิสทรี npm เนื่องจากข้อจำกัด ให้ตั้งค่าแหล่งมิเรอร์:
+### ติดตั้งด้วยตนเอง
+
 ```bash
-npm config set registry https://registry.npmmirror.com
-yarn config set registry https://registry.npmmirror.com
+git clone https://github.com/ehsanking/ElaheMessenger.git
+cd ElaheMessenger
+cp .env.example .env.local
+npm install && npx prisma migrate deploy
+npm run build && npm start
 ```
+
+---
+
+## การกำหนดค่า
+
+| ตัวแปร | ค่าเริ่มต้น | คำอธิบาย |
+|---|---|---|
+| `DATABASE_URL` | SQLite (เฉพาะ dev) | สตริงการเชื่อมต่อ PostgreSQL |
+| `APP_URL` | `http://localhost:3000` | URL สาธารณะของแอป |
+| `JWT_SECRET` | อัตโนมัติ | คีย์ลงนาม session token |
+| `ADMIN_PASSWORD` | อัตโนมัติ | **เปลี่ยนหลังจากเข้าสู่ระบบครั้งแรก** |
+
+---
 
 ## ใบอนุญาต
-โครงการนี้เผยแพร่ภายใต้ใบอนุญาต MIT
+
+เผยแพร่ภายใต้ [ใบอนุญาต MIT](./LICENSE) Copyright © 2025 Elahe Messenger Contributors
+
+<p align="center">สร้างด้วย ❤️ โดย <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>

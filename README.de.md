@@ -1,53 +1,138 @@
-> This README is derived from `README.md` (source of truth).
+<p align="center">
+  <img src="./public/readme-banner.png" alt="Elahe Messenger" width="800" />
+</p>
 
-# KiNGChat 3.3 👑
-### Der sichere Messenger für das Zeitalter der Privatsphäre
+<p align="center">
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-gold">
+  <img alt="Stack" src="https://img.shields.io/badge/stack-Next.js%2015%20%7C%20Prisma%20%7C%20PostgreSQL-111827">
+</p>
 
-[Englische Version](README.md)
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.fa.md">فارسی</a> |
+  <a href="README.ru.md">Русский</a> |
+  <a href="README.ar.md">العربية</a> |
+  <a href="README.zh.md">中文</a> |
+  <a href="README.es.md">Español</a> |
+  <a href="README.th.md">ไทย</a> |
+  <a href="README.pt.md">Português</a> |
+  <a href="README.de.md">Deutsch</a> |
+  <a href="README.da.md">Dansk</a> |
+  <a href="README.sv.md">Svenska</a> |
+  <a href="README.tr.md">Türkçe</a>
+</p>
 
-KiNGChat ist ein quelloffener Messenger mit Ende‑zu‑Ende‑Verschlüsselung. Er basiert auf Next.js und React im Frontend, Node.js im Backend und nutzt Prisma und PostgreSQL zur Datenspeicherung sowie Socket.IO für Echtzeitkommunikation. Alle Nachrichten werden im Browser mit der Web Crypto API (ECDH‑P256‑Schlüsselaustausch, HKDF‑SHA256‑Ableitung und AES‑256‑GCM‑Verschlüsselung) verschlüsselt und können nur vom vorgesehenen Empfänger entschlüsselt werden.
+---
+
+## Überblick
+
+**Elahe Messenger** ist eine quelloffene, selbst gehostete Ende-zu-Ende-verschlüsselte Messaging-Plattform für Teams und Gemeinschaften, die vollständige Kontrolle über ihre Daten benötigen. Gebaut mit **Next.js 15**, **React 19**, **Socket.IO** und **Prisma ORM** mit **PostgreSQL**.
+
+> Der Server sieht niemals den Klartext von Nachrichten. Alle kryptografischen Operationen werden im Browser durchgeführt.
+
+---
 
 ## Funktionen
 
-- **Ende‑zu‑Ende‑Verschlüsselung:** Schlüssel werden über ECDH ausgetauscht, per HKDF abgeleitet und Nachrichten mit AES‑256‑GCM verschlüsselt.
-- **Echtzeit‑Chat:** Sofortige Zustellung von Nachrichten, Gruppen und Kanälen über Socket.IO, skalierbar mit Redis.
-- **Kontaktsystem:** Suche und füge Benutzer anhand von Benutzernamen oder ID zu deiner Kontaktliste hinzu.
-- **Gruppen und Kanäle:** Erstelle öffentliche oder private Gruppen und Kanäle mit Einladungslinks und Rollen (Eigentümer, Administrator, Moderator, Mitglied).
-- **Zwei‑Faktor‑Authentifizierung:** Unterstützung für TOTP (Google Authenticator, Authy) zur zusätzlichen Sicherheit.
-- **Persistenz und Verlauf:** Alle Nachrichten werden in PostgreSQL gespeichert und können seitenweise geladen werden.
-- **Admin‑Panel:** Verwaltung von Benutzern, Einstellungen, Protokollen und Betriebsaufgaben.
-- **PWA:** Installiere die App auf deinem Telefon oder Desktop und nutze sie offline.
-- **Installationsscript:** Ein Einzeiler, der Prüfungen durchführt, Schlüssel generiert, Docker und Caddy einrichtet und Migrationen ausführt.
-- **Docker‑Deployment:** Offizielles Dockerfile und docker‑compose mit automatischem SSL.
-- **Moderne Benutzeroberfläche:** Ansprechendes UI mit Tailwind CSS, Lucide‑Icons und Animationen.
+| Kategorie | Fähigkeiten |
+|---|---|
+| 🔐 **Verschlüsselung** | Browser-seitiges E2EE (ECDH-P256, HKDF-SHA256, AES-256-GCM) |
+| 💬 **Messaging** | Direktnachrichten, Gruppen, Kanäle, Reaktionen, Bearbeitung, Entwürfe |
+| 👥 **Soziales** | Kontaktverwaltung, Gemeinschaften, Einladungslinks |
+| 🛡️ **Sicherheit** | TOTP/2FA, Rate Limiting, lokales Mathe-Captcha, Audit-Log |
+| 📦 **DevOps** | Docker Compose, Einzeilen-Installer, Auto-SSL mit Caddy |
+| 📱 **PWA** | Auf jedem Gerät installierbar |
 
-## Schnelle Installation
+---
+
+## Anforderungen
+
+| Abhängigkeit | Mindestversion |
+|---|---|
+| Node.js | 20 LTS |
+| npm | 10+ |
+| PostgreSQL | 15+ |
+| Redis | 6+ (optional) |
+| Docker + Compose | v2+ |
+
+---
+
+## Schnellstart
+
+### Einzeilen-Installer (Linux/macOS)
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
 ```
 
-## Manuelle Installation
+### Manuelle Installation
+
 ```bash
-git clone https://github.com/ehsanking/KiNGChat.git
-cd KiNGChat
-cp .env.example .env
-npm install --legacy-peer-deps
+git clone https://github.com/ehsanking/ElaheMessenger.git
+cd ElaheMessenger
+cp .env.example .env.local
+# .env.local bearbeiten: DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, APP_URL
+npm install
+npx prisma migrate deploy
 npm run build
-npm test # optional
-```
-Bearbeite `.env` und starte dann:
-```bash
-npm run dev
 npm start
-docker compose up -d --build
 ```
 
-### Spiegelserver nutzen
-Falls in deinem Land der Zugriff auf das npm‑Registry eingeschränkt ist, kannst du ein Spiegel‑Registry konfigurieren:
+---
+
+## Konfiguration
+
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `DATABASE_URL` | SQLite (nur dev) | PostgreSQL-Verbindungsstring |
+| `APP_URL` | `http://localhost:3000` | Öffentliche URL der Anwendung |
+| `JWT_SECRET` | Automatisch | Session-Token-Signierschlüssel |
+| `ENCRYPTION_KEY` | Automatisch | AES-Verschlüsselungsschlüssel |
+| `ADMIN_PASSWORD` | Automatisch | **Nach erstem Login ändern** |
+| `REDIS_URL` | Leer | Aktiviert Socket.IO-Clustering |
+
+---
+
+## Docker-Deployment
+
 ```bash
-npm config set registry https://registry.npmmirror.com
-yarn config set registry https://registry.npmmirror.com
+# Entwicklung
+docker compose up -d
+
+# Produktion (mit Auto-SSL)
+docker compose -f compose.prod.yaml up -d --build
 ```
+
+---
+
+## Sicherheit
+
+- **Ende-zu-Ende-Verschlüsselung**: Nachrichten werden vor dem Senden im Browser verschlüsselt
+- **Blinder Server**: Speichert nur verschlüsselten Text
+- **2FA/TOTP**: RFC 6238, kompatibel mit allen Standard-Authenticator-Apps
+- **Rate Limiting**: Per-IP-Limits auf HTTP- und WebSocket-Ebene
+
+Schwachstellen melden: [SECURITY.md](./SECURITY.md)
+
+---
+
+## Beitragen
+
+```bash
+npm run dev        # Dev-Server
+npm run build      # Produktions-Build
+npm run lint       # ESLint
+npm test           # Tests
+npm run db:setup   # DB-Setup
+```
+
+Nutze [Conventional Commits](https://www.conventionalcommits.org/) und öffne einen PR zu `main`.
+
+---
 
 ## Lizenz
-Dieses Projekt steht unter der MIT‑Lizenz.
+
+Veröffentlicht unter der [MIT-Lizenz](./LICENSE). Copyright © 2025 Elahe Messenger Contributors.
+
+<p align="center">Mit ❤️ erstellt von <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>

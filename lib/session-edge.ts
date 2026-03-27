@@ -1,6 +1,6 @@
 import type { SessionData } from '@/lib/session';
 
-const SESSION_COOKIE_NAME = 'kingchat_session';
+const SESSION_COOKIE_NAME = 'elahe_session';
 
 const textEncoder = new TextEncoder();
 

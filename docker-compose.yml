@@ -3,12 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: kingchat-app
-    image: kingchat-app
+    container_name: elahe-app
+    image: elahe-app
     restart: unless-stopped
     environment:
       # Database — PostgreSQL via docker network
-      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-pass}@db:5432/${POSTGRES_DB:-kingchat}}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-pass}@db:5432/${POSTGRES_DB:-elahe}}
       - PRISMA_CONNECTION_LIMIT=${PRISMA_CONNECTION_LIMIT:-10}
       # Storage
       # File storage now defaults to the local filesystem.  To enable an
@@ -58,11 +58,11 @@ services:
       retries: 12
       start_period: 180s
     networks:
-      - kingchat-net
+      - elahe-net
 
   caddy:
     image: caddy:2-alpine
-    container_name: kingchat-caddy
+    container_name: elahe-caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -76,33 +76,33 @@ services:
       app:
         condition: service_healthy
     networks:
-      - kingchat-net
+      - elahe-net
 
   db:
     image: postgres:16-alpine
-    container_name: kingchat-db
+    container_name: elahe-db
     restart: unless-stopped
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pass}
-      - POSTGRES_DB=${POSTGRES_DB:-kingchat}
+      - POSTGRES_DB=${POSTGRES_DB:-elahe}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-kingchat}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-elahe}"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 20s
     networks:
-      - kingchat-net
+      - elahe-net
 
   # The MinIO service has been removed in favour of local storage.  If you
   # wish to use object storage, configure an external MinIO or S3 service
   # and set the appropriate environment variables in the app container.
 
 networks:
-  kingchat-net:
+  elahe-net:
     driver: bridge
 
 volumes:

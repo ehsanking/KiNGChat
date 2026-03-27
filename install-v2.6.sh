@@ -1,10 +1,10 @@
 #!/bin/bash
-# KiNGChat Installer v2.6 (hotfix)
+# Elahe Messenger Installer v1.0 (hotfix)
 # Aligns deployment with the current docker-compose.yml and production env validation.
 set -euo pipefail
 
-REPO_URL="https://github.com/ehsanking/KiNGChat.git"
-TARGET_DIR="KiNGChat"
+REPO_URL="https://github.com/ehsanking/ElaheMessenger.git"
+TARGET_DIR="ElaheMessenger"
 
 BLUE='\033[1;34m'
 RED='\033[1;31m'
@@ -140,7 +140,7 @@ sync_source() {
 
   log_info "Downloading source archive..."
   if ! curl -L --retry 5 --retry-delay 5 --connect-timeout 30 \
-    "https://github.com/ehsanking/KiNGChat/archive/refs/heads/main.tar.gz" \
+    "https://github.com/ehsanking/ElaheMessenger/archive/refs/heads/main.tar.gz" \
     | tar -xz --strip-components=1; then
     log_error "Archive download failed."
     exit 1
@@ -235,8 +235,8 @@ write_env() {
   cat > "${TARGET_DIR}/.env" <<EOF
 POSTGRES_USER=user
 POSTGRES_PASSWORD=${pg_password}
-POSTGRES_DB=kingchat
-DATABASE_URL=postgresql://user:${pg_password}@db:5432/kingchat
+POSTGRES_DB=elahe
+DATABASE_URL=postgresql://user:${pg_password}@db:5432/elahe
 PRISMA_CONNECTION_LIMIT=10
 APP_URL=${app_url}
 ALLOWED_ORIGINS=${allowed_origins}
@@ -295,7 +295,7 @@ launch() {
   log_info "Starting database..."
   docker compose up -d db
 
-  if ! wait_for_health "kingchat-db" 30 2; then
+  if ! wait_for_health "elahe-db" 30 2; then
     log_error "Database did not become healthy."
     docker compose logs db --tail=80 || true
     exit 1
@@ -309,7 +309,7 @@ launch() {
 
   log_info "Starting app..."
   docker compose up -d app
-  if ! wait_for_health "kingchat-app" 45 5; then
+  if ! wait_for_health "elahe-app" 45 5; then
     log_error "App did not become healthy."
     docker compose logs app --tail=120 || true
     exit 1
@@ -317,7 +317,7 @@ launch() {
 
   log_info "Starting caddy..."
   docker compose up -d caddy
-  if ! wait_for_health "kingchat-caddy" 20 3; then
+  if ! wait_for_health "elahe-caddy" 20 3; then
     log_error "Caddy did not become ready."
     docker compose logs caddy --tail=120 || true
     exit 1
@@ -328,7 +328,7 @@ launch() {
 
 print_summary() {
   echo
-  echo -e "${GREEN}KiNGChat installation completed.${NC}"
+  echo -e "${GREEN}Elahe Messenger installation completed.${NC}"
   echo -e "${CYAN}App URL:${NC} ${RESOLVED_APP_URL}"
   echo -e "${CYAN}Storage:${NC} Local filesystem (default)"
   echo -e "${CYAN}Admin User:${NC} admin"

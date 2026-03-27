@@ -1,5 +1,5 @@
 const CURVE = 'P-256';
-const HKDF_SALT = 'KiNGChat-E2EE-v2';
+const HKDF_SALT = 'Elahe Messenger-E2EE-v2';
 const MESSAGE_INFO = 'message-encryption';
 
 const cryptoApi = () => {

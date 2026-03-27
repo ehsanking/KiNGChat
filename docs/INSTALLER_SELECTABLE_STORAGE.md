@@ -1,6 +1,6 @@
 # Selectable Storage Installer
 
-This wrapper adds a storage-backend choice in front of the main KiNGChat installer for cases where the repository is not indexed and the original `install.sh` still assumes a `minio` Compose service exists.
+This wrapper adds a storage-backend choice in front of the main Elahe Messenger installer for cases where the repository is not indexed and the original `install.sh` still assumes a `minio` Compose service exists.
 
 ## Why this exists
 
@@ -19,7 +19,7 @@ It adds three modes:
 ## Usage
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/feat/selectable-storage-installer-wrapper/install.selectable-storage.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/Elahe Messenger/feat/selectable-storage-installer-wrapper/install.selectable-storage.sh | bash
 ```
 
 After launch, pick the storage mode you want.

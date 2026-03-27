@@ -166,7 +166,7 @@ export default function AdminSettingsPage() {
           <p className="text-xs text-zinc-500 leading-relaxed">
             All uploaded files are stored in an encrypted state if the client-side encryption is active. 
             Restricting file formats helps prevent the distribution of potentially harmful executables, 
-            but remember that KiNGChat does not scan file contents due to privacy-first architecture.
+            but remember that Elahe Messenger does not scan file contents due to privacy-first architecture.
           </p>
         </div>
       </div>

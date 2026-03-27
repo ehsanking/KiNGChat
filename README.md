@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="./public/logo.png" alt="KiNGChat logo" width="120" height="120" />
+  <img src="./public/readme-banner.png" alt="Elahe Messenger" width="800" />
 </p>
 
-<h1 align="center">KiNGChat 3.3 👑</h1>
-<p align="center"><strong>Privacy-first, self-hosted messaging platform with end-to-end encryption.</strong></p>
-
 <p align="center">
-  <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-3.3.0-gold">
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-gold">
+  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-black">
   <img alt="Stack" src="https://img.shields.io/badge/stack-Next.js%2015%20%7C%20Prisma%20%7C%20PostgreSQL-111827">
+  <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
 </p>
 
 <p align="center">
@@ -28,160 +28,270 @@
 
 ---
 
-## What is KiNGChat?
+## Overview
 
-**KiNGChat 3.3** is an open-source messenger designed for teams and communities that need control, privacy, and self-hosted reliability.
+**Elahe Messenger** is an open-source, self-hosted, end-to-end encrypted messaging platform built for teams, communities, and individuals who demand full control over their data. It combines the power of **Next.js 15**, **React 19**, and **Socket.IO** on a **Node.js** runtime, backed by **Prisma ORM** with **PostgreSQL** (or SQLite for local development) and optionally scaled horizontally via **Redis**.
 
-- **Frontend:** Next.js 15 + React 19
-- **Backend:** Node.js + Socket.IO
-- **Data layer:** Prisma + PostgreSQL
-- **Security:** Browser-side E2EE primitives (ECDH-P256, HKDF-SHA256, AES-256-GCM)
-- **Ops:** Docker Compose, production-safe scripts, observability/admin pages
-
-> The server never requires client private keys for message encryption/decryption flows.
+> The server never sees plaintext messages. All cryptographic operations are performed client-side using the Web Crypto API.
 
 ---
 
-## Core Features
+## Table of Contents
 
-- 🔐 **End-to-end encryption (E2EE)** with modern Web Crypto primitives
-- 💬 **Real-time messaging** for DMs, groups, and channels
-- 👥 **Contacts and community management** (invite links, member roles)
-- 🧭 **Admin panel** (users, reports, settings, audit/observability)
-- 🛡️ **Security controls** (2FA/TOTP, session checks, captcha, rate limits)
-- 📦 **Self-hosted deployment** (Dockerfiles + compose variants)
-- 📱 **PWA support** (install prompt and service-worker based capabilities)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+- [Manual Installation](#manual-installation)
+- [Configuration](#configuration)
+- [Docker Deployment](#docker-deployment)
+- [Security](#security)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## Quick Start (One-Line Installer)
+## Features
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/main/install.sh | bash
+| Category | Capabilities |
+|---|---|
+| 🔐 **Encryption** | Browser-side E2EE (ECDH-P256, HKDF-SHA256, AES-256-GCM), forward-secrecy ratchet |
+| 💬 **Messaging** | Real-time DMs, group chats, channels, message reactions, edits, drafts |
+| 👥 **Social** | Contact management, community groups, invite links, member roles |
+| 🛡️ **Security** | TOTP/2FA, session binding, rate limiting, local math captcha, audit logs |
+| 🧭 **Admin** | User management, ban/verify controls, settings panel, observability dashboard |
+| 📦 **DevOps** | Docker Compose variants, one-line installer, Caddy auto-SSL, health checks |
+| 📱 **PWA** | Installable on any device, offline-capable service worker |
+| 🔔 **Push** | VAPID web-push notifications, optional Firebase FCM fallback |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Browser (Client)                    │
+│  Next.js 15 (App Router) · React 19 · Tailwind CSS 4   │
+│  Web Crypto API · Socket.IO Client · IndexedDB (E2EE)   │
+└──────────────────────┬──────────────────────────────────┘
+                       │ HTTPS / WSS
+┌──────────────────────▼──────────────────────────────────┐
+│                  Node.js Server (server.ts)              │
+│  Next.js Request Handler · Socket.IO · Background Queue  │
+└──────┬──────────────────────────────────────┬───────────┘
+       │                                      │
+┌──────▼──────┐                    ┌──────────▼──────────┐
+│  PostgreSQL  │                    │  Redis (optional)   │
+│  via Prisma  │                    │  Pub/Sub · Queue    │
+└─────────────┘                    └─────────────────────┘
 ```
 
-The installer runs preflight checks, prepares secrets, configures containers, and starts the stack.
+**Key design principles:**
+- **Zero-trust server**: private keys never leave the browser
+- **Stateless auth**: signed session cookies, no server-side session store required
+- **Horizontal scaling**: Redis adapter for Socket.IO cluster mode
+- **Graceful degradation**: SQLite fallback for development; Redis is optional
 
 ---
 
-## Manual Setup
+## Requirements
 
-### Requirements
+| Dependency | Minimum Version | Notes |
+|---|---|---|
+| Node.js | 20 LTS | Required for native crypto APIs |
+| npm | 10+ | Package management |
+| PostgreSQL | 15+ | Production database |
+| Redis | 6+ | Optional; enables clustering |
+| Docker + Compose | v2+ | Recommended for production |
 
-- Node.js 20+
-- npm 10+
-- PostgreSQL 15+
-- (Optional) Redis for scale-out socket adapters
+---
 
-### Steps
+## Quick Start
+
+### One-Line Installer (Linux/macOS)
 
 ```bash
-git clone https://github.com/ehsanking/KiNGChat.git
-cd KiNGChat
-cp .env.example .env
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
+```
+
+The installer will:
+1. Check system requirements
+2. Clone the repository
+3. Prompt for domain / IP configuration
+4. Generate secrets automatically
+5. Start services via Docker Compose with auto-SSL (Caddy)
+
+---
+
+## Manual Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/ehsanking/ElaheMessenger.git
+cd ElaheMessenger
+
+# 2. Copy environment template
+cp .env.example .env.local
+
+# 3. Edit .env.local — at minimum set:
+#    DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, APP_URL
+
+# 4. Install dependencies (generates Prisma client automatically)
 npm install
-npx prisma generate
+
+# 5. Apply database migrations
+npx prisma migrate deploy
+# or for development:
+npx prisma db push
+
+# 6. Build for production
 npm run build
-npm test
+
+# 7. Start
 npm start
 ```
 
-For development:
-
-```bash
-npm run dev
-```
+> **First run:** `npm install` automatically runs `scripts/db-setup.ts` which detects your database type and generates the correct Prisma client.
 
 ---
 
+## Configuration
 
-## Local Captcha (No External Services)
+All configuration is done through environment variables. Copy `.env.example` to `.env.local` and set the values below.
 
-KiNGChat now uses a **local arithmetic captcha** that is fully self-hosted and does not depend on external providers (no Google reCAPTCHA, hCaptcha, or Cloudflare Turnstile).
+### Core
 
-Required internal resources:
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | SQLite (dev only) | PostgreSQL connection string for production |
+| `APP_URL` | `http://localhost:3000` | Public base URL of the application |
+| `NODE_ENV` | `development` | Set to `production` for production builds |
+| `PORT` | `3000` | HTTP server port |
 
-- Next.js API route: `GET /api/captcha`
-- Stateless signer/verifier in `lib/local-captcha.ts`
-- Client-side UI component `components/LocalCaptcha.tsx`
-- Existing server-side validation flow in auth actions
+### Security *(auto-generated on first run)*
 
-Optional hardening (recommended):
+| Variable | Description |
+|---|---|
+| `JWT_SECRET` | HMAC-SHA256 signing secret for session tokens (≥ 32 chars) |
+| `ENCRYPTION_KEY` | AES encryption key for sensitive fields |
+| `ADMIN_USERNAME` | Initial admin username (default: `admin`) |
+| `ADMIN_PASSWORD` | Initial admin password — **change immediately after first login** |
 
-- Configure `CAPTCHA_SECRET` (16+ chars) for stable token signing across restarts
-- Keep rate limiting enabled for login/register endpoints
+### Push Notifications *(optional)*
+
+| Variable | Description |
+|---|---|
+| `VAPID_PUBLIC_KEY` | Web Push VAPID public key |
+| `VAPID_PRIVATE_KEY` | Web Push VAPID private key |
+| `VAPID_EMAIL` | Contact email for VAPID |
+
+### Redis *(optional)*
+
+| Variable | Description |
+|---|---|
+| `REDIS_URL` | e.g. `redis://localhost:6379` — enables Socket.IO clustering |
+
+### Rate Limiting
+
+| Variable | Default | Description |
+|---|---|---|
+| `RATE_LIMIT_WINDOW_MS` | `900000` | Rate limit window in milliseconds (15 min) |
+| `RATE_LIMIT_MAX_REQUESTS` | `100` | Max requests per window per IP |
+| `SOCKET_RATE_LIMIT_WINDOW_MS` | `10000` | Socket rate limit window (10 s) |
+| `SOCKET_RATE_LIMIT_MAX` | `30` | Max socket events per window |
+
+---
 
 ## Docker Deployment
 
+### Development
+
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-Production-focused alternatives are also available (`compose.prod.yaml`, `compose_prod_full.yml`, `Dockerfile.prod`).
+### Production (with auto-SSL via Caddy)
+
+```bash
+# Set your domain and secrets in .env, then:
+docker compose -f compose.prod.yaml up -d --build
+```
+
+Container names and services:
+
+| Service | Container | Description |
+|---|---|---|
+| App | `elahe-app` | Next.js + Socket.IO server |
+| Database | `elahe-db` | PostgreSQL 16 |
+| Reverse proxy | `elahe-caddy` | Caddy with automatic Let's Encrypt SSL |
+
+Health check endpoint: `GET /api/health`
+
+---
+
+## Security
+
+Elahe Messenger is designed with a **privacy-first, zero-trust** philosophy:
+
+- **End-to-End Encryption**: Messages are encrypted in the browser before transmission using `ECDH-P256` key agreement, `HKDF-SHA256` key derivation, and `AES-256-GCM` authenticated encryption.
+- **Server Blindness**: The server stores only ciphertext. It cannot read message content.
+- **Session Security**: Session tokens are HMAC-signed, HttpOnly, SameSite=Strict cookies with optional IP and User-Agent binding.
+- **2FA/TOTP**: RFC 6238 compliant one-time passwords via any standard authenticator app.
+- **Rate Limiting**: Per-IP limits enforced at both the HTTP and WebSocket layers, backed by Redis when available.
+- **Audit Logging**: Admin actions are recorded with IP, timestamp, and actor for forensic traceability.
+
+For vulnerability disclosures, see [SECURITY.md](./SECURITY.md).
 
 ---
 
 ## Project Structure
 
-```text
-app/                 # Next.js App Router pages, server actions, API routes
-components/          # Reusable UI blocks
-lib/                 # Security, messaging, sockets, runtime services
-prisma/              # Database schema and migrations
-scripts/             # Installer, diagnostics, maintenance scripts
-tests/               # Vitest test suites
 ```
-
----
-
-## Security Notes
-
-- Read [`SECURITY.md`](./SECURITY.md) before public deployments.
-- Review production hardening docs:
-  - [`PRODUCTION_HARDENING.md`](./PRODUCTION_HARDENING.md)
-  - [`PHASEA_PRODUCTION_HARDENING.md`](./PHASEA_PRODUCTION_HARDENING.md)
+elahe-messenger/
+├── app/                    # Next.js App Router pages and API routes
+│   ├── actions/            # Server Actions (auth, messages, admin)
+│   ├── api/                # REST API route handlers
+│   ├── auth/               # Login, register, 2FA pages
+│   ├── chat/               # Chat UI and profile pages
+│   └── admin/              # Admin panel pages
+├── components/             # Shared React components
+├── lib/                    # Core server-side modules
+│   ├── session.ts          # Session management
+│   ├── crypto.ts           # E2EE primitives
+│   ├── prisma.ts           # Database client singleton
+│   ├── rate-limit.ts       # Rate limiting logic
+│   └── local-captcha.ts    # Stateless math captcha
+├── prisma/                 # Prisma schema and migrations
+├── public/                 # Static assets (logo, manifest, SW)
+├── scripts/                # Utility scripts (db-setup, backup)
+├── server.ts               # Custom Node.js server (Socket.IO)
+├── docker-compose.yml      # Development Compose
+├── compose.prod.yaml       # Production Compose
+└── install.sh              # One-line production installer
+```
 
 ---
 
 ## Contributing
 
-1. Fork the repo and create a feature branch.
-2. Run tests and build locally.
-3. Open a PR with a clear summary and risk notes.
+Contributions are welcome. Please follow these steps:
 
-Useful commands:
+1. Fork the repository and create a feature branch: `git checkout -b feat/my-feature`
+2. Follow the existing code style — run `npm run format` and `npm run lint` before committing
+3. Write or update tests where applicable: `npm test`
+4. Commit using [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, etc.
+5. Open a Pull Request against `main` with a clear description of changes
+
+### Development Commands
 
 ```bash
-npm run test
-npm run build
-npm run lint
-```
-
-
----
-
-## Disclaimer
-
-KiNGChat is provided **"as is"** without warranties of any kind.
-
-- You are solely responsible for secure deployment, backups, key management, and legal compliance in your jurisdiction.
-- The maintainers are not liable for data loss, misconfiguration, service interruption, or security incidents in self-hosted environments.
-- Always run security reviews and penetration tests before production use.
-
----
-
-## Donate
-
-If KiNGChat helps your team, you can support continued development:
-
-- **Tether (USDT):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
-- **TRON (TRX):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
-
-Copy-ready format:
-
-```text
-USDT (Tether): TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU
-TRON (TRX):    TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU
+npm run dev          # Start dev server with hot-reload
+npm run build        # Production build
+npm run lint         # ESLint check
+npm run format       # Prettier auto-format
+npm test             # Run Vitest test suite
+npm run db:setup     # Detect DB type and run migrations
+npm run backup       # Create database backup archive
 ```
 
 ---
@@ -190,6 +300,12 @@ TRON (TRX):    TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU
 
 Released under the [MIT License](./LICENSE).
 
-## Maintainers
+Copyright © 2025 Elahe Messenger Contributors.
 
-Built and maintained by [@ehsanking](https://github.com/ehsanking) and contributors.
+---
+
+<p align="center">
+  Built with ❤️ by <a href="https://github.com/ehsanking">@ehsanking</a> and contributors.
+  <br/>
+  <a href="https://t.me/kingithub">t.me/kingithub</a>
+</p>

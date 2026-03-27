@@ -15,7 +15,7 @@ export default function SecurityPage() {
             <div className="w-8 h-8 relative">
               <Image src={logoSrc} alt="Logo" fill sizes="32px" className="object-contain" unoptimized />
             </div>
-            <span className="text-lg font-bold tracking-tighter text-brand-gold">KiNGChat Security</span>
+            <span className="text-lg font-bold tracking-tighter text-brand-gold">Elahe Messenger Security</span>
           </Link>
           <div className="hidden md:block text-xs text-zinc-500 font-mono">
             PROTOCOL: E2EE-V1 // STATUS: SECURE
@@ -28,7 +28,7 @@ export default function SecurityPage() {
             Security & <span className="text-brand-gold">Compliance</span>
           </h1>
           <p className="text-zinc-400 text-lg max-w-2xl">
-            KiNGChat is engineered for absolute privacy. We combine military-grade encryption with a zero-trust architecture to ensure your data remains yours.
+            Elahe Messenger is engineered for absolute privacy. We combine military-grade encryption with a zero-trust architecture to ensure your data remains yours.
           </p>
         </section>
 
@@ -58,18 +58,18 @@ export default function SecurityPage() {
           </div>
           <div className="prose prose-invert max-w-none space-y-4 text-zinc-400">
             <p>
-              KiNGChat operates under the principles of international privacy standards, including the **General Data Protection Regulation (GDPR)** and the **Universal Declaration of Human Rights (Article 12)**, which states that no one shall be subjected to arbitrary interference with his privacy, family, home or correspondence.
+              Elahe Messenger operates under the principles of international privacy standards, including the **General Data Protection Regulation (GDPR)** and the **Universal Declaration of Human Rights (Article 12)**, which states that no one shall be subjected to arbitrary interference with his privacy, family, home or correspondence.
             </p>
             <div className="bg-zinc-900/50 border-l-4 border-brand-gold p-6 rounded-r-2xl">
               <h4 className="text-zinc-100 font-bold mb-2 flex items-center gap-2">
                 <Scale className="w-4 h-4 text-brand-gold" /> Legal Framework
               </h4>
               <p className="text-sm">
-                As a self-hosted platform, the legal responsibility for data residency and compliance rests with the server operator. KiNGChat provides the tools for secure communication but does not control the infrastructure on which it is deployed.
+                As a self-hosted platform, the legal responsibility for data residency and compliance rests with the server operator. Elahe Messenger provides the tools for secure communication but does not control the infrastructure on which it is deployed.
               </p>
             </div>
             <p>
-              Users are required to comply with their local jurisdiction&apos;s laws regarding the use of encryption. KiNGChat is intended for lawful, private communication. The use of this platform for illegal activities, including but not limited to cybercrime, terrorism, or child exploitation, is strictly prohibited and violates our core mission of protecting human rights.
+              Users are required to comply with their local jurisdiction&apos;s laws regarding the use of encryption. Elahe Messenger is intended for lawful, private communication. The use of this platform for illegal activities, including but not limited to cybercrime, terrorism, or child exploitation, is strictly prohibited and violates our core mission of protecting human rights.
             </p>
           </div>
         </section>
@@ -81,14 +81,14 @@ export default function SecurityPage() {
             <div>
               <h4 className="text-zinc-100 font-bold mb-2">Security Disclaimer</h4>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                While KiNGChat employs state-of-the-art cryptographic methods, no system is 100% infallible. Security is a shared responsibility. Users must ensure their devices are free of malware and their encryption keys are backed up securely.
+                While Elahe Messenger employs state-of-the-art cryptographic methods, no system is 100% infallible. Security is a shared responsibility. Users must ensure their devices are free of malware and their encryption keys are backed up securely.
               </p>
             </div>
           </div>
         </section>
 
         <footer className="pt-12 pb-8 text-center text-zinc-600 text-xs border-t border-zinc-900">
-          &copy; {new Date().getFullYear()} KiNGChat Security Operations. All rights reserved.
+          &copy; {new Date().getFullYear()} Elahe Messenger Security Operations. All rights reserved.
         </footer>
       </div>
     </div>

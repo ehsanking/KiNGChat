@@ -10,7 +10,7 @@ import {
   signSignedPreKey,
 } from '@/lib/e2ee-signing';
 
-const DB_NAME = 'kingchat_e2ee_v2';
+const DB_NAME = 'elahe_e2ee_v2';
 const DB_VERSION = 1;
 const KEY_STORE = 'keys';
 

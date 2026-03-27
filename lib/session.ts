@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import type { NextRequest, NextResponse } from 'next/server';
 
-export const SESSION_COOKIE_NAME = 'kingchat_session';
+export const SESSION_COOKIE_NAME = 'elahe_session';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
 export type SessionData = {

@@ -119,7 +119,7 @@ export default function RegisterV2Page() {
             <ShieldCheck className="w-8 h-8 text-emerald-500" />
           </div>
         </div>
-        <h1 className="text-2xl font-bold text-center text-zinc-50 mb-2">Create your KiNGChat account</h1>
+        <h1 className="text-2xl font-bold text-center text-zinc-50 mb-2">Create your Elahe Messenger account</h1>
         <p className="text-zinc-400 text-center text-sm mb-8">Simple sign-up first. Your device security keys are created automatically on this device during setup.</p>
         {error && <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-xl mb-4 text-center">{error}</div>}
         <form onSubmit={handleRegister} className="space-y-4">

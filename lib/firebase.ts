@@ -1,5 +1,5 @@
 /*
- * KiNGChat v3.0 Notification Utilities
+ * Elahe Messenger v3.0 Notification Utilities
  *
  * Previously this module integrated with Firebase Cloud Messaging (FCM) to
  * handle push notifications and messaging tokens.  In version 3.0 we have
@@ -28,7 +28,7 @@ export async function requestNotificationPermission(): Promise<null> {
   try {
     const permission = await Notification.requestPermission();
     // If permission is granted, you could register a service worker here and
-    // subscribe to push notifications.  KiNGChat does not create tokens
+    // subscribe to push notifications.  Elahe Messenger does not create tokens
     // automatically in v3.0.  Instead, rely on server‑generated tokens or
     // other mechanisms if required.
     if (permission === 'granted') {
@@ -48,7 +48,7 @@ export async function requestNotificationPermission(): Promise<null> {
  * Firebase Cloud Messaging.  Without FCM there is no concept of message
  * payloads arriving client‑side, so this function simply returns a
  * resolved promise.  If you need client‑side messaging, implement it via
- * WebSockets (Socket.IO) which is already integrated in KiNGChat.
+ * WebSockets (Socket.IO) which is already integrated in Elahe Messenger.
  */
 export function onMessageListener(): Promise<null> {
   return Promise.resolve(null);

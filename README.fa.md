@@ -1,104 +1,225 @@
-> This README is derived from `README.md` (source of truth).
-
-<div dir="rtl">
-
 <p align="center">
-  <img src="./public/logo.png" alt="لوگوی کینگ‌چت" width="120" height="120" />
+  <img src="./public/readme-banner.png" alt="پیام‌رسان الهه" width="800" />
 </p>
 
-<h1 align="center">کینگ‌چت ۳.۳ 👑</h1>
-<p align="center"><strong>پیام‌رسان امن، متن‌باز و خودمیزبان برای تیم‌ها و جامعه‌ها</strong></p>
+<p align="center">
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-gold">
+  <img alt="Stack" src="https://img.shields.io/badge/stack-Next.js%2015%20%7C%20Prisma%20%7C%20PostgreSQL-111827">
+</p>
 
 <p align="center">
   <a href="README.md">English</a> |
-  <a href="README.fa.md">فارسی</a>
+  <a href="README.fa.md">فارسی</a> |
+  <a href="README.ru.md">Русский</a> |
+  <a href="README.ar.md">العربية</a> |
+  <a href="README.zh.md">中文</a> |
+  <a href="README.es.md">Español</a> |
+  <a href="README.th.md">ไทย</a> |
+  <a href="README.pt.md">Português</a> |
+  <a href="README.de.md">Deutsch</a> |
+  <a href="README.da.md">Dansk</a> |
+  <a href="README.sv.md">Svenska</a> |
+  <a href="README.tr.md">Türkçe</a>
 </p>
 
 ---
 
-## کینگ‌چت چیست؟
+<div dir="rtl">
 
-**KiNGChat 3.3** یک پیام‌رسان متن‌باز با تمرکز بر امنیت، حریم خصوصی و استقرار مستقل است.
+## معرفی
 
-- فرانت‌اند: Next.js 15 و React 19
-- بک‌اند: Node.js و Socket.IO
-- لایه داده: Prisma و PostgreSQL
-- رمزنگاری: ECDH-P256 + HKDF-SHA256 + AES-256-GCM (در مرورگر)
-- عملیات: Docker Compose، اسکریپت‌های نصب و سخت‌سازی محیط تولید
+**پیام‌رسان الهه** یک پیام‌رسان متن‌باز، خود-میزبان و رمزنگاری شده از سر تا ته (E2EE) است که برای تیم‌ها، جوامع و افرادی ساخته شده که کنترل کامل بر داده‌های خود را می‌خواهند. این پلتفرم بر پایه **Next.js 15**، **React 19** و **Socket.IO** بر بستر **Node.js** ساخته شده و از **Prisma ORM** با **PostgreSQL** (یا SQLite برای توسعه محلی) بهره می‌برد.
 
-> کلید خصوصی کاربر در جریان رمزنگاری پیام‌ها به سرور ارسال نمی‌شود.
+> سرور هرگز متن پیام‌ها را نمی‌بیند. تمام عملیات رمزنگاری در مرورگر کاربر انجام می‌شود.
 
 ---
 
-## قابلیت‌های اصلی
+## فهرست مطالب
 
-- 🔐 رمزنگاری سرتاسری (E2EE)
-- 💬 پیام‌رسانی بلادرنگ برای گفت‌وگو، گروه و کانال
-- 👥 مدیریت مخاطب‌ها و جامعه‌ها با لینک دعوت و نقش‌های دسترسی
-- 🛡️ کنترل‌های امنیتی (۲FA، کپچا، Rate Limit، بررسی نشست)
-- 🧭 پنل مدیریت (کاربران، گزارش‌ها، تنظیمات، لاگ ممیزی)
-- 📦 استقرار خودمیزبان با Docker
+- [ویژگی‌ها](#ویژگیها)
+- [معماری](#معماری)
+- [پیش‌نیازها](#پیشنیازها)
+- [شروع سریع](#شروع-سریع)
+- [نصب دستی](#نصب-دستی)
+- [پیکربندی](#پیکربندی)
+- [استقرار با Docker](#استقرار-با-docker)
+- [امنیت](#امنیت)
+- [مشارکت](#مشارکت)
+- [مجوز](#مجوز)
 
 ---
 
-## نصب سریع
+## ویژگی‌ها
+
+| دسته‌بندی | قابلیت‌ها |
+|---|---|
+| 🔐 **رمزنگاری** | E2EE در مرورگر (ECDH-P256، HKDF-SHA256، AES-256-GCM)، forward secrecy |
+| 💬 **پیام‌رسانی** | پیام خصوصی، گروه، کانال، واکنش، ویرایش، پیش‌نویس |
+| 👥 **اجتماعی** | مدیریت مخاطبین، گروه‌های جامعه، لینک دعوت، نقش‌های عضو |
+| 🛡️ **امنیت** | TOTP/احراز دو مرحله‌ای، نشست امن، محدودیت نرخ، کپچای ریاضی محلی، لاگ حسابرسی |
+| 🧭 **مدیریت** | کنترل کاربران، تنظیمات، داشبورد مشاهده‌پذیری |
+| 📦 **عملیات** | Docker Compose، نصب‌کننده یک‌خطی، SSL خودکار Caddy |
+| 📱 **PWA** | قابل نصب روی همه دستگاه‌ها |
+
+---
+
+## معماری
+
+```
+┌──────────────────────────────────────────────┐
+│              مرورگر (کلاینت)                  │
+│  Next.js 15 · React 19 · Tailwind CSS 4      │
+│  Web Crypto API · Socket.IO · IndexedDB E2EE  │
+└─────────────────────┬────────────────────────┘
+                      │ HTTPS / WSS
+┌─────────────────────▼────────────────────────┐
+│            سرور Node.js (server.ts)           │
+│  Next.js · Socket.IO · صف پس‌زمینه           │
+└──────┬──────────────────────────┬────────────┘
+       │                          │
+┌──────▼──────┐        ┌──────────▼──────────┐
+│  PostgreSQL  │        │  Redis (اختیاری)    │
+│  via Prisma  │        │  Pub/Sub · صف       │
+└─────────────┘        └─────────────────────┘
+```
+
+---
+
+## پیش‌نیازها
+
+| وابستگی | نسخه حداقل |
+|---|---|
+| Node.js | 20 LTS |
+| npm | 10+ |
+| PostgreSQL | 15+ |
+| Redis | 6+ (اختیاری) |
+| Docker + Compose | v2+ |
+
+---
+
+## شروع سریع
+
+### نصب‌کننده یک‌خطی (Linux/macOS)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/KiNGChat/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
 ```
+
+نصب‌کننده به صورت خودکار:
+۱. پیش‌نیازها را بررسی می‌کند
+۲. مخزن را clone می‌کند
+۳. برای دامنه/IP تنظیمات می‌پرسد
+۴. secrets را تولید می‌کند
+۵. سرویس‌ها را با Docker Compose و SSL خودکار راه‌اندازی می‌کند
 
 ---
 
 ## نصب دستی
 
 ```bash
-git clone https://github.com/ehsanking/KiNGChat.git
-cd KiNGChat
-cp .env.example .env
+# ۱. کلون کردن مخزن
+git clone https://github.com/ehsanking/ElaheMessenger.git
+cd ElaheMessenger
+
+# ۲. کپی فایل محیطی
+cp .env.example .env.local
+
+# ۳. ویرایش .env.local — حداقل باید تنظیم شود:
+#    DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, APP_URL
+
+# ۴. نصب وابستگی‌ها (Prisma client به صورت خودکار تولید می‌شود)
 npm install
-npx prisma generate
+
+# ۵. اعمال migration پایگاه داده
+npx prisma migrate deploy
+
+# ۶. ساخت برای production
 npm run build
-npm test
+
+# ۷. راه‌اندازی
 npm start
 ```
 
-برای توسعه:
+---
 
-```bash
-npm run dev
-```
+## پیکربندی
+
+| متغیر | پیش‌فرض | توضیح |
+|---|---|---|
+| `DATABASE_URL` | SQLite (فقط dev) | رشته اتصال PostgreSQL برای production |
+| `APP_URL` | `http://localhost:3000` | آدرس عمومی برنامه |
+| `JWT_SECRET` | خودکار | کلید امضای توکن نشست |
+| `ENCRYPTION_KEY` | خودکار | کلید رمزنگاری AES |
+| `ADMIN_USERNAME` | `admin` | نام کاربری اولیه ادمین |
+| `ADMIN_PASSWORD` | خودکار | رمز عبور اولیه — **بعد از اولین ورود تغییر دهید** |
+| `REDIS_URL` | خالی | فعال‌سازی خوشه‌بندی Socket.IO |
 
 ---
 
 ## استقرار با Docker
 
 ```bash
-docker compose up -d --build
+# توسعه
+docker compose up -d
+
+# Production (با SSL خودکار)
+docker compose -f compose.prod.yaml up -d --build
 ```
 
-برای استقرار تولیدی می‌توانید از فایل‌های `compose.prod.yaml` و `Dockerfile.prod` نیز استفاده کنید.
+| سرویس | کانتینر | توضیح |
+|---|---|---|
+| App | `elahe-app` | سرور Next.js + Socket.IO |
+| Database | `elahe-db` | PostgreSQL 16 |
+| پروکسی | `elahe-caddy` | Caddy با SSL خودکار Let's Encrypt |
 
 ---
 
-## ساختار پروژه
+## امنیت
 
-```text
-app/        صفحات، اکشن‌های سرور و API
-components/ کامپوننت‌های رابط کاربری
-lib/        ماژول‌های امنیت، پیام‌رسانی و سوکت
-prisma/     اسکیما و مهاجرت‌های پایگاه‌داده
-scripts/    اسکریپت‌های نصب و نگه‌داری
-tests/      تست‌های Vitest
+- **رمزنگاری سر تا ته**: پیام‌ها پیش از ارسال در مرورگر رمزنگاری می‌شوند
+- **کوری سرور**: سرور فقط متن رمزشده ذخیره می‌کند
+- **احراز دو مرحله‌ای**: TOTP/RFC 6238 سازگار با همه اپ‌های احراز هویت استاندارد
+- **محدودیت نرخ**: محدودیت‌های per-IP در لایه HTTP و WebSocket
+- **لاگ حسابرسی**: ثبت تمام اقدامات ادمین با IP و زمان‌بندی
+
+برای گزارش آسیب‌پذیری، [SECURITY.md](./SECURITY.md) را ببینید.
+
+---
+
+## مشارکت
+
+مشارکت‌ها歡迎 هستند. لطفاً:
+
+1. Fork کنید و یک شاخه ویژگی بسازید: `git checkout -b feat/my-feature`
+2. `npm run format` و `npm run lint` را اجرا کنید
+3. با [Conventional Commits](https://www.conventionalcommits.org/) commit کنید
+4. Pull Request باز کنید
+
+### دستورات توسعه
+
+```bash
+npm run dev        # سرور dev با hot-reload
+npm run build      # ساخت production
+npm run lint       # بررسی ESLint
+npm test           # اجرای تست‌ها
+npm run db:setup   # تنظیم پایگاه داده
 ```
 
 ---
 
 ## مجوز
 
-این پروژه تحت مجوز [MIT](./LICENSE) منتشر شده است.
+منتشرشده تحت [مجوز MIT](./LICENSE).
 
-## نگه‌داری
+حق نشر © ۲۰۲۵ مشارکت‌کنندگان پیام‌رسان الهه.
 
-توسعه توسط [@ehsanking](https://github.com/ehsanking) و مشارکت‌کنندگان انجام می‌شود.
+---
+
+<p align="center">
+  ساخته‌شده با ❤️ توسط <a href="https://github.com/ehsanking">@ehsanking</a> و مشارکت‌کنندگان
+  <br/>
+  <a href="https://t.me/kingithub">t.me/kingithub</a>
+</p>
 
 </div>

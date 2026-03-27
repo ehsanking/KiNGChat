@@ -1156,7 +1156,7 @@ export async function setup2FA(userId: string) {
     });
 
     const totp = new TOTP({
-      issuer: 'KiNGChat',
+      issuer: 'Elahe Messenger',
       label: user.username,
       algorithm: 'SHA1',
       digits: 6,
@@ -1196,7 +1196,7 @@ export async function verify2FA(userId: string, token: string) {
 
     const { TOTP, Secret } = await import('otpauth');
     const totp = new TOTP({
-      issuer: 'KiNGChat',
+      issuer: 'Elahe Messenger',
       label: user.username,
       algorithm: 'SHA1',
       digits: 6,
@@ -1236,7 +1236,7 @@ export async function disable2FA(userId: string, token: string) {
 
     const { TOTP, Secret } = await import('otpauth');
     const totp = new TOTP({
-      issuer: 'KiNGChat',
+      issuer: 'Elahe Messenger',
       label: user.username,
       algorithm: 'SHA1',
       digits: 6,
@@ -1275,7 +1275,7 @@ export async function validate2FALogin(userId: string, token: string) {
 
     const { TOTP, Secret } = await import('otpauth');
     const totp = new TOTP({
-      issuer: 'KiNGChat',
+      issuer: 'Elahe Messenger',
       label: user.username,
       algorithm: 'SHA1',
       digits: 6,

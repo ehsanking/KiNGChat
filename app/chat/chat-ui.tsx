@@ -29,7 +29,7 @@ export function renderBadgeIcon(badge: string | null | undefined) {
 export function BrandLogo({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
     <div className={`relative ${className}`} style={{ width: size, height: size }}>
-      <Image src="/logo.png" alt="KiNGChat" fill sizes={`${size}px`} className="object-contain" unoptimized />
+      <Image src="/logo.png" alt="Elahe Messenger" fill sizes={`${size}px`} className="object-contain" unoptimized />
     </div>
   );
 }

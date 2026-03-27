@@ -1,4 +1,4 @@
-# KiNGChat v3.3 release notes
+# Elahe Messenger v1.0 release notes
 
 This package focuses on four user-facing priorities:
 
@@ -23,5 +23,5 @@ This package focuses on four user-facing priorities:
    - conversation-bound secure download URLs are used in message attachments
 
 ## Validation notes
-- Source package updated to version 3.3.0
+- Source package updated to version 1.0.0
 - A full dependency install/build was not possible in the container because `node_modules` are absent in the provided release archive, so no full Next.js production build could be executed here.

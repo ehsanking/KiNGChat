@@ -40,7 +40,7 @@ export default function LandingPage() {
           <div className="w-10 h-10 relative">
             <Image src={logoSrc} alt="Logo" fill sizes="40px" className="object-contain" unoptimized />
           </div>
-          <span className="text-xl font-bold tracking-tighter text-brand-gold">KiNGChat</span>
+          <span className="text-xl font-bold tracking-tighter text-brand-gold">Elahe Messenger</span>
         </div>
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
           <a href="#features" className="hover:text-brand-gold transition-colors">Features</a>
@@ -62,7 +62,7 @@ export default function LandingPage() {
         <div className="w-[128px] h-[128px] relative mb-4 animate-in fade-in zoom-in duration-700">
           <Image
             src={logoSrc}
-            alt="KiNGChat Logo"
+            alt="Elahe Messenger Logo"
             width={128}
             height={128}
             className="object-contain drop-shadow-[0_0_25px_rgba(196,154,69,0.5)]"
@@ -71,7 +71,7 @@ export default function LandingPage() {
           />
         </div>
         <h1 className="text-6xl md:text-7xl font-bold tracking-tighter text-brand-gold drop-shadow-sm">
-          KiNGChat
+          Elahe Messenger
         </h1>
         <p className="text-xl text-zinc-400 max-w-xl">
           The most resilient, privacy-first messenger. 
@@ -113,12 +113,12 @@ export default function LandingPage() {
         <FeatureCard 
           icon={<Globe className="w-6 h-6 text-brand-gold" />}
           title="Self-Hosted"
-          description="Run your own KiNGChat server. You own the hardware, the data, and the encryption keys."
+          description="Run your own Elahe Messenger server. You own the hardware, the data, and the encryption keys."
         />
         <FeatureCard 
           icon={<Smartphone className="w-6 h-6 text-brand-gold" />}
           title="PWA Ready"
-          description="Install KiNGChat on any device. It works offline and feels like a native application."
+          description="Install Elahe Messenger on any device. It works offline and feels like a native application."
         />
         <FeatureCard 
           icon={<Code className="w-6 h-6 text-brand-gold" />}
@@ -128,7 +128,7 @@ export default function LandingPage() {
       </div>
 
       <footer className="mt-24 py-8 text-zinc-600 text-sm border-t border-zinc-900 w-full text-center">
-        &copy; {new Date().getFullYear()} KiNGChat. All rights reserved.
+        &copy; {new Date().getFullYear()} Elahe Messenger. All rights reserved.
       </footer>
     </div>
   );

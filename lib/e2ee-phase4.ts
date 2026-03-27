@@ -57,7 +57,7 @@ async function deriveBytes(secret: string, info: string) {
   const bits = await cryptoApi().subtle.deriveBits({
     name: 'HKDF',
     hash: 'SHA-256',
-    salt: encoder.encode('kingchat-phase4-ratchet'),
+    salt: encoder.encode('elahe-phase4-ratchet'),
     info: encoder.encode(info),
   }, material, 256);
   return bytesToBase64(bits);
