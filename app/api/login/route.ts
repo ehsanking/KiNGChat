@@ -27,12 +27,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
 
-    if (result.requires2FA) {
+    if ('requires2FA' in result && result.requires2FA) {
       return NextResponse.json({
         success: true,
         requires2FA: true,
         userId: result.userId,
       });
+    }
+
+    if (
+      !('userId' in result) ||
+      !('username' in result) ||
+      !('numericId' in result) ||
+      !('role' in result)
+    ) {
+      return NextResponse.json({ error: 'Invalid login response.' }, { status: 500 });
     }
 
     const response = NextResponse.json({

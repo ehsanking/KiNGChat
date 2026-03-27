@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getUsers, updateUserRole, updateUserBadge, toggleUserVerification } from '@/app/actions/admin';
-import { Shield, BadgeCheck, Search, ShieldAlert, Loader2 } from 'lucide-react';
+import { getUsers, updateUserRole, updateUserBadge, toggleUserVerification, toggleUserApproval } from '@/app/actions/admin';
+import { Shield, BadgeCheck, Search, ShieldAlert, Loader2, UserCheck } from 'lucide-react';
 
 type AdminUserRow = {
   id: string;
@@ -11,6 +11,7 @@ type AdminUserRow = {
   role: string;
   badge?: string | null;
   isVerified: boolean;
+  isApproved: boolean;
 };
 
 export default function AdminUsersPage() {
@@ -41,6 +42,11 @@ export default function AdminUsersPage() {
 
   const handleVerificationToggle = async (userId: string, currentStatus: boolean) => {
     await toggleUserVerification(userId, !currentStatus);
+    loadUsers();
+  };
+
+  const handleApprovalToggle = async (userId: string, currentStatus: boolean) => {
+    await toggleUserApproval(userId, !currentStatus);
     loadUsers();
   };
 
@@ -86,6 +92,7 @@ export default function AdminUsersPage() {
                   <th className="px-6 py-4 font-medium text-zinc-400">User</th>
                   <th className="px-6 py-4 font-medium text-zinc-400">Role</th>
                   <th className="px-6 py-4 font-medium text-zinc-400">Badge</th>
+                  <th className="px-6 py-4 font-medium text-zinc-400 text-center">Approval</th>
                   <th className="px-6 py-4 font-medium text-zinc-400 text-center">Verified</th>
                 </tr>
               </thead>
@@ -131,6 +138,17 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button
+                        onClick={() => handleApprovalToggle(user.id, user.isApproved)}
+                        className={`p-2 rounded-full transition-colors ${
+                          user.isApproved ? 'bg-emerald-500/20 text-emerald-500' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'
+                        }`}
+                        title={user.isApproved ? 'Revoke approval' : 'Approve user'}
+                      >
+                        <UserCheck className="w-5 h-5" />
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
                         onClick={() => handleVerificationToggle(user.id, user.isVerified)}
                         className={`p-2 rounded-full transition-colors ${
                           user.isVerified ? 'bg-blue-500/20 text-blue-500' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'
@@ -144,7 +162,7 @@ export default function AdminUsersPage() {
                 ))}
                 {filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-zinc-500">
+                    <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
                       No users found.
                     </td>
                   </tr>

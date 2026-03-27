@@ -30,6 +30,7 @@ export async function initializeAdmin() {
           numericId: '0000000000',
           passwordHash,
           role: 'ADMIN',
+          isApproved: true,
           needsPasswordChange: true,
           identityKeyPublic: 'default_admin_key',
           signedPreKey: 'default_admin_key',
@@ -51,4 +52,3 @@ export async function initializeAdmin() {
     }
   }
 }
-

@@ -119,6 +119,7 @@ export async function getUsers() {
         role: true,
         badge: true,
         isVerified: true,
+        isApproved: true,
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -199,6 +200,49 @@ export async function toggleUserVerification(userId: string, isVerified: boolean
       error: error instanceof Error ? error.message : String(error)
     });
     return { error: 'Failed to update verification status' };
+  }
+}
+
+export async function toggleUserApproval(userId: string, isApproved: boolean) {
+  try {
+    const session = await requireAdminSession();
+    const adminId = session.userId;
+
+    if (typeof isApproved !== 'boolean') {
+      return { error: 'Invalid approval payload.' };
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true, role: true, isApproved: true },
+    });
+
+    if (!targetUser) {
+      return { error: 'User not found.' };
+    }
+
+    if (targetUser.role === 'ADMIN' && !isApproved) {
+      return { error: 'Admin accounts must remain approved.' };
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isApproved },
+    });
+
+    await logAdminAudit(isApproved ? 'USER_APPROVED' : 'USER_APPROVAL_REVOKED', adminId, userId, {
+      username: targetUser.username,
+      previousApproved: targetUser.isApproved,
+      nextApproved: isApproved,
+    });
+
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error) {
+    logger.error('Failed to update approval status.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { error: 'Failed to update approval status' };
   }
 }
 

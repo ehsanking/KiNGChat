@@ -26,6 +26,7 @@ model User {
   role         String   @default("USER") // USER, ADMIN
   badge        String?  // Support, Seller, Technical, Ads
   isVerified   Boolean  @default(false)
+  isApproved   Boolean  @default(false)
   isBanned     Boolean  @default(false)
   needsPasswordChange Boolean @default(false)
   failedLoginAttempts Int @default(0)
@@ -67,6 +68,7 @@ model User {
   keyEvents        E2EEKeyEvent[]
 
   @@index([createdAt])
+  @@index([isApproved])
   @@index([isBanned])
   @@index([e2eeVersion])
 }

@@ -282,6 +282,7 @@ export async function registerUser(formData: RegisterUserInput) {
           username,
           numericId,
           passwordHash,
+          isApproved: false,
           identityKeyPublic,
           signedPreKey,
           signedPreKeySig,
@@ -389,6 +390,12 @@ export async function loginUser(formData: LoginUserInput) {
       await createLoginAttempt(ip, username, false);
       await logAuditAction('LOGIN_FAILED', undefined, user.id, { username, reason: 'Invalid password' });
       return { error: 'Invalid username or password' };
+    }
+
+    if (!user.isApproved) {
+      await createLoginAttempt(ip, username, false);
+      await logAuditAction('LOGIN_BLOCKED_UNAPPROVED', undefined, user.id, { username });
+      return { error: 'Your account is pending administrator approval.' };
     }
 
     // Success: Reset failed attempts
@@ -1293,6 +1300,7 @@ export async function validate2FALogin(userId: string, token: string) {
   try {
     const user = await prisma.user.findUnique({ where: { id: sanitizedUserId } });
     if (!user || !user.totpSecret) return { error: '2FA is not configured.' };
+    if (!user.isApproved) return { error: 'Your account is pending administrator approval.' };
 
     const { TOTP, Secret } = await import('otpauth');
     const totp = new TOTP({
