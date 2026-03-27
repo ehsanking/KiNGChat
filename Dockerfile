@@ -16,6 +16,8 @@ ENV NPM_CONFIG_LOGLEVEL=warn \
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY lockfile-check.js ./
+# Copy scripts directory before npm install to ensure postinstall scripts can run
+COPY scripts ./scripts
 
 # Validate the lockfile matches package.json expectations.  This will
 # exit with a non-zero code if there is a mismatch (e.g. after an
