@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getUsers, updateUserRole, updateUserBadge, toggleUserVerification } from '@/app/actions/admin';
-import { Shield, BadgeCheck, Search, ShieldAlert, Headset, ShoppingBag, Wrench, Megaphone, Loader2 } from 'lucide-react';
+import { Shield, BadgeCheck, Search, ShieldAlert, Loader2 } from 'lucide-react';
 
 type AdminUserRow = {
   id: string;

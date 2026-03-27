@@ -7,8 +7,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Send, Search, User, Settings, Shield, LogOut, Paperclip, File as FileIcon,
-  Download, Loader2, Copy, Check, Server, BadgeCheck, Wrench, Megaphone,
-  ShoppingBag, Headset, X, Plus, Users, Hash, UserPlus, MessageSquare,
+  Download, Loader2, Copy, Check, BadgeCheck, Wrench, Megaphone,
+  ShoppingBag, Headset, X, Plus, Users, UserPlus, MessageSquare,
   ChevronLeft, Lock,
 } from 'lucide-react';
 import { getTextDirection } from '@/lib/utils';
@@ -17,21 +17,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { searchUsers, getUserPublicKeys } from '@/app/actions/auth-session.actions';
 // Import profile actions that infer the user from the session.
 import {
-  getUserProfile as getOwnUserProfile,
-  updateUserProfile,
   getPublicUserProfile,
 } from '@/app/actions/profile.actions';
 // Import contacts actions that derive the caller from the session.
-import { getContacts, addContact, removeContact } from '@/app/actions/contacts.actions';
+import { getContacts, addContact } from '@/app/actions/contacts.actions';
 // Import community and message actions that derive the caller from the session.
 import {
   getUserCommunities,
   createCommunity,
-  joinGroupByInvite,
-  addMemberToGroup,
-  removeMemberFromGroup,
-  getGroupMembers,
-  leaveGroup,
   getMessageHistory,
 } from '@/app/actions/community.actions';
 // Import admin actions which automatically enforce the admin session.  These
@@ -170,6 +163,7 @@ function ChatDashboardContent() {
   const [sidebarTab, setSidebarTab] = useState<'contacts' | 'groups'>('contacts');
   const [adminTab, setAdminTab] = useState<'overview' | 'users' | 'reports' | 'settings' | 'data' | 'audit'>('overview');
   const [adminUsers, setAdminUsers] = useState<ChatUser[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [adminReports, setAdminReports] = useState<Report[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
   const [adminAuditLogs, setAdminAuditLogs] = useState<AuditLog[]>([]);
@@ -203,7 +197,9 @@ function ChatDashboardContent() {
     if (!pendingQueueStorageKey) return;
     try {
       localStorage.setItem(pendingQueueStorageKey, JSON.stringify(queue));
-    } catch {}
+    } catch {
+      // Silently ignore localStorage write failures (e.g. private browsing quota exceeded)
+    }
   }, [pendingQueueStorageKey]);
 
   const updateLocalMessageStatus = useCallback((tempId: string, status: DeliveryState, patch?: Partial<ChatMessage>) => {
@@ -373,11 +369,14 @@ function ChatDashboardContent() {
     };
   }, [flushPendingQueue, persistPendingQueue, router]);
 
-  // Load contacts & communities
+  // Load contacts & communities when the session user is available.
+  // loadContacts and loadCommunities are stable functions defined in the same
+  // component scope — adding them to the dep array would cause infinite loops.
   useEffect(() => {
     if (!currentUser?.id) return;
     loadContacts();
     loadCommunities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
   const loadContacts = async () => {
@@ -502,6 +501,9 @@ function ChatDashboardContent() {
     };
 
     loadHistory();
+    // selectedRecipient and selectedGroup objects are intentionally excluded;
+    // only their .id properties are tracked to avoid re-running on unrelated field changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRecipient?.id, selectedGroup?.id, currentUser?.id, sessionKey]);
 
   // Establish E2EE session key when selecting a recipient
@@ -534,6 +536,9 @@ function ChatDashboardContent() {
     };
 
     setupE2EE();
+    // selectedRecipient.identityKeyPublic is read inside the effect but we only
+    // want to re-run when the recipient ID changes, not on every key update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRecipient?.id, currentUser?.id]);
 
   // Join group socket room
@@ -542,11 +547,13 @@ function ChatDashboardContent() {
     socket.emit('joinGroup', selectedGroup.id);
   }, [socket, selectedGroup?.id]);
 
-  // Admin data
+  // Admin data — fetchAdminData is a stable local function; omitting it from
+  // deps is intentional to avoid re-fetching on every render.
   useEffect(() => {
     if (activeView === 'admin' && currentUser?.role === 'ADMIN') {
       fetchAdminData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView, currentUser]);
 
   const fetchAdminData = async () => {
@@ -609,6 +616,7 @@ function ChatDashboardContent() {
     else alert(res.error);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleExportData = async () => {
     if (!currentUser) return;
     const res = await exportSystemData();
@@ -622,6 +630,7 @@ function ChatDashboardContent() {
     } else alert(res.error);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleResolveReport = async (reportId: string, status: 'RESOLVED' | 'DISMISSED') => {
     if (!currentUser) return;
     const res = await resolveReport(reportId, status);

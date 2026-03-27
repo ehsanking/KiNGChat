@@ -3,16 +3,14 @@
 import { prisma } from '@/lib/prisma';
 import { getOrCreateAdminSettings } from '@/lib/admin-settings';
 import { logger } from '@/lib/logger';
-import { getOrSetCache, invalidateCache } from '@/lib/cache';
+import { getOrSetCache } from '@/lib/cache';
 import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
 import { createLocalCaptchaChallenge, verifyLocalCaptchaChallenge } from '@/lib/local-captcha';
 import argon2 from 'argon2';
 import { headers, cookies } from 'next/headers';
-import os from 'os';
-import fs from 'fs';
-import { getOnlineUsersCount } from '@/lib/presence';
+
 // Import admin-specific server actions from admin.ts to reduce duplication.
 import {
   getAllUsers as adminGetAllUsers,
@@ -109,6 +107,7 @@ const getClientIp = async () => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const sanitizeAdminSettingsUpdate = (input: unknown): AdminSettingsUpdate | null => {
   if (!isRecord(input)) return null;
 
@@ -540,55 +539,48 @@ export async function searchUsers(query: string) {
   }
 }
 
-export async function getAllUsers(adminId: string) {
-  // Delegate to the session‑based adminGetAllUsers (adminId ignored).
+// Legacy wrappers — the adminId parameter is ignored; session-based auth is used instead.
+/* eslint-disable @typescript-eslint/no-unused-vars */
+export async function getAllUsers(adminId?: string) {
   return adminGetAllUsers();
 }
 
 export async function toggleBanUser(adminId: string, targetUserId: string) {
-  // Delegate to the session‑based adminToggleBanUser.  The adminId is ignored.
   return adminToggleBanUser(targetUserId);
 }
 
 export async function updateUserBadges(adminId: string, targetUserId: string, badge: string | null, isVerified: boolean) {
-  // Delegate to the session‑based adminUpdateUserBadges.  The adminId is ignored.
   return adminUpdateUserBadges(targetUserId, badge, isVerified);
 }
 
-export async function getAdminSettings(adminId: string) {
-  // Delegate to the session‑based adminGetAdminSettings.  The adminId is ignored.
+export async function getAdminSettings(adminId?: string) {
   return adminGetAdminSettings();
 }
 
 export async function updateAdminSettings(adminId: string, settingsData: AdminSettingsUpdate) {
-  // Delegate to the session‑based adminUpdateAdminSettings.  The adminId is ignored.
-  return adminUpdateAdminSettings(settingsData as any);
+  return adminUpdateAdminSettings(settingsData);
 }
 
-export async function getAuditLogs(adminId: string, limit = 100) {
-  // Delegate to the session‑based adminGetAuditLogs.  The adminId is ignored.
+export async function getAuditLogs(adminId?: string, limit = 100) {
   return adminGetAuditLogs(limit);
 }
 
-export async function exportSystemData(adminId: string) {
-  // Delegate to the session‑based adminExportSystemData.  The adminId is ignored.
+export async function exportSystemData(adminId?: string) {
   return adminExportSystemData();
 }
 
-export async function getAllReports(adminId: string) {
-  // Delegate to the session‑based adminGetAllReports.  The adminId is ignored.
+export async function getAllReports(adminId?: string) {
   return adminGetAllReports();
 }
 
 export async function resolveReport(adminId: string, reportId: string, status: 'RESOLVED' | 'DISMISSED') {
-  // Delegate to the session‑based adminResolveReport.  The adminId is ignored.
   return adminResolveReport(reportId, status);
 }
 
-export async function getSystemOverview(adminId: string) {
-  // Delegate to the session‑based adminGetSystemOverview.  The adminId is ignored.
+export async function getSystemOverview(adminId?: string) {
   return adminGetSystemOverview();
 }
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 export async function getPublicSettings() {
   try {

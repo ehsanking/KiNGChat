@@ -60,18 +60,22 @@ export async function POST(request: Request) {
       });
       await tx.oneTimePreKey.deleteMany({ where: { deviceId: savedDevice.id, status: { in: ['AVAILABLE', 'RESERVED'] } } });
       if (oneTimePreKeys.length > 0) {
+        // Note: skipDuplicates is not supported by SQLite. Since we already
+        // deleted existing keys above (deleteMany), duplicates should not occur.
         await tx.oneTimePreKey.createMany({
           data: oneTimePreKeys
-            .filter((item: any) => typeof item?.keyId === 'string' && typeof item?.publicKey === 'string')
-            .map((item: any) => ({
-              userId: session.userId,
-              deviceId: savedDevice.id,
-              keyId: item.keyId.trim(),
-              publicKey: item.publicKey.trim(),
-              signature: typeof item?.signature === 'string' ? item.signature.trim() : null,
-              expiresAt: typeof item?.expiresAt === 'string' ? new Date(item.expiresAt) : null,
-            })),
-          skipDuplicates: true,
+            .filter((item: unknown) => typeof (item as Record<string, unknown>)?.keyId === 'string' && typeof (item as Record<string, unknown>)?.publicKey === 'string')
+            .map((item: unknown) => {
+              const k = item as Record<string, string | null | undefined>;
+              return {
+                userId: session.userId,
+                deviceId: savedDevice.id,
+                keyId: String(k.keyId).trim(),
+                publicKey: String(k.publicKey).trim(),
+                signature: typeof k.signature === 'string' ? k.signature.trim() : null,
+                expiresAt: typeof k.expiresAt === 'string' ? new Date(k.expiresAt) : null,
+              };
+            }),
         });
       }
       await tx.e2EEKeyEvent.create({

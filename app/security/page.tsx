@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Shield, Lock, EyeOff, Globe, Scale, AlertTriangle, ChevronLeft } from 'lucide-react';
+import { Lock, EyeOff, Globe, Scale, AlertTriangle, ChevronLeft } from 'lucide-react';
 
 export default function SecurityPage() {
   const logoSrc = "https://s8.uupload.ir/files/transparent-logo_omst.png";

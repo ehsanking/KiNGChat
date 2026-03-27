@@ -31,7 +31,8 @@ const REQUIRED_SECRETS: Record<string, () => string> = {
 function generateVapidKeys(): { publicKey: string; privateKey: string } {
   // Use web-push library if available, otherwise fall back to a raw ECDH key pair.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // require() is used intentionally here for optional runtime detection of web-push.
+    // The no-require-imports rule is already disabled globally in eslint.config.mjs.
     const webpush = require('web-push') as { generateVAPIDKeys: () => { publicKey: string; privateKey: string } };
     return webpush.generateVAPIDKeys();
   } catch {

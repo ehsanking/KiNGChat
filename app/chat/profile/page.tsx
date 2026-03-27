@@ -334,6 +334,7 @@ export default function UserProfile() {
                 <p className="text-sm text-zinc-300 font-medium">Scan this QR code with your authenticator app:</p>
                 {qrCode && (
                   <div className="flex justify-center p-4 bg-white rounded-xl">
+                    {/* QR code is a data URI — next/image does not support data: URLs */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={qrCode} alt="2FA QR Code" className="w-48 h-48" />
                   </div>

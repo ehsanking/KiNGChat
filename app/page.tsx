@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Shield, Zap, Globe, Lock, UserPlus, Smartphone, EyeOff, Code } from 'lucide-react';
+import { Globe, Lock, UserPlus, Smartphone, EyeOff, Code } from 'lucide-react';
 import EncryptionAnimationClient from '@/components/EncryptionAnimationClient';
 import { useRouter } from 'next/navigation';
 

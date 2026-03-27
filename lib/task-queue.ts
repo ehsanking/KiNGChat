@@ -102,6 +102,7 @@ const redisDeadLetterQueueName = `${redisQueueName}:dead`;
 
 const registry = new Map<string, (payload: Record<string, unknown>) => Promise<void>>();
 let workerStarted = false;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let delayedPromoter: NodeJS.Timeout | null = null;
 
 export type BackgroundJob = {

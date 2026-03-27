@@ -15,7 +15,8 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     async function loadSettings() {
-      const { settings, error } = await getAdminSettings();
+      const result = await getAdminSettings();
+      const { settings } = result;
       if (settings) {
         setMaxSize(settings.maxAttachmentSize / (1024 * 1024));
         setFormats(settings.allowedFileFormats);

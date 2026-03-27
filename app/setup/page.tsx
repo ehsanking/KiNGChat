@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Shield, Database, CheckCircle } from 'lucide-react';
+import { Shield, CheckCircle } from 'lucide-react';
 
 export default function SetupWizard() {
   const [step, setStep] = useState(1);

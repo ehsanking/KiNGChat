@@ -240,9 +240,8 @@ async function logAdminAudit(
  */
 export async function getAllUsers() {
   try {
-    const session = await requireAdminSession();
-    // The requireAdminSession call ensures session.role === 'ADMIN'; if it throws,
-    // execution stops here.
+    // requireAdminSession validates the caller is an ADMIN; throws if not.
+    await requireAdminSession();
     const users = await prisma.user.findMany({
       select: {
         id: true,

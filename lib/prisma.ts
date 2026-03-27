@@ -20,18 +20,33 @@ const applyConnectionLimit = (databaseUrl: string, limit?: string) => {
 };
 
 /**
- * Resolve the DATABASE_URL at runtime. If DATABASE_URL is not set, fall back
- * to a local SQLite file so that the application can start without any external
- * database in development / first-run scenarios.
+ * Detect whether we are running inside the Next.js static-analysis / build phase.
+ * During `next build`, Next.js sets NEXT_PHASE=phase-production-build which means
+ * no real database connection is needed — the build just analyses the code structure.
+ * We must NOT throw for a missing DATABASE_URL during this phase.
+ */
+const isBuildPhase = (): boolean =>
+  process.env.NEXT_PHASE === 'phase-production-build' ||
+  process.env.NEXT_PHASE === 'phase-export';
+
+/**
+ * Resolve the DATABASE_URL at runtime.
  *
  * Priority order:
- *   1. DATABASE_URL environment variable (set by Docker Compose, .env, .env.local)
- *   2. SQLite fallback (development only): file:./prisma/dev.db
+ *   1. DATABASE_URL environment variable (Docker Compose, .env, .env.local)
+ *   2. SQLite fallback in development: file:./prisma/dev.db
+ *   3. Dummy placeholder during `next build` (no real DB access occurs at build time)
  */
 const resolveDatabaseUrl = (): string => {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
 
-  // Default to SQLite only in non-production environments
+  // Allow the build to proceed without a real DB connection.
+  // The actual DB is only needed at runtime, not at build/lint time.
+  if (isBuildPhase()) {
+    return 'file:./prisma/dev.db';
+  }
+
+  // Default to SQLite in development / first-run scenarios
   if (process.env.NODE_ENV !== 'production') {
     const fallback = 'file:./prisma/dev.db';
     process.env.DATABASE_URL = fallback;
