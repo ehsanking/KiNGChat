@@ -5,7 +5,7 @@ import { issueSession } from '@/lib/session';
 
 /**
  * Handles the login request. This endpoint accepts JSON with
- * username, password and optional captchaToken fields.
+ * username, password and optional captchaId/captchaAnswer fields.
  * It authenticates the user via the existing `loginUser` action
  * and, on success, issues a signed session cookie.
  *
@@ -19,7 +19,8 @@ export async function POST(request: Request) {
     const result = await loginUser({
       username: typeof body?.username === 'string' ? body.username : '',
       password: typeof body?.password === 'string' ? body.password : '',
-      captchaToken: typeof body?.captchaToken === 'string' ? body.captchaToken : '',
+      captchaId: typeof body?.captchaId === 'string' ? body.captchaId : '',
+      captchaAnswer: typeof body?.captchaAnswer === 'string' ? body.captchaAnswer : '',
     });
 
     if (result.error) {

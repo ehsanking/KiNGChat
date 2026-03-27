@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import TurnstileWidget from '@/components/TurnstileWidget';
+import ImageCaptcha from '@/components/ImageCaptcha';
 import { createRegistrationBundleV2, persistRegistrationBundleV2 } from '@/lib/e2ee-registration';
 import { registerUserWithBundleV2 } from '@/lib/e2ee-register-runtime';
 
@@ -12,26 +12,25 @@ type PublicSettings = {
   isCaptchaEnabled: boolean;
   isRegistrationEnabled: boolean;
   captchaProvider?: string;
-  turnstileSiteKey?: string;
 };
 
 export default function RegisterV2Page() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaId, setCaptchaId] = useState('');
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [publicSettings, setPublicSettings] = useState<PublicSettings>({
     isCaptchaEnabled: false,
     isRegistrationEnabled: true,
     captchaProvider: 'disabled',
-    turnstileSiteKey: '',
   });
   const [captchaError, setCaptchaError] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState('Ready to create your account.');
   const passwordHint = useMemo(() => 'Use 8+ characters with upper/lowercase letters, a number, and a symbol.', []);
-  const isCaptchaReady = !publicSettings.isCaptchaEnabled || captchaToken.length > 0;
+  const isCaptchaReady = !publicSettings.isCaptchaEnabled || (captchaId.length > 0 && captchaAnswer.length > 0);
 
   const fetchJsonWithRetry = async (url: string, attempts = 3) => {
     let lastError: Error | null = null;
@@ -69,7 +68,6 @@ export default function RegisterV2Page() {
         isCaptchaEnabled: false,
         isRegistrationEnabled: true,
         captchaProvider: 'disabled',
-        turnstileSiteKey: '',
       });
     };
 
@@ -95,12 +93,13 @@ export default function RegisterV2Page() {
         signingPublicKey: bundle.signingPublicKey,
         signedPreKey: bundle.signedPreKey,
         signedPreKeySig: bundle.signedPreKeySig,
-        captchaToken,
+        captchaId,
+        captchaAnswer,
       });
 
       if (result?.error) {
         setError(result.error);
-        setCaptchaToken('');
+        setCaptchaAnswer('');
       } else {
         router.replace('/auth/login');
       }
@@ -130,15 +129,16 @@ export default function RegisterV2Page() {
             <p className="text-xs text-zinc-500">{passwordHint}</p>
           </div>
 
-          {publicSettings.isCaptchaEnabled && publicSettings.turnstileSiteKey ? (
-            <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Security Check</label>
-              <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3">
-                <TurnstileWidget siteKey={publicSettings.turnstileSiteKey} onTokenChange={setCaptchaToken} />
-              </div>
-            </div>
+          {publicSettings.isCaptchaEnabled ? (
+            <ImageCaptcha
+              enabled={publicSettings.isCaptchaEnabled}
+              onChange={({ captchaId: nextCaptchaId, captchaAnswer: nextCaptchaAnswer }) => {
+                setCaptchaId(nextCaptchaId);
+                setCaptchaAnswer(nextCaptchaAnswer);
+              }}
+            />
           ) : (
-            <p className="text-xs text-amber-400">Captcha is disabled because Turnstile keys are not configured.</p>
+            <p className="text-xs text-amber-400">Captcha is disabled by server settings.</p>
           )}
 
           {captchaError && <p className="text-xs text-amber-400">{captchaError}</p>}

@@ -6,7 +6,8 @@ export type RegisterV2Input = {
   signingPublicKey: string;
   signedPreKey: string;
   signedPreKeySig: string;
-  captchaToken?: string;
+  captchaId?: string;
+  captchaAnswer?: string;
 };
 
 export async function registerUserWithBundleV2(input: RegisterV2Input) {

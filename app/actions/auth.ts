@@ -7,7 +7,8 @@ import { getOrSetCache, invalidateCache } from '@/lib/cache';
 import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
-import { verifyTurnstileToken } from '@/lib/turnstile';
+import { verifyCaptchaChallengeResilient, createCaptchaChallengeResilient } from '@/lib/captcha-store';
+import { generateCaptchaSvg, generateCaptchaText } from '@/lib/captcha';
 import argon2 from 'argon2';
 import { headers, cookies } from 'next/headers';
 import os from 'os';
@@ -60,13 +61,15 @@ type RegisterUserInput = {
   signedPreKey: string;
   signedPreKeySig: string;
   signingPublicKey?: string;
-  captchaToken?: string;
+  captchaId?: string;
+  captchaAnswer?: string;
 };
 
 type LoginUserInput = {
   username: string;
   password: string;
-  captchaToken?: string;
+  captchaId?: string;
+  captchaAnswer?: string;
 };
 
 type UpdateAdminCredentialsInput = {
@@ -157,13 +160,19 @@ async function logAuditAction(
   }
 }
 
-async function validateCaptcha(captchaToken: string, remoteIp?: string) {
-  const result = await verifyTurnstileToken(captchaToken, remoteIp);
-  return result.success;
+async function validateCaptcha(captchaId: string, captchaAnswer: string) {
+  return verifyCaptchaChallengeResilient(captchaId, captchaAnswer);
 }
 
 export async function generateCaptcha() {
-  return { error: 'Image captcha has been removed. Use Turnstile widget token instead.' };
+  const captchaText = generateCaptchaText();
+  const captchaId = await createCaptchaChallengeResilient(captchaText);
+  return {
+    success: true,
+    captchaId,
+    captchaSvg: generateCaptchaSvg(captchaText),
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  };
 }
 
 /**
@@ -177,7 +186,8 @@ export async function registerUser(formData: RegisterUserInput) {
   const signedPreKey = asTrimmedString(formData.signedPreKey);
   const signedPreKeySig = asTrimmedString(formData.signedPreKeySig);
   const signingPublicKey = asTrimmedString(formData.signingPublicKey);
-  const captchaToken = asTrimmedString(formData.captchaToken);
+  const captchaId = asTrimmedString(formData.captchaId);
+  const captchaAnswer = asTrimmedString(formData.captchaAnswer);
 
   if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig) {
     return { error: 'Missing required registration fields.' };
@@ -207,7 +217,7 @@ export async function registerUser(formData: RegisterUserInput) {
 
   // Validate Captcha
   if (settings.isCaptchaEnabled) {
-    const isCaptchaValid = await validateCaptcha(captchaToken, ip);
+    const isCaptchaValid = await validateCaptcha(captchaId, captchaAnswer);
     if (!isCaptchaValid) {
       return { error: 'Captcha validation failed. Please try again.' };
     }
@@ -298,7 +308,8 @@ export async function registerUser(formData: RegisterUserInput) {
 export async function loginUser(formData: LoginUserInput) {
   const username = asTrimmedString(formData.username);
   const password = asTrimmedString(formData.password);
-  const captchaToken = asTrimmedString(formData.captchaToken);
+  const captchaId = asTrimmedString(formData.captchaId);
+  const captchaAnswer = asTrimmedString(formData.captchaAnswer);
 
   if (!username || !password) {
     return { error: 'Username and password are required.' };
@@ -316,7 +327,7 @@ export async function loginUser(formData: LoginUserInput) {
 
   // Validate Captcha
   if (settings.isCaptchaEnabled) {
-    const isCaptchaValid = await validateCaptcha(captchaToken, ip);
+    const isCaptchaValid = await validateCaptcha(captchaId, captchaAnswer);
     if (!isCaptchaValid) {
       return { error: 'Captcha validation failed. Please try again.' };
     }

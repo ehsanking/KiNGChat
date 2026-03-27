@@ -4,24 +4,23 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Shield, Loader2, KeyRound, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import TurnstileWidget from '@/components/TurnstileWidget';
+import ImageCaptcha from '@/components/ImageCaptcha';
 
 type PublicSettings = {
   isCaptchaEnabled: boolean;
   isRegistrationEnabled: boolean;
   captchaProvider?: string;
-  turnstileSiteKey?: string;
 };
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaId, setCaptchaId] = useState('');
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [settings, setSettings] = useState<PublicSettings>({
     isCaptchaEnabled: false,
     isRegistrationEnabled: true,
     captchaProvider: 'disabled',
-    turnstileSiteKey: '',
   });
   const [captchaErrorMessage, setCaptchaErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +30,7 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState('');
   const router = useRouter();
 
-  const isCaptchaReady = !settings.isCaptchaEnabled || captchaToken.length > 0;
+  const isCaptchaReady = !settings.isCaptchaEnabled || (captchaId.length > 0 && captchaAnswer.length > 0);
 
   const fetchJsonWithRetry = useCallback(async (url: string, attempts = 3) => {
     let lastError: Error | null = null;
@@ -84,7 +83,6 @@ export default function LoginPage() {
         isCaptchaEnabled: false,
         isRegistrationEnabled: true,
         captchaProvider: 'disabled',
-        turnstileSiteKey: '',
       });
       setCaptchaErrorMessage('Could not load security settings. Captcha is disabled temporarily.');
     };
@@ -105,14 +103,15 @@ export default function LoginPage() {
         body: JSON.stringify({
           username,
           password,
-          captchaToken,
+          captchaId,
+          captchaAnswer,
         }),
       });
       const data = await res.json();
 
       if (!res.ok || data.error) {
         setError(data.error || 'Login failed');
-        setCaptchaToken('');
+        setCaptchaAnswer('');
       } else if (data.requires2FA) {
         setShow2FA(true);
         setPending2FAUserId(data.userId ?? '');
@@ -263,18 +262,19 @@ export default function LoginPage() {
             />
           </div>
 
-          {settings.isCaptchaEnabled && settings.turnstileSiteKey ? (
-            <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Security Check</label>
-              <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3">
-                <TurnstileWidget siteKey={settings.turnstileSiteKey} onTokenChange={setCaptchaToken} />
-              </div>
-            </div>
+          {settings.isCaptchaEnabled ? (
+            <ImageCaptcha
+              enabled={settings.isCaptchaEnabled}
+              onChange={({ captchaId: nextCaptchaId, captchaAnswer: nextCaptchaAnswer }) => {
+                setCaptchaId(nextCaptchaId);
+                setCaptchaAnswer(nextCaptchaAnswer);
+              }}
+            />
           ) : (
             <div className="bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs p-3 rounded-xl flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5" />
               <div>
-                Captcha is currently disabled because Turnstile keys are not configured on this environment.
+                Captcha is currently disabled by server settings.
                 {captchaErrorMessage ? ` ${captchaErrorMessage}` : ''}
               </div>
             </div>
