@@ -8,7 +8,7 @@ import { ArrowLeft, Camera, Save, User, BadgeCheck, Shield, Headset, ShoppingBag
 // returns the profile of any user by id, while `updateUserProfile` applies
 // updates for the authenticated user.  2FA actions derive the current
 // user from the session.
-import { getPublicUserProfile, updateUserProfile } from '@/app/actions/profile.actions';
+import { getUserProfile, updateUserProfile } from '@/app/actions/profile.actions';
 import { setup2FA, verify2FA, disable2FA } from '@/app/actions/security-2fa.actions';
 import { useRouter } from 'next/navigation';
 
@@ -52,7 +52,7 @@ export default function UserProfile() {
         const user = data.user;
         setCurrentUser(user);
 
-        const result = await getPublicUserProfile(user.id);
+        const result = await getUserProfile();
         if (result.success && result.user) {
           setDisplayName(result.user.displayName || result.user.username || '');
           setBio(result.user.bio || '');

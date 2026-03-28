@@ -26,6 +26,7 @@ export async function initializeAdmin() {
     });
 
     if (!adminExists) {
+      const bootstrapForcePasswordChange = (process.env.ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE ?? 'true').toLowerCase() === 'true';
       const passwordHash = await argon2.hash(adminPassword);
       await prisma.user.create({
         data: {
@@ -34,13 +35,15 @@ export async function initializeAdmin() {
           passwordHash,
           role: 'ADMIN',
           isApproved: true,
-          needsPasswordChange: true,
+          needsPasswordChange: bootstrapForcePasswordChange,
+          // Bootstrap admin accounts are created without E2EE identity material by design.
+          // Keys are expected to be provisioned from the client on first authenticated use.
           identityKeyPublic: '',
           signedPreKey: '',
           signedPreKeySig: '',
         },
       });
-      logger.info('Default admin created successfully.', { adminUsername });
+      logger.info('Bootstrap admin created successfully.', { adminUsername, bootstrapForcePasswordChange });
     } else {
       logger.info('Admin user already exists.');
     }

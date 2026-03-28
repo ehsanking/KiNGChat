@@ -1,6 +1,5 @@
-"use server";
+'use server';
 
-// Compatibility layer for legacy imports. Re-export session-safe wrappers.
 export {
   getUserCommunities,
   createCommunity,

@@ -147,13 +147,13 @@ export function setupSecrets(): void {
 
   if (Object.keys(generated).length > 0) {
     appendToEnvLocal(generated);
-    const adminUser = process.env.ADMIN_USERNAME || 'admin';
+    const adminUser = process.env.ADMIN_USERNAME || 'owner_local';
     printSecretsBox(generated, adminUser);
   } else {
     // No new secrets generated — show existing admin password as reminder
     const adminPassword = existing.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
     if (adminPassword) {
-      const adminUser = process.env.ADMIN_USERNAME || 'admin';
+      const adminUser = process.env.ADMIN_USERNAME || 'owner_local';
       printExistingPasswordReminder(adminUser);
     }
   }

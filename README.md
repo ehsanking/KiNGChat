@@ -217,11 +217,16 @@ docker compose up -d
 ### Production (with auto-SSL via Caddy)
 
 ```bash
-# Set your domain and strong secrets in .env (or Docker secrets), then:
-docker compose -f compose.prod.yaml up -d --build
+# 1) Copy production env template and set strong values
+cp production.env.example .env.production
+
+# 2) Start using base + production override compose files
+docker compose -f docker-compose.yml -f compose.prod.yaml --env-file .env.production up -d --build
 ```
 
-> Security note: `docker-compose.yml` no longer provides secret/password fallbacks. Define production credentials explicitly via `.env` or Docker secrets before startup.
+`compose.prod.yaml` is an override file for `docker-compose.yml` (not a standalone compose file).
+
+> Security note: define production credentials explicitly via `.env.production` (or Docker secrets) before startup.
 
 Container names and services:
 
@@ -274,7 +279,7 @@ elahe-messenger/
 ├── scripts/                # Utility scripts (db-setup, backup)
 ├── server.ts               # Custom Node.js server (Socket.IO)
 ├── docker-compose.yml      # Development Compose
-├── compose.prod.yaml       # Production Compose
+├── compose.prod.yaml       # Production override for docker-compose.yml
 └── install.sh              # One-line production installer
 ```
 

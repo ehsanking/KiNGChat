@@ -10,4 +10,4 @@ export {
   listConversationDrafts,
   deleteConversationDraft,
   searchConversationMessages,
-} from './auth';
+} from './messaging.actions';

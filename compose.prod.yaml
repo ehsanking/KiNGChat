@@ -1,4 +1,6 @@
 services:
   app:
+    # Production override for docker-compose.yml.
+    # Use with: docker compose -f docker-compose.yml -f compose.prod.yaml up -d --build
     env_file:
       - .env.production

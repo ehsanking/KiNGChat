@@ -7,7 +7,6 @@ import { getOrSetCache } from '@/lib/cache';
 import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
-import { recoverAuthUserSchemaIfNeeded } from '@/lib/user-auth-schema';
 import argon2 from 'argon2';
 import { headers, cookies } from 'next/headers';
 
@@ -93,6 +92,23 @@ type UpdateUserProfileInput = {
   displayName?: string;
   bio?: string;
   profilePhoto?: string | null;
+};
+
+
+type PublicUserProfile = {
+  id: string;
+  username: string;
+  numericId: string;
+  displayName: string | null;
+  bio: string | null;
+  profilePhoto: string | null;
+  role: string;
+  badge: string | null;
+  isVerified: boolean;
+};
+
+type PrivateSelfProfile = PublicUserProfile & {
+  totpEnabled: boolean;
 };
 
 type CommunityType = 'GROUP' | 'CHANNEL';
@@ -279,60 +295,50 @@ export async function registerUser(formData: RegisterUserInput) {
   }
 
   try {
-    const executeRegistration = async () => {
-      const existingUser = await prisma.user.findUnique({
-        where: { username },
-      });
+    const existingUser = await prisma.user.findUnique({
+      where: { username },
+    });
 
-      if (existingUser) {
-        return { error: 'Username already taken' };
-      }
-
-      const passwordHash = await argon2.hash(password);
-      const recoveryAnswerHash = await argon2.hash(recoveryAnswer);
-
-      // Generate a unique numeric ID
-      let numericId = generateNumericId();
-      let isUnique = false;
-      let attempts = 0;
-      while (!isUnique && attempts < 10) {
-        const existing = await prisma.user.findUnique({ where: { numericId } });
-        if (!existing) {
-          isUnique = true;
-        } else {
-          numericId = generateNumericId();
-          attempts++;
-        }
-      }
-
-      const user = await prisma.user.create({
-        data: {
-          username,
-          numericId,
-          passwordHash,
-          isApproved: false,
-          identityKeyPublic,
-          signedPreKey,
-          signedPreKeySig,
-          signingPublicKey: signingPublicKey || null,
-          e2eeVersion: signingPublicKey ? 'v2' : 'legacy',
-          recoveryQuestion,
-          recoveryAnswerHash,
-        },
-      });
-
-      await logAuditAction('USER_REGISTERED', undefined, user.id, { username });
-
-      return { success: true, userId: user.id };
-    };
-
-    try {
-      return await executeRegistration();
-    } catch (error) {
-      const recovered = await recoverAuthUserSchemaIfNeeded(error);
-      if (!recovered) throw error;
-      return executeRegistration();
+    if (existingUser) {
+      return { error: 'Username already taken' };
     }
+
+    const passwordHash = await argon2.hash(password);
+    const recoveryAnswerHash = await argon2.hash(recoveryAnswer);
+
+    // Generate a unique numeric ID
+    let numericId = generateNumericId();
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 10) {
+      const existing = await prisma.user.findUnique({ where: { numericId } });
+      if (!existing) {
+        isUnique = true;
+      } else {
+        numericId = generateNumericId();
+        attempts++;
+      }
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        username,
+        numericId,
+        passwordHash,
+        isApproved: false,
+        identityKeyPublic,
+        signedPreKey,
+        signedPreKeySig,
+        signingPublicKey: signingPublicKey || null,
+        e2eeVersion: signingPublicKey ? 'v2' : 'legacy',
+        recoveryQuestion,
+        recoveryAnswerHash,
+      },
+    });
+
+    await logAuditAction('USER_REGISTERED', undefined, user.id, { username });
+
+    return { success: true, userId: user.id };
   } catch (error) {
     logger.error('Registration error.', {
       error: error instanceof Error ? error.message : String(error)
@@ -450,11 +456,11 @@ export async function loginUser(formData: LoginUserInput) {
       }
     });
 
-    const defaultAdminUsername = process.env.ADMIN_USERNAME ?? 'admin';
+    const defaultAdminUsername = process.env.ADMIN_USERNAME;
     const defaultAdminPassword = process.env.ADMIN_PASSWORD;
 
     // Force password change if admin still uses initial credentials
-    if (user.username === defaultAdminUsername && defaultAdminPassword && !user.needsPasswordChange) {
+    if (defaultAdminUsername && user.username === defaultAdminUsername && defaultAdminPassword && !user.needsPasswordChange) {
       const isDefaultPassword = await argon2.verify(user.passwordHash, defaultAdminPassword);
       if (isDefaultPassword) {
         await prisma.user.update({
@@ -493,13 +499,7 @@ export async function loginUser(formData: LoginUserInput) {
       };
     };
 
-    try {
-      return await executeLogin();
-    } catch (error) {
-      const recovered = await recoverAuthUserSchemaIfNeeded(error);
-      if (!recovered) throw error;
-      return executeLogin();
-    }
+    return executeLogin();
   } catch (error) {
     logger.error('Login error.', {
       error: error instanceof Error ? error.message : String(error)
@@ -536,13 +536,7 @@ export async function getRecoveryQuestion(formData: GetRecoveryQuestionInput) {
       return { success: true, recoveryQuestion: user.recoveryQuestion };
     };
 
-    try {
-      return await executeGetRecoveryQuestion();
-    } catch (error) {
-      const recovered = await recoverAuthUserSchemaIfNeeded(error);
-      if (!recovered) throw error;
-      return executeGetRecoveryQuestion();
-    }
+    return executeGetRecoveryQuestion();
   } catch (error) {
     logger.error('Get recovery question error.', {
       error: error instanceof Error ? error.message : String(error)
@@ -618,13 +612,7 @@ export async function recoverPassword(formData: RecoverPasswordInput) {
       return { success: true };
     };
 
-    try {
-      return await executeRecoverPassword();
-    } catch (error) {
-      const recovered = await recoverAuthUserSchemaIfNeeded(error);
-      if (!recovered) throw error;
-      return executeRecoverPassword();
-    }
+    return executeRecoverPassword();
   } catch (error) {
     logger.error('Recover password error.', {
       error: error instanceof Error ? error.message : String(error)
@@ -802,7 +790,7 @@ export async function getPublicSettings() {
   }
 }
 
-export async function getUserProfile(userId: string) {
+export async function getPublicUserProfile(userId: string) {
   const sanitizedUserId = asTrimmedString(userId);
   if (!sanitizedUserId) {
     return { error: 'User id is required.' };
@@ -821,6 +809,41 @@ export async function getUserProfile(userId: string) {
         role: true,
         badge: true,
         isVerified: true,
+      },
+    });
+
+    if (!user) {
+      return { error: 'User not found.' };
+    }
+
+    return { success: true, user: user as PublicUserProfile };
+  } catch (error) {
+    logger.error('Get profile error.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { error: 'Failed to fetch profile.' };
+  }
+}
+
+export async function getSelfUserProfile() {
+  const session = await getSessionFromCookies();
+  if (!session) {
+    return { error: 'Authentication required.' };
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        username: true,
+        numericId: true,
+        displayName: true,
+        bio: true,
+        profilePhoto: true,
+        role: true,
+        badge: true,
+        isVerified: true,
         totpEnabled: true,
       },
     });
@@ -829,9 +852,9 @@ export async function getUserProfile(userId: string) {
       return { error: 'User not found.' };
     }
 
-    return { success: true, user };
+    return { success: true, user: user as PrivateSelfProfile };
   } catch (error) {
-    logger.error('Get profile error.', {
+    logger.error('Get self profile error.', {
       error: error instanceof Error ? error.message : String(error),
     });
     return { error: 'Failed to fetch profile.' };
@@ -1266,11 +1289,27 @@ export async function removeMemberFromGroup(adminId: string, groupId: string, ta
   }
 }
 
-export async function getGroupMembers(groupId: string) {
+export async function getGroupMembers(requesterId: string, groupId: string) {
+  const sanitizedRequesterId = asTrimmedString(requesterId);
   const sanitizedGroupId = asTrimmedString(groupId);
-  if (!sanitizedGroupId) return { error: 'Group id is required.' };
+  if (!sanitizedRequesterId || !sanitizedGroupId) return { error: 'Group id is required.' };
 
   try {
+    const [requester, group, membership] = await Promise.all([
+      prisma.user.findUnique({ where: { id: sanitizedRequesterId }, select: { role: true } }),
+      prisma.group.findUnique({ where: { id: sanitizedGroupId }, select: { isPublic: true } }),
+      prisma.groupMember.findUnique({ where: { groupId_userId: { groupId: sanitizedGroupId, userId: sanitizedRequesterId } }, select: { id: true } }),
+    ]);
+
+    if (!requester || !group) {
+      return { error: 'Group not found.' };
+    }
+
+    const isAdmin = requester.role === 'ADMIN';
+    if (!isAdmin && !membership && !group.isPublic) {
+      return { error: 'Unauthorized.' };
+    }
+
     const members = await prisma.groupMember.findMany({
       where: { groupId: sanitizedGroupId },
       include: {

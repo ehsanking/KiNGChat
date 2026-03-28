@@ -73,6 +73,81 @@ read_tty_input() {
     printf '%s' "$result"
 }
 
+read_tty_secret() {
+    local prompt="$1"
+    local result=""
+
+    if [ -t 0 ]; then
+        read -r -s -p "$(echo -e "$prompt")" result || true
+        echo ""
+    elif [ -r /dev/tty ]; then
+        read -r -s -p "$(echo -e "$prompt")" result < /dev/tty || true
+        echo "" > /dev/tty
+    fi
+
+    printf '%s' "$result"
+}
+
+is_valid_admin_username() {
+    local value="$1"
+    [[ "$value" =~ ^[A-Za-z][A-Za-z0-9_]{2,31}$ ]] && [[ ! "$value" =~ ^([aA][dD][mM][iI][nN])$ ]]
+}
+
+is_valid_admin_password() {
+    local value="$1"
+    [ ${#value} -ge 16 ] || return 1
+    [[ "$value" =~ [A-Z] ]] || return 1
+    [[ "$value" =~ [a-z] ]] || return 1
+    [[ "$value" =~ [0-9] ]] || return 1
+    [[ "$value" =~ [^A-Za-z0-9] ]] || return 1
+}
+
+prompt_admin_credentials() {
+    local generated_suffix
+    generated_suffix=$(openssl rand -hex 4)
+    local generated_user="owner_${generated_suffix}"
+    local generated_password
+    generated_password=$(openssl rand -base64 36 | tr -d '\n' | tr '/+' 'AB')
+
+    local input_user
+    input_user=$(read_tty_input "${CYAN}Admin username (3-32 chars; letters/numbers/_; not 'admin'). Leave blank to auto-generate:${NC} " "")
+    input_user=$(printf '%s' "$input_user" | tr -d '[:space:]')
+
+    if [ -z "$input_user" ]; then
+        ADMIN_USERNAME_VALUE="$generated_user"
+        log_info "No admin username entered. Generated secure admin username."
+    elif is_valid_admin_username "$input_user"; then
+        ADMIN_USERNAME_VALUE="$input_user"
+    else
+        log_warn "Invalid or weak admin username provided. Generated secure admin username instead."
+        ADMIN_USERNAME_VALUE="$generated_user"
+    fi
+
+    local input_password
+    local input_confirm
+    input_password=$(read_tty_secret "${CYAN}Admin password (min 16 chars; upper/lower/number/symbol). Leave blank to auto-generate:${NC} ")
+
+    if [ -n "$input_password" ]; then
+        input_confirm=$(read_tty_secret "${CYAN}Confirm admin password:${NC} ")
+        if [ "$input_password" != "$input_confirm" ]; then
+            log_warn "Passwords do not match. Generated secure admin password instead."
+            ADMIN_PASSWORD_VALUE="$generated_password"
+            return
+        fi
+
+        if is_valid_admin_password "$input_password"; then
+            ADMIN_PASSWORD_VALUE="$input_password"
+            return
+        fi
+
+        log_warn "Admin password does not meet production security requirements. Generated secure admin password instead."
+    else
+        log_info "No admin password entered. Generated secure admin password."
+    fi
+
+    ADMIN_PASSWORD_VALUE="$generated_password"
+}
+
 get_sudo() {
     if command -v sudo &>/dev/null; then echo "sudo"; else echo ""; fi
 }
@@ -181,6 +256,17 @@ apply_dns() {
         return
     fi
 
+    local confirm_resolv
+    confirm_resolv=$(read_tty_input "${GOLD}Apply DNS directly to /etc/resolv.conf? [y/N]:${NC} " "N")
+    case "${confirm_resolv}" in
+        y|Y|yes|YES)
+            ;;
+        *)
+            log_info "Skipping /etc/resolv.conf mutation by default."
+            return
+            ;;
+    esac
+
     local RESOLV_CONF_CONTENT
     RESOLV_CONF_CONTENT="# Elahe Messenger DNS — ${DNS_CHOICE}"
     [ -n "$DNS_PRIMARY" ] && RESOLV_CONF_CONTENT="${RESOLV_CONF_CONTENT}\nnameserver $DNS_PRIMARY"
@@ -200,8 +286,16 @@ apply_dns() {
         return
     fi
 
-    # Also write to Docker daemon
-    configure_docker_dns
+    local confirm_docker_dns
+    confirm_docker_dns=$(read_tty_input "${GOLD}Also write DNS into Docker daemon.json? [y/N]:${NC} " "N")
+    case "${confirm_docker_dns}" in
+        y|Y|yes|YES)
+            configure_docker_dns
+            ;;
+        *)
+            log_info "Skipping Docker daemon DNS mutation."
+            ;;
+    esac
 }
 
 configure_docker_dns() {
@@ -353,7 +447,7 @@ preflight_checks() {
 configure_secure_env() {
     log_step "Runtime Environment Configuration"
 
-    local APP_BASE_URL ALLOWED_ORIGINS_VALUE JWT_SECRET_VALUE SESSION_SECRET_VALUE ENCRYPTION_KEY_VALUE ADMIN_PASSWORD_VALUE EXISTING_ADMIN_PASSWORD PG_USER_VALUE PG_PASSWORD_VALUE
+    local APP_BASE_URL ALLOWED_ORIGINS_VALUE JWT_SECRET_VALUE SESSION_SECRET_VALUE ENCRYPTION_KEY_VALUE ADMIN_USERNAME_VALUE ADMIN_PASSWORD_VALUE PG_USER_VALUE PG_PASSWORD_VALUE
 
     if [ "$USE_DOMAIN" = true ] && [ -n "${DOMAIN_NAME:-}" ]; then
         APP_BASE_URL="https://${DOMAIN_NAME}"
@@ -372,19 +466,7 @@ configure_secure_env() {
     PG_USER_VALUE="elahe_$(openssl rand -hex 4)"
     PG_PASSWORD_VALUE=$(openssl rand -hex 24)
 
-    if [ -f "${TARGET_DIR}/.env" ]; then
-        EXISTING_ADMIN_PASSWORD=$(grep -E '^ADMIN_PASSWORD=' "${TARGET_DIR}/.env" | tail -n1 | cut -d '=' -f2- || true)
-    else
-        EXISTING_ADMIN_PASSWORD=""
-    fi
-
-    if [ -n "${EXISTING_ADMIN_PASSWORD:-}" ]; then
-        ADMIN_PASSWORD_VALUE="$EXISTING_ADMIN_PASSWORD"
-        log_info "Existing admin password detected in .env. Keeping current admin password."
-    else
-        ADMIN_PASSWORD_VALUE=$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AB' | cut -c1-24)
-        log_info "No existing admin password found. A new one was generated."
-    fi
+    prompt_admin_credentials
 
     cat > "${TARGET_DIR}/.env" <<EOF
 POSTGRES_USER=${PG_USER_VALUE}
@@ -400,8 +482,9 @@ PORT=3000
 JWT_SECRET=${JWT_SECRET_VALUE}
 SESSION_SECRET=${SESSION_SECRET_VALUE}
 ENCRYPTION_KEY=${ENCRYPTION_KEY_VALUE}
-ADMIN_USERNAME=admin
+ADMIN_USERNAME=${ADMIN_USERNAME_VALUE}
 ADMIN_PASSWORD=${ADMIN_PASSWORD_VALUE}
+ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE=true
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
 SOCKET_RATE_LIMIT_WINDOW_MS=10000
@@ -710,7 +793,6 @@ configure_npm() {
     log_info "Configuring NPM for global resilience..."
     cat > "${TARGET_DIR}/.npmrc" <<EOF
 registry=https://registry.npmjs.org
-strict-ssl=false
 legacy-peer-deps=true
 fetch-retry-maxtimeout=600000
 fetch-retry-mintimeout=100000
@@ -944,7 +1026,7 @@ print_summary() {
         echo -e "${GOLD}║${NC}  ${CYAN}DNS:${NC}           ${DNS_CHOICE:-system default}"
         echo -e "${GOLD}║${NC}  ${CYAN}Database:${NC}      PostgreSQL (container: elahe-db)"
         echo -e "${GOLD}║${NC}  ${CYAN}Storage:${NC}       Local filesystem (default)"
-        echo -e "${GOLD}║${NC}  ${CYAN}Admin User:${NC}    admin"
+        echo -e "${GOLD}║${NC}  ${CYAN}Admin User:${NC}    ${ADMIN_USERNAME_VALUE:-generated}"
         echo -e "${GOLD}║${NC}  ${CYAN}Admin Password:${NC} ${ADMIN_PASSWORD_GENERATED:-generated-in-.env}"
         echo -e "${GOLD}║${NC}"
         echo -e "${GOLD}║${NC}  ${WHITE}Useful commands:${NC}"

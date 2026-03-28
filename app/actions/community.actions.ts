@@ -99,12 +99,15 @@ export async function removeMemberFromGroup(groupId: string, targetUserId: strin
 
 /**
  * Retrieves the list of members for the specified group or channel.  This
- * operation does not depend on the caller's identity; therefore the
- * session is not required.  The underlying implementation will decide
- * whether membership is needed to view members.
+ * operation requires access checks. The requester must be an admin,
+ * a group member, or the group must be public.
  */
 export async function getGroupMembers(groupId: string) {
-  return origGetGroupMembers(groupId);
+  const session = await getSession();
+  if (!session) {
+    return { error: 'Unauthorized' };
+  }
+  return origGetGroupMembers(session.userId, groupId);
 }
 
 /**

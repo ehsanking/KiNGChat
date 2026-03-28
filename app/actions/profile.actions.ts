@@ -13,7 +13,8 @@
 import { cookies } from 'next/headers';
 import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
 import {
-  getUserProfile as origGetUserProfile,
+  getPublicUserProfile as origGetPublicUserProfile,
+  getSelfUserProfile as origGetSelfUserProfile,
   updateUserProfile as origUpdateUserProfile,
 } from './auth';
 
@@ -38,7 +39,7 @@ export async function getUserProfile() {
   if (!session) {
     return { error: 'Unauthorized' };
   }
-  return origGetUserProfile(session.userId);
+  return origGetSelfUserProfile();
 }
 
 /**
@@ -65,5 +66,5 @@ export async function updateUserProfile(formData: {
  * implementation.
  */
 export async function getPublicUserProfile(userId: string) {
-  return origGetUserProfile(userId);
+  return origGetPublicUserProfile(userId);
 }

@@ -13,6 +13,7 @@
 import { execSync } from 'child_process';
 import path from 'path';
 import { loadApplicationEnvironment, readProjectEnv } from '../lib/env-loader';
+import { isSqliteUrl, resolvePrismaSchemaPath } from '../lib/prisma-schema';
 
 const ROOT = path.join(__dirname, '..');
 
@@ -30,10 +31,6 @@ function getEffectiveDatabaseUrl(mode: SetupMode): string {
 
   console.error('❌ DATABASE_URL is required for migrate-prod.');
   process.exit(1);
-}
-
-function isSqlite(url: string): boolean {
-  return url.trim().startsWith('file:');
 }
 
 function run(cmd: string, description: string) {
@@ -61,7 +58,7 @@ loadApplicationEnvironment({ cwd: ROOT, forceMode: process.env.NODE_ENV === 'pro
 
 const mode = resolveMode(process.argv[2]);
 const databaseUrl = getEffectiveDatabaseUrl(mode);
-const sqlite = isSqlite(databaseUrl);
+const sqlite = isSqliteUrl(databaseUrl);
 
 process.env.DATABASE_URL = databaseUrl;
 
@@ -75,9 +72,7 @@ if (mode === 'migrate-prod' && sqlite) {
   process.exit(1);
 }
 
-const schemaPath = sqlite
-  ? path.join(ROOT, 'prisma', 'schema.sqlite.prisma')
-  : path.join(ROOT, 'prisma', 'schema.prisma');
+const schemaPath = resolvePrismaSchemaPath(ROOT, databaseUrl);
 const schemaArg = `--schema=${schemaPath}`;
 
 console.log(`\n🗄️  Elahe Messenger DB Setup`);
