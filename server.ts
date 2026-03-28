@@ -2,14 +2,16 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { Server } from 'socket.io';
-import { setupSecrets } from './lib/setup-secrets';
 import { initializeAdmin } from './lib/auth-utils';
 import { logger } from './lib/logger';
 import { setupSocket } from './lib/socket';
 import { registerBackgroundJob, startBackgroundJobWorker } from './lib/task-queue';
+import { loadApplicationEnvironment } from './lib/env-loader';
+import { validateProductionEnvironment } from './lib/env-security';
 import { sendPushNotification } from './lib/push';
 
-setupSecrets();
+loadApplicationEnvironment();
+validateProductionEnvironment();
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';

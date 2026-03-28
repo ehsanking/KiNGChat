@@ -34,7 +34,7 @@ RUN npm ci --no-audit --no-fund
 RUN npx prisma generate
 
 # Preserve Prisma CLI + engines for runtime migrations before pruning
-# devDependencies. The entrypoint runs `prisma migrate deploy`/`db push`
+# devDependencies. The entrypoint runs `prisma migrate deploy`
 # on container start, so these files must remain available in the final
 # image.
 RUN mkdir -p /opt/runtime-prisma && \
@@ -115,6 +115,6 @@ ENV PORT=3000 \
 # Health check — wget is installed above.  Use a generous start period
 # to allow for database migrations on first run.
 HEALTHCHECK --interval=15s --timeout=10s --start-period=180s --retries=12 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
+  CMD wget -qO- http://localhost:3000/api/health/live || exit 1
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

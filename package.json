@@ -3,15 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "PORT=3000 tsx server.ts",
+    "dev": "node scripts/start-server.mjs",
     "build": "next build",
-    "start": "NODE_ENV=production PORT=3000 tsx server.ts",
+    "start": "node scripts/start-server.mjs --production",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "clean": "next clean",
+    "clean": "node scripts/clean.mjs",
     "backup": "tsx scripts/backup.ts",
     "db:setup": "npm run db:init:dev",
     "db:init:dev": "tsx scripts/db-setup.ts init-dev",
@@ -64,5 +64,9 @@
     "fraction.js": "5.3.4",
     "brace-expansion": "^5.0.5",
     "minimatch": "^10.0.3"
+  },
+  "engines": {
+    "node": ">=20 <23",
+    "npm": ">=10"
   }
 }

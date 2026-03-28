@@ -26,8 +26,9 @@ services:
       - HOSTNAME=0.0.0.0
       # Security — defaults provided so server starts even without .env
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is required}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:?ADMIN_USERNAME is required}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       # VAPID (optional — push notifications disabled if not set)
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
@@ -52,7 +53,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health/live >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 12

@@ -1,16 +1,19 @@
 import { prisma } from './prisma';
 import argon2 from 'argon2';
-import crypto from 'crypto';
 import { logger } from './logger';
 
 export async function initializeAdmin() {
   try {
-    const adminUsername = process.env.ADMIN_USERNAME ?? 'admin';
-    let adminPassword = process.env.ADMIN_PASSWORD;
+    const adminUsername = process.env.ADMIN_USERNAME;
+    if (!adminUsername) {
+      logger.warn('ADMIN_USERNAME is not configured. Skipping admin bootstrap.');
+      return;
+    }
+    const adminPassword = process.env.ADMIN_PASSWORD;
 
     if (!adminPassword) {
-      adminPassword = crypto.randomBytes(18).toString('base64url');
-      logger.warn('ADMIN_PASSWORD not set. A temporary password was generated and persisted locally. Rotate it immediately after first login.', { adminUsername });
+      logger.warn('ADMIN_PASSWORD is not configured. Skipping admin bootstrap to avoid insecure defaults.', { adminUsername });
+      return;
     }
 
     const adminExists = await prisma.user.findFirst({
@@ -32,9 +35,9 @@ export async function initializeAdmin() {
           role: 'ADMIN',
           isApproved: true,
           needsPasswordChange: true,
-          identityKeyPublic: 'default_admin_key',
-          signedPreKey: 'default_admin_key',
-          signedPreKeySig: 'default_admin_key',
+          identityKeyPublic: '',
+          signedPreKey: '',
+          signedPreKeySig: '',
         },
       });
       logger.info('Default admin created successfully.', { adminUsername });

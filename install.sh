@@ -88,6 +88,18 @@ run_apt() {
 # ──────────────────────────────────────────────
 select_dns() {
     log_step "DNS Configuration"
+
+    local mutate_dns
+    mutate_dns=$(read_tty_input "${GOLD}Apply installer-managed DNS/daemon changes? [y/N]:${NC} " "N")
+    case "${mutate_dns}" in
+        y|Y|yes|YES)
+            ;;
+        *)
+            DNS_CHOICE="default"
+            log_info "Skipping DNS and Docker daemon mutation (opt-in only)."
+            return
+            ;;
+    esac
     echo -e "${CYAN}Please select your preferred DNS provider:${NC}"
     echo ""
     echo -e "  ${WHITE}1)${NC} ${GREEN}System Default${NC}     — Use current system DNS (no change)"
@@ -663,7 +675,7 @@ sync_source() {
     # Strategy A: Archive via CURL (primary for restricted networks)
     log_info "Attempting Strategy A: Resilient Archive Stream (CURL)..."
     TARBALL_URL="https://github.com/ehsanking/ElaheMessenger/archive/refs/heads/main.tar.gz"
-    if curl -L --retry 5 --retry-delay 5 --connect-timeout 30 -k "$TARBALL_URL" | tar -xz --strip-components=1 2>/dev/null; then
+    if curl -L --retry 5 --retry-delay 5 --connect-timeout 30 "$TARBALL_URL" | tar -xz --strip-components=1 2>/dev/null; then
         SUCCESS=true
         log_success "Source synchronized via Archive Stream."
     else
@@ -674,12 +686,10 @@ sync_source() {
     if [ "$SUCCESS" = false ]; then
         log_info "Attempting Strategy B: Git Clone..."
         git config --global http.postBuffer 1048576000
-        git config --global http.sslVerify false
         if git clone --depth 1 --progress "$REPO_URL" . 2>/dev/null; then
             SUCCESS=true
             log_success "Source synchronized via Git."
         fi
-        git config --global http.sslVerify true
     fi
 
     if [ "$SUCCESS" = false ]; then
@@ -748,7 +758,7 @@ wait_for_app_health() {
         fi
         
         # Try a direct HTTP health check as backup
-        if docker exec elahe-app wget -qO- http://localhost:3000/api/health 2>/dev/null | grep -q '"status"'; then
+        if docker exec elahe-app wget -qO- http://localhost:3000/api/health/live 2>/dev/null | grep -q '"status"'; then
             log_success "Application is responding to health checks!"
             return 0
         fi
@@ -977,6 +987,11 @@ print_summary() {
 # ══════════════════════════════════════════════
 main() {
     print_header
+
+    if [ "$(uname -s)" != "Linux" ]; then
+        log_error "This installer currently supports Linux only. Please use the manual install steps on macOS."
+        exit 1
+    fi
 
     log_info "Initializing Elahe Messenger Professional Installer v1.0..."
 

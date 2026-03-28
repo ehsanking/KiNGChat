@@ -11,40 +11,18 @@
  */
 
 import { execSync } from 'child_process';
-import fs from 'fs';
 import path from 'path';
+import { loadApplicationEnvironment, readProjectEnv } from '../lib/env-loader';
 
 const ROOT = path.join(__dirname, '..');
 
 type SetupMode = 'init-dev' | 'migrate-prod';
 
-function readEnvLocal(): Record<string, string> {
-  const envLocalPath = path.join(ROOT, '.env.local');
-  if (!fs.existsSync(envLocalPath)) return {};
-
-  const lines = fs.readFileSync(envLocalPath, 'utf8').split('\n');
-  const result: Record<string, string> = {};
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    const eqIdx = trimmed.indexOf('=');
-    if (eqIdx === -1) continue;
-
-    const key = trimmed.slice(0, eqIdx).trim();
-    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
-    result[key] = val;
-  }
-
-  return result;
-}
-
 function getEffectiveDatabaseUrl(mode: SetupMode): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
 
-  const envLocal = readEnvLocal();
-  if (envLocal.DATABASE_URL) return envLocal.DATABASE_URL;
+  const envValues = readProjectEnv({ cwd: ROOT, mode: process.env.NODE_ENV === 'production' ? 'production' : 'development' });
+  if (envValues.DATABASE_URL) return envValues.DATABASE_URL;
 
   if (mode === 'init-dev') {
     return 'file:./prisma/dev.db';
@@ -78,6 +56,8 @@ function resolveMode(rawMode: string | undefined): SetupMode {
   console.error('❌ Invalid mode. Use one of: init-dev, migrate-prod');
   process.exit(1);
 }
+
+loadApplicationEnvironment({ cwd: ROOT, forceMode: process.env.NODE_ENV === 'production' ? 'production' : 'development' });
 
 const mode = resolveMode(process.argv[2]);
 const databaseUrl = getEffectiveDatabaseUrl(mode);

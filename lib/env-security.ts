@@ -43,6 +43,7 @@ export const validateProductionEnvironment = () => {
   const adminPassword = requireEnv('ADMIN_PASSWORD');
   const postgresPassword = requireEnv('POSTGRES_PASSWORD');
   const databaseUrl = requireEnv('DATABASE_URL');
+  const adminUsername = requireEnv('ADMIN_USERNAME');
   requireEnv('APP_URL');
   requireEnv('ALLOWED_ORIGINS');
   requireEnv('POSTGRES_USER');
@@ -56,7 +57,6 @@ export const validateProductionEnvironment = () => {
     requireEnv('MINIO_ACCESS_KEY');
     requireEnv('MINIO_SECRET_KEY');
   }
-  requireEnv('ADMIN_USERNAME');
 
   requireMinLength('JWT_SECRET', jwtSecret);
   requireMinLength('SESSION_SECRET', sessionSecret);
@@ -73,8 +73,10 @@ export const validateProductionEnvironment = () => {
 
   forbidPlaceholderPattern('JWT_SECRET', jwtSecret, [/^__change_me/i, /^your-super-secret-jwt-key-change-this-in-production$/i]);
   forbidPlaceholderPattern('ENCRYPTION_KEY', encryptionKey, [/^__change_me/i, /^your-32-character-encryption-key$/i]);
-  forbidPlaceholderPattern('ADMIN_PASSWORD', adminPassword, [/^__change_me/i]);
-  forbidPlaceholderPattern('DATABASE_URL', databaseUrl, [/__db_/i, /:\/\/[^:]+:__[^@]+__@/i]);
+  forbidPlaceholderPattern('SESSION_SECRET', sessionSecret, [/^__change_me/i, /^replace-with-32-plus-char-secret$/i]);
+  forbidPlaceholderPattern('ADMIN_PASSWORD', adminPassword, [/^__change_me/i, /^replace-with-strong-admin-password$/i]);
+  forbidPlaceholderPattern('DATABASE_URL', databaseUrl, [/__db_/i, /:\/\/[^:]+:__[^@]+__@/i, /__set_me/i]);
+  forbidPlaceholderPattern('ADMIN_USERNAME', adminUsername, [/^admin$/i, /^__set_me/i]);
   if (minioEndpoint) {
     const minioSecret = process.env.MINIO_SECRET_KEY!;
     forbidWeakValue('MINIO_SECRET_KEY', minioSecret, ['supersecret', 'minioadmin', 'password']);

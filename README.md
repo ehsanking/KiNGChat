@@ -61,7 +61,7 @@
 | 🛡️ **Security** | TOTP/2FA, session binding, rate limiting, local math captcha, audit logs |
 | 🧭 **Admin** | User management, ban/verify controls, settings panel, observability dashboard |
 | 📦 **DevOps** | Docker Compose variants, one-line installer, Caddy auto-SSL, health checks |
-| 📱 **PWA** | Installable on any device, offline-capable service worker |
+| 📱 **PWA** | Installable app shell with cached static assets (chat sync still requires network) |
 | 🔔 **Push** | VAPID web-push notifications, optional Firebase FCM fallback |
 
 ---
@@ -108,7 +108,7 @@
 
 ## Quick Start
 
-### One-Line Installer (Linux/macOS)
+### One-Line Installer (Linux)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
@@ -131,9 +131,9 @@ git clone https://github.com/ehsanking/ElaheMessenger.git
 cd ElaheMessenger
 
 # 2. Copy environment template
-cp .env.example .env.local
+cp .env.example .env
 
-# 3. Edit .env.local — at minimum set:
+# 3. Edit .env — at minimum set:
 #    DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, APP_URL
 
 # 4. Install dependencies (generates Prisma client automatically)
@@ -151,13 +151,17 @@ npm run build
 npm start
 ```
 
-> **First run:** `npm install` now only generates the Prisma client. Run DB setup explicitly with `npm run db:init:dev` (SQLite/dev) or `npm run db:migrate:prod` (PostgreSQL/prod).
+> **First run:** `npm install` is side-effect free for database state (client generation only). Run DB setup explicitly with `npm run db:init:dev` (SQLite/dev) or `npm run db:migrate:prod` (PostgreSQL/prod).
 
 ---
 
 ## Configuration
 
-All configuration is done through environment variables. Copy `.env.example` to `.env.local` and set the values below.
+All configuration is done through environment variables. Copy `.env.example` to `.env` and set the values below.
+
+Environment loading policy:
+- **Local development**: load `.env`, then `.env.local` (if present)
+- **Docker/production**: load only injected env values / `.env` (ignore `.env.local`)
 
 ### Core
 
@@ -174,7 +178,7 @@ All configuration is done through environment variables. Copy `.env.example` to 
 |---|---|
 | `JWT_SECRET` | HMAC-SHA256 signing secret for session tokens (≥ 32 chars) |
 | `ENCRYPTION_KEY` | AES encryption key for sensitive fields |
-| `ADMIN_USERNAME` | Initial admin username (default: `admin`) |
+| `ADMIN_USERNAME` | Initial admin username (required; no default) |
 | `ADMIN_PASSWORD` | Initial admin password — **change immediately after first login** |
 
 ### Push Notifications *(optional)*
@@ -227,7 +231,9 @@ Container names and services:
 | Database | `elahe-db` | PostgreSQL 16 |
 | Reverse proxy | `elahe-caddy` | Caddy with automatic Let's Encrypt SSL |
 
-Health check endpoint: `GET /api/health`
+Health endpoints:
+- Liveness: `GET /api/health/live`
+- Readiness: `GET /api/health/ready` (legacy `GET /api/health` remains as readiness)
 
 ---
 

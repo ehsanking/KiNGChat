@@ -518,14 +518,14 @@ function ChatDashboardContent() {
         if (!privKey) return;
 
         let recipientPubKey = selectedRecipient.identityKeyPublic;
-        if (!recipientPubKey || recipientPubKey === 'default_admin_key') {
+        if (!recipientPubKey) {
           const keysRes = await getUserPublicKeys(selectedRecipient.id);
           if (keysRes.success && keysRes.keys) {
             recipientPubKey = keysRes.keys.identityKeyPublic;
           }
         }
 
-        if (recipientPubKey && recipientPubKey !== 'default_admin_key') {
+        if (recipientPubKey) {
           const key = await getOrCreateSessionKey(privKey, recipientPubKey, selectedRecipient.id);
           setSessionKey(key);
         }
