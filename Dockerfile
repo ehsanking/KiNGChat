@@ -33,6 +33,14 @@ RUN npm ci --no-audit --no-fund
 # ensures that @prisma/client types exist for TypeScript compilation.
 RUN npx prisma generate
 
+# Preserve Prisma CLI + engines for runtime migrations before pruning
+# devDependencies. The entrypoint runs `prisma migrate deploy`/`db push`
+# on container start, so these files must remain available in the final
+# image.
+RUN mkdir -p /opt/runtime-prisma && \
+    cp -R node_modules/prisma /opt/runtime-prisma/prisma && \
+    cp -R node_modules/@prisma /opt/runtime-prisma/@prisma
+
 # Copy application source.  Note that node_modules and prisma have
 # already been copied.
 COPY . .
@@ -76,6 +84,10 @@ COPY --from=builder /app/prisma              ./prisma
 #    their transitive dependencies.  Copying the entire node_modules
 #    ensures every dependency is present.
 COPY --from=builder /app/node_modules        ./node_modules
+# Prisma CLI and engines are needed at runtime by docker-entrypoint.sh
+# for database migrations. They are restored from the pre-prune backup.
+COPY --from=builder /opt/runtime-prisma/prisma  ./node_modules/prisma
+COPY --from=builder /opt/runtime-prisma/@prisma ./node_modules/@prisma
 
 # 6. Server source and related scripts
 COPY --from=builder /app/server.ts           ./
