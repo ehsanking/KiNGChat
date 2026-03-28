@@ -30,6 +30,7 @@ import {
 // to explicitly provide their userId.  This helps ensure that security-sensitive actions cannot
 // be performed on behalf of another user simply by passing a different userId.
 import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
+import { verifyRecaptchaToken } from '@/lib/google-recaptcha';
 
 /**
  * Reads the session token from the request cookies and verifies it.  If the cookie is
@@ -60,6 +61,7 @@ type RegisterUserInput = {
   signingPublicKey?: string;
   recoveryQuestion?: string;
   recoveryAnswer?: string;
+  captchaToken?: string;
 };
 
 type GetRecoveryQuestionInput = {
@@ -76,6 +78,7 @@ type RecoverPasswordInput = {
 type LoginUserInput = {
   username: string;
   password: string;
+  captchaToken?: string;
 };
 
 type UpdateAdminCredentialsInput = {
@@ -99,6 +102,8 @@ type AdminSettingsUpdate = {
   isRegistrationEnabled?: boolean;
   maxRegistrations?: number | null;
   isCaptchaEnabled?: boolean;
+  recaptchaSiteKey?: string | null;
+  recaptchaSecretKey?: string | null;
   maxAttachmentSize?: number;
   allowedFileFormats?: string;
   reservedUsernames?: string;
@@ -127,6 +132,10 @@ const sanitizeAdminSettingsUpdate = (input: unknown): AdminSettingsUpdate | null
   if (typeof input.isSetupCompleted === 'boolean') update.isSetupCompleted = input.isSetupCompleted;
   if (typeof input.isRegistrationEnabled === 'boolean') update.isRegistrationEnabled = input.isRegistrationEnabled;
   if (typeof input.isCaptchaEnabled === 'boolean') update.isCaptchaEnabled = input.isCaptchaEnabled;
+  if (typeof input.recaptchaSiteKey === 'string' || input.recaptchaSiteKey === null)
+    update.recaptchaSiteKey = input.recaptchaSiteKey;
+  if (typeof input.recaptchaSecretKey === 'string' || input.recaptchaSecretKey === null)
+    update.recaptchaSecretKey = input.recaptchaSecretKey;
   if (typeof input.maxAttachmentSize === 'number') update.maxAttachmentSize = input.maxAttachmentSize;
   if (typeof input.allowedFileFormats === 'string') update.allowedFileFormats = input.allowedFileFormats;
   if (typeof input.reservedUsernames === 'string') update.reservedUsernames = input.reservedUsernames;
@@ -182,6 +191,7 @@ export async function registerUser(formData: RegisterUserInput) {
   const signingPublicKey = asTrimmedString(formData.signingPublicKey);
   const recoveryQuestion = asTrimmedString(formData.recoveryQuestion);
   const recoveryAnswer = typeof formData.recoveryAnswer === 'string' ? formData.recoveryAnswer : '';
+  const captchaToken = asTrimmedString(formData.captchaToken);
 
   if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig || !recoveryQuestion || recoveryAnswer.length === 0) {
     return { error: 'Missing required registration fields.' };
@@ -200,6 +210,29 @@ export async function registerUser(formData: RegisterUserInput) {
 
   if (!settings.isRegistrationEnabled) {
     return { error: 'Registration is currently disabled by administrator.' };
+  }
+
+  if (settings.isCaptchaEnabled) {
+    const recaptchaSiteKey = typeof (settings as Record<string, unknown>).recaptchaSiteKey === 'string'
+      ? ((settings as Record<string, unknown>).recaptchaSiteKey as string).trim()
+      : '';
+    const recaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
+      ? ((settings as Record<string, unknown>).recaptchaSecretKey as string).trim()
+      : '';
+    if (!recaptchaSiteKey || !recaptchaSecretKey) {
+      return { error: 'Captcha is enabled but not configured by administrator.' };
+    }
+    if (!captchaToken) {
+      return { error: 'Captcha verification is required.' };
+    }
+    const captchaVerified = await verifyRecaptchaToken({
+      token: captchaToken,
+      secret: recaptchaSecretKey,
+      remoteIp: ip === 'unknown' ? undefined : ip,
+    });
+    if (!captchaVerified) {
+      return { error: 'Captcha verification failed.' };
+    }
   }
 
   if (settings.maxRegistrations !== null) {
@@ -314,6 +347,7 @@ export async function registerUser(formData: RegisterUserInput) {
 export async function loginUser(formData: LoginUserInput) {
   const username = asTrimmedString(formData.username);
   const password = asTrimmedString(formData.password);
+  const captchaToken = asTrimmedString(formData.captchaToken);
 
   if (!username || !password) {
     return { error: 'Username and password are required.' };
@@ -330,6 +364,33 @@ export async function loginUser(formData: LoginUserInput) {
 
   if (failedIpAttempts >= 10) {
     return { error: 'Too many failed attempts from this IP. Please try again later.' };
+  }
+
+  const settings = await getOrSetCache('adminSettings', async () => {
+    return getOrCreateAdminSettings();
+  });
+
+  if (settings.isCaptchaEnabled) {
+    const recaptchaSiteKey = typeof (settings as Record<string, unknown>).recaptchaSiteKey === 'string'
+      ? ((settings as Record<string, unknown>).recaptchaSiteKey as string).trim()
+      : '';
+    const recaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
+      ? ((settings as Record<string, unknown>).recaptchaSecretKey as string).trim()
+      : '';
+    if (!recaptchaSiteKey || !recaptchaSecretKey) {
+      return { error: 'Captcha is enabled but not configured by administrator.' };
+    }
+    if (!captchaToken) {
+      return { error: 'Captcha verification is required.' };
+    }
+    const captchaVerified = await verifyRecaptchaToken({
+      token: captchaToken,
+      secret: recaptchaSecretKey,
+      remoteIp: ip === 'unknown' ? undefined : ip,
+    });
+    if (!captchaVerified) {
+      return { error: 'Captcha verification failed.' };
+    }
   }
 
   try {
@@ -719,8 +780,13 @@ export async function getPublicSettings() {
   try {
     const settings = await getOrSetCache('publicSettings', async () => {
       const storedSettings = await getOrCreateAdminSettings();
+      const recaptchaSiteKey = typeof (storedSettings as Record<string, unknown>).recaptchaSiteKey === 'string'
+        ? (storedSettings as Record<string, unknown>).recaptchaSiteKey as string
+        : null;
       return {
         isRegistrationEnabled: storedSettings.isRegistrationEnabled,
+        isCaptchaEnabled: storedSettings.isCaptchaEnabled && Boolean(recaptchaSiteKey),
+        recaptchaSiteKey,
       };
     });
 

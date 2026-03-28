@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Shield, Loader2, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import GoogleRecaptcha from '@/components/auth/google-recaptcha';
+
+type PublicSettings = {
+  isCaptchaEnabled: boolean;
+  recaptchaSiteKey: string | null;
+};
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -13,6 +19,11 @@ export default function LoginPage() {
   const [show2FA, setShow2FA] = useState(false);
   const [pending2FAUserId, setPending2FAUserId] = useState('');
   const [totpCode, setTotpCode] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [publicSettings, setPublicSettings] = useState<PublicSettings>({
+    isCaptchaEnabled: false,
+    recaptchaSiteKey: null,
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -31,6 +42,27 @@ export default function LoginPage() {
     checkSession();
   }, [router]);
 
+  useEffect(() => {
+    const loadPublicSettings = async () => {
+      try {
+        const response = await fetch('/api/settings/public', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data?.success && data?.settings) {
+          setPublicSettings({
+            isCaptchaEnabled: Boolean(data.settings.isCaptchaEnabled),
+            recaptchaSiteKey: typeof data.settings.recaptchaSiteKey === 'string'
+              ? data.settings.recaptchaSiteKey
+              : null,
+          });
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadPublicSettings();
+  }, []);
+
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
@@ -44,6 +76,7 @@ export default function LoginPage() {
         body: JSON.stringify({
           username,
           password,
+          captchaToken,
         }),
       });
       const data = await res.json();
@@ -207,7 +240,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || (publicSettings.isCaptchaEnabled && !captchaToken)}
             className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-semibold py-3 rounded-xl transition-colors mt-6 flex items-center justify-center gap-2"
           >
             {isLoading ? (
@@ -219,6 +252,13 @@ export default function LoginPage() {
               'Decrypt Keys & Login'
             )}
           </button>
+          {publicSettings.isCaptchaEnabled && publicSettings.recaptchaSiteKey && (
+            <GoogleRecaptcha
+              siteKey={publicSettings.recaptchaSiteKey}
+              onTokenChange={setCaptchaToken}
+              disabled={isLoading}
+            />
+          )}
         </form>
 
         <p className="text-center text-zinc-500 text-sm mt-8">

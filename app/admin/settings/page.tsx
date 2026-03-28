@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAdminSettings, updateFileUploadSettings, updateFirebaseSettings } from '@/app/actions/admin';
+import { getAdminSettings, updateAdminSettings, updateFileUploadSettings, updateFirebaseSettings } from '@/app/actions/admin';
 import { Save, Shield, FileText, HardDrive, CheckCircle2, AlertCircle, Loader2, Database } from 'lucide-react';
 
 export default function AdminSettingsPage() {
@@ -9,6 +9,9 @@ export default function AdminSettingsPage() {
   const [formats, setFormats] = useState('*');
   const [firebaseConfig, setFirebaseConfig] = useState('');
   const [isFirebaseEnabled, setIsFirebaseEnabled] = useState(false);
+  const [isCaptchaEnabled, setIsCaptchaEnabled] = useState(false);
+  const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
+  const [recaptchaSecretKey, setRecaptchaSecretKey] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -22,6 +25,9 @@ export default function AdminSettingsPage() {
         setFormats(settings.allowedFileFormats);
         setFirebaseConfig(settings.firebaseConfig || '');
         setIsFirebaseEnabled(!!settings.firebaseConfig && settings.firebaseConfig.length > 10);
+        setIsCaptchaEnabled(Boolean(settings.isCaptchaEnabled));
+        setRecaptchaSiteKey(settings.recaptchaSiteKey || '');
+        setRecaptchaSecretKey(settings.recaptchaSecretKey || '');
       }
       setIsLoading(false);
     }
@@ -37,11 +43,16 @@ export default function AdminSettingsPage() {
     const { success, error } = await updateFileUploadSettings(sizeInBytes, formats);
     
     const fbSuccess = await updateFirebaseSettings(isFirebaseEnabled ? firebaseConfig : null);
+    const captchaResult = await updateAdminSettings({
+      isCaptchaEnabled,
+      recaptchaSiteKey: recaptchaSiteKey.trim() || null,
+      recaptchaSecretKey: recaptchaSecretKey.trim() || null,
+    });
 
-    if (success && !fbSuccess.error) {
+    if (success && !fbSuccess.error && !captchaResult.error) {
       setMessage({ type: 'success', text: 'Settings updated successfully' });
     } else {
-      setMessage({ type: 'error', text: error || fbSuccess.error || 'Failed to update settings' });
+      setMessage({ type: 'error', text: error || fbSuccess.error || captchaResult.error || 'Failed to update settings' });
     }
     setIsSaving(false);
   };
@@ -105,6 +116,41 @@ export default function AdminSettingsPage() {
               />
               <p className="text-[10px] text-zinc-500 italic">Example: jpg, png, pdf, docx, zip</p>
             </div>
+          </div>
+
+          <div className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-3xl space-y-4 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-brand-gold">Google reCAPTCHA (Login & Registration)</h2>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <span className="text-sm text-zinc-400">Enable reCAPTCHA</span>
+                <input
+                  type="checkbox"
+                  checked={isCaptchaEnabled}
+                  onChange={(e) => setIsCaptchaEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-800 text-brand-gold focus:ring-brand-gold bg-zinc-950"
+                />
+              </label>
+            </div>
+            <p className="text-sm text-zinc-400">
+              Configure Google &quot;I&apos;m not a robot&quot; for login and registration. Keep disabled if you do not need it.
+            </p>
+            <input
+              type="text"
+              value={recaptchaSiteKey}
+              onChange={(e) => setRecaptchaSiteKey(e.target.value)}
+              placeholder="reCAPTCHA Site Key"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-gold transition-colors"
+            />
+            <input
+              type="password"
+              value={recaptchaSecretKey}
+              onChange={(e) => setRecaptchaSecretKey(e.target.value)}
+              placeholder="reCAPTCHA Secret Key"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-gold transition-colors"
+            />
+            <p className="text-xs text-zinc-500">
+              When enabled, both keys are required and verification is enforced server-side.
+            </p>
           </div>
 
           {/* Firebase Configuration */}

@@ -407,6 +407,10 @@ export async function updateAdminSettings(settingsData: Record<string, unknown>)
     if (typeof settingsData.isRegistrationEnabled === 'boolean')
       update.isRegistrationEnabled = settingsData.isRegistrationEnabled;
     if (typeof settingsData.isCaptchaEnabled === 'boolean') update.isCaptchaEnabled = settingsData.isCaptchaEnabled;
+    if (typeof settingsData.recaptchaSiteKey === 'string' || settingsData.recaptchaSiteKey === null)
+      update.recaptchaSiteKey = settingsData.recaptchaSiteKey;
+    if (typeof settingsData.recaptchaSecretKey === 'string' || settingsData.recaptchaSecretKey === null)
+      update.recaptchaSecretKey = settingsData.recaptchaSecretKey;
     if (typeof settingsData.maxAttachmentSize === 'number') update.maxAttachmentSize = settingsData.maxAttachmentSize;
     if (typeof settingsData.allowedFileFormats === 'string') update.allowedFileFormats = settingsData.allowedFileFormats;
     if (typeof settingsData.reservedUsernames === 'string') update.reservedUsernames = settingsData.reservedUsernames;
@@ -426,6 +430,31 @@ export async function updateAdminSettings(settingsData: Record<string, unknown>)
 
     if (Object.keys(update).length === 0) {
       return { error: 'Invalid settings payload.' };
+    }
+
+    const wantsCaptchaEnabled = update.isCaptchaEnabled === true;
+    if (wantsCaptchaEnabled) {
+      const nextSiteKey = typeof update.recaptchaSiteKey === 'string'
+        ? update.recaptchaSiteKey.trim()
+        : undefined;
+      const nextSecretKey = typeof update.recaptchaSecretKey === 'string'
+        ? update.recaptchaSecretKey.trim()
+        : undefined;
+
+      const currentSettings = await getOrCreateAdminSettings();
+      const currentSiteKey = typeof (currentSettings as Record<string, unknown>).recaptchaSiteKey === 'string'
+        ? ((currentSettings as Record<string, unknown>).recaptchaSiteKey as string).trim()
+        : '';
+      const currentSecretKey = typeof (currentSettings as Record<string, unknown>).recaptchaSecretKey === 'string'
+        ? ((currentSettings as Record<string, unknown>).recaptchaSecretKey as string).trim()
+        : '';
+      const finalSiteKey = nextSiteKey ?? currentSiteKey;
+      const finalSecretKey = nextSecretKey ?? currentSecretKey;
+      if (!finalSiteKey || !finalSecretKey) {
+        return { error: 'Captcha cannot be enabled without both site key and secret key.' };
+      }
+      update.recaptchaSiteKey = finalSiteKey;
+      update.recaptchaSecretKey = finalSecretKey;
     }
 
     await upsertAdminSettings(update);
