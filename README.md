@@ -114,12 +114,17 @@
 curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
 ```
 
-The installer will:
-1. Check system requirements
-2. Clone the repository
-3. Prompt for domain / IP configuration
-4. Generate secrets automatically
-5. Start services via Docker Compose with auto-SSL (Caddy)
+The installer now supports explicit modes:
+1. **Fresh install** (new deployment)
+2. **Upgrade** (safe in-place update, preserves `.env` secrets/data)
+3. **Reinstall** (backs up existing directory first, then re-installs)
+
+Installer safety behavior:
+- Preserves existing production secrets on upgrade (`POSTGRES_*`, `DATABASE_URL`, auth/encryption/download secrets, admin credentials) unless you explicitly change values.
+- Creates timestamped upgrade backups (`.env`, `Caddyfile`, compose files) before update steps.
+- Aborts upgrades when git sync fails or the worktree is dirty (no implicit `rm -rf` fallback).
+- Uses Caddy on `:80/:443`; in IP-only mode the generated `APP_URL` uses `http://<server-ip>` (no internal `:3000` mismatch).
+- Never prints bootstrap admin password in terminal output; auto-generated credentials are written once to a local secrets file with restrictive permissions.
 
 ---
 
