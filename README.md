@@ -127,16 +127,19 @@ The installer now supports explicit modes:
 3. **Reinstall** (backs up existing directory first, then re-installs)
 
 Installer safety behavior:
+- Prompts for a **source ref strategy** (latest tag recommended, or explicit tag/commit); mutable `main` head is still available but warned.
 - Preserves operator-managed config by default on upgrade (`.env`, `Caddyfile`, compose overrides). Regeneration happens only when explicitly selected.
 - Upgrade now prompts for proxy behavior: **preserve existing proxy config** (default) or **regenerate proxy config** (for ingress/domain/IP changes).
-- Preserves existing production secrets on upgrade (`POSTGRES_*`, `DATABASE_URL`, auth/encryption/download secrets, admin credentials) unless you explicitly change values.
+- Preserves existing production secrets on upgrade (`POSTGRES_*`, `APP_DB_*`, `DATABASE_URL`, auth/encryption/download secrets, admin credentials) unless you explicitly change values.
+- Enforces database role separation: bootstrap role (`POSTGRES_*`) for DB provisioning and least-privilege runtime role (`APP_DB_*`) for the app `DATABASE_URL`.
 - Creates timestamped upgrade backups (`.env`, `Caddyfile`, compose files) before update steps.
 - Aborts upgrades when git sync fails or the worktree is dirty (no implicit `rm -rf` fallback).
 - Uses Caddy on `:80/:443`; in IP-only mode the generated `APP_URL` uses `http://<server-ip>` (no internal `:3000` mismatch).
 - Never prints bootstrap admin password in terminal output; auto-generated credentials are written once to a local secrets file with restrictive permissions.
-- Verifies post-launch health and only reports success after DB/app health checks and Caddy runtime config validation pass.
-- In domain mode, installer now distinguishes local container health from external DNS/TLS readiness.
+- Verifies post-launch health in explicit phases: container health, local reverse-proxy routing, and external DNS/TLS readiness guidance.
+- Fails install when local reverse-proxy routing does not work, and only warns for external DNS/TLS propagation uncertainty.
 - `ADMIN_USERNAME`/`ADMIN_PASSWORD` are create-only by default; if `ADMIN_BOOTSTRAP_RESET_EXISTING=true` is used, reset is consumed once per credential set (not repeated on every restart).
+- Does **not** auto-enable UFW; firewall changes remain operator-driven.
 
 ---
 
@@ -196,6 +199,11 @@ Environment loading policy:
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | SQLite (dev only) | PostgreSQL connection string for production |
+| `POSTGRES_USER` | *(none)* | Bootstrap/admin PostgreSQL role (provisioning only) |
+| `POSTGRES_PASSWORD` | *(none)* | Bootstrap/admin PostgreSQL password |
+| `POSTGRES_DB` | `elahe` | PostgreSQL database name |
+| `APP_DB_USER` | *(none)* | Least-privilege runtime DB user for the app |
+| `APP_DB_PASSWORD` | *(none)* | Least-privilege runtime DB password |
 | `APP_URL` | `http://localhost:3000` | Public base URL of the application |
 | `NODE_ENV` | `development` | Set to `production` for production builds |
 | `PORT` | `3000` | HTTP server port |
@@ -263,6 +271,68 @@ Container names and services:
 | App | `elahe-app` | Next.js + Socket.IO server |
 | Database | `elahe-db` | PostgreSQL 16 |
 | Reverse proxy | `elahe-caddy` | Caddy with automatic Let's Encrypt SSL |
+
+### Production Networking Policy (default compose)
+
+| Port | Exposure | Why |
+|---|---|---|
+| `80/tcp` | **Public** | HTTP challenge + redirect / non-TLS IP mode |
+| `443/tcp` | **Public** | HTTPS ingress |
+| `443/udp` | Optional Public | HTTP/3 (QUIC) |
+| `5432/tcp` | **Private only** | PostgreSQL (Docker-internal by default) |
+| `3000/tcp` | **Private only** | App container behind Caddy |
+| `6379/tcp` | **Private only** | Redis (if used) |
+
+> The provided compose files keep PostgreSQL internal-only by default (no `ports:` publish for `db`). Do **not** expose `5432` unless you intentionally need remote database access.
+
+### Database Hardening (bootstrap vs runtime role)
+
+- `POSTGRES_USER` / `POSTGRES_PASSWORD`: bootstrap/admin database role used for first-time PostgreSQL provisioning.
+- `APP_DB_USER` / `APP_DB_PASSWORD`: runtime least-privilege role used by Prisma/app in `DATABASE_URL`.
+- `DATABASE_URL` should point to `APP_DB_USER`, not the bootstrap account.
+- Installer provisions and grants runtime role permissions required for Prisma migrations (`migrate deploy`) without granting superuser-like privileges.
+- Treat both bootstrap and runtime DB secrets as sensitive; rotate and store with least access (prefer secret manager or Docker secrets over plaintext files where possible).
+
+### Backup & Host-Compromise Notes
+
+- Database dumps and volume backups can contain sensitive metadata and ciphertext payloads; protect backups with encryption-at-rest and strict access controls.
+- If host disk/volume data (`pgdata`) is unencrypted and host is compromised, DB contents can be copied even without network DB exposure.
+- Keep backup artifacts out of git and out of web-served paths.
+
+### UFW (manual, opt-in, operator-aware)
+
+> The installer intentionally does **not** enable UFW automatically.
+
+Recommended sequence on Ubuntu/Debian hosts:
+
+```bash
+# 1) Allow SSH FIRST (use your actual SSH port if not 22)
+sudo ufw allow 22/tcp
+
+# 2) Allow web ingress
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# 3) Optional HTTP/3/QUIC
+sudo ufw allow 443/udp
+
+# 4) Enable firewall
+sudo ufw enable
+
+# 5) Verify
+sudo ufw status verbose
+sudo ufw status numbered
+```
+
+Do **not** open these publicly unless intentionally required:
+- `5432/tcp` (PostgreSQL)
+- `3000/tcp` (app internal port)
+- `6379/tcp` (Redis)
+
+Operational safety:
+- Docker and host firewalls can interact in non-obvious ways (NAT/forward chains). Validate effective exposure with external scans after changes.
+- If locked out, regain console/KVM access and rollback rules with `sudo ufw disable` (or delete problematic numbered rules).
+- Inspect logs via `sudo journalctl -u ufw --since "1 hour ago"` and `sudo dmesg | rg -i ufw`.
 
 Health endpoints:
 - Liveness: `GET /api/health/live`

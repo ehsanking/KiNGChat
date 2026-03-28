@@ -6,20 +6,45 @@ set -eu
 
 prepare_runtime_dirs() {
   storage_root="${OBJECT_STORAGE_ROOT:-/app/object_storage}"
+  admin_state_dir="${ADMIN_BOOTSTRAP_STATE_DIR:-/app/runtime_state}"
+  recursive_fix="${OBJECT_STORAGE_ENSURE_OWNERSHIP_RECURSIVE:-false}"
+  ownership_marker=""
   case "$storage_root" in
     /*) ;;
     *) storage_root="/app/${storage_root}" ;;
+  esac
+
+  case "$admin_state_dir" in
+    /*) ;;
+    *) admin_state_dir="/app/${admin_state_dir}" ;;
   esac
 
   mkdir -p "$storage_root" || {
     echo "[entrypoint] ERROR: Could not create object storage root at ${storage_root}." >&2
     exit 1
   }
-  chown -R nextjs:nodejs "$storage_root" || {
-    echo "[entrypoint] ERROR: Could not assign ownership for ${storage_root}." >&2
+  mkdir -p "$admin_state_dir" || {
+    echo "[entrypoint] ERROR: Could not create admin bootstrap state directory at ${admin_state_dir}." >&2
     exit 1
   }
+
+  chown nextjs:nodejs "$storage_root" "$admin_state_dir" || {
+    echo "[entrypoint] ERROR: Could not assign ownership for runtime directories." >&2
+    exit 1
+  }
+
+  ownership_marker="${storage_root}/.ownership-initialized"
+  if [ "$recursive_fix" = "true" ] || [ ! -f "$ownership_marker" ]; then
+    find "$storage_root" \( \! -user nextjs -o \! -group nodejs \) -print0 | xargs -0 -r chown nextjs:nodejs || {
+      echo "[entrypoint] ERROR: Could not enforce object storage ownership." >&2
+      exit 1
+    }
+    touch "$ownership_marker" || true
+    chown nextjs:nodejs "$ownership_marker" || true
+  fi
+
   chmod 750 "$storage_root" || true
+  chmod 700 "$admin_state_dir" || true
 }
 
 if [ "${1:-}" = "--as-nextjs" ]; then
@@ -93,7 +118,7 @@ if [ "$APP_ENV_EFFECTIVE" = "production" ]; then
   require_strong_value JWT_SECRET 32 "changeme changeme_jwt_secret_min32chars_xxx your-super-secret-jwt-key-change-this-in-production"
   require_strong_value ENCRYPTION_KEY 32 "changeme changeme_encryption_key_32chars! your-32-character-encryption-key"
   require_strong_value ADMIN_PASSWORD 16 "admin changeme password change_this_admin_password"
-  require_strong_value POSTGRES_PASSWORD 16 "postgres pass password"
+  require_strong_value APP_DB_PASSWORD 16 "postgres pass password"
 fi
 
 # ── Wait for database to be ready ─────────────

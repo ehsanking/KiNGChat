@@ -9,19 +9,18 @@ const validBase = {
   ENCRYPTION_KEY: 'e'.repeat(40),
   ADMIN_PASSWORD: 'StrongAdminPassword1',
   ADMIN_USERNAME: 'owner',
-  POSTGRES_PASSWORD: 'StrongPostgresPassword1',
+  APP_DB_PASSWORD: 'StrongAppDbPassword1',
+  APP_DB_USER: 'elahe_app',
   DATABASE_URL: 'postgresql://user:strongpass@db:5432/elahe',
   APP_URL: 'https://chat.example.com',
   ALLOWED_ORIGINS: 'https://chat.example.com',
-  POSTGRES_USER: 'user',
-  POSTGRES_DB: 'elahe',
 };
 
 describe('validateProductionEnvironment', () => {
   it('rejects placeholder admin username and placeholder database url', () => {
     Object.assign(process.env, validBase, {
       ADMIN_USERNAME: '__SET_ME_ADMIN_USERNAME__',
-      DATABASE_URL: 'postgresql://__SET_ME_POSTGRES_USER__:__SET_ME_POSTGRES_PASSWORD__@db:5432/elahe',
+      DATABASE_URL: 'postgresql://__SET_ME_APP_DB_USER__:__SET_ME_APP_DB_PASSWORD__@db:5432/elahe',
     });
 
     expect(() => validateProductionEnvironment()).toThrowError();

@@ -19,12 +19,11 @@ describe('installer env compatibility with production validation', () => {
       ENCRYPTION_KEY: randomHex(64),
       ADMIN_PASSWORD: adminPassword,
       ADMIN_USERNAME: adminUsername,
-      POSTGRES_PASSWORD: `P${randomHex(16)}!x${randomHex(8)}`,
+      APP_DB_PASSWORD: `P${randomHex(16)}!x${randomHex(8)}`,
       DATABASE_URL: 'postgresql://user:strongpass@db:5432/elahe',
       APP_URL: 'https://chat.example.com',
       ALLOWED_ORIGINS: 'https://chat.example.com',
-      POSTGRES_USER: 'user',
-      POSTGRES_DB: 'elahe',
+      APP_DB_USER: 'user',
     };
 
     expect(() => validateProductionEnvironment()).not.toThrow();

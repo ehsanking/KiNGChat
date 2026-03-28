@@ -6,9 +6,9 @@ import { createHash } from 'crypto';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 
 const getAdminBootstrapStateFile = () => {
-  const storageRoot = process.env.OBJECT_STORAGE_ROOT || '/app/object_storage';
-  const absoluteStorageRoot = path.isAbsolute(storageRoot) ? storageRoot : path.join(process.cwd(), storageRoot);
-  return path.join(absoluteStorageRoot, '.admin-bootstrap-reset-state');
+  const stateDir = process.env.ADMIN_BOOTSTRAP_STATE_DIR || '/app/runtime_state';
+  const absoluteStateDir = path.isAbsolute(stateDir) ? stateDir : path.join(process.cwd(), stateDir);
+  return path.join(absoluteStateDir, 'admin-bootstrap-reset-state');
 };
 
 const makeResetStateFingerprint = (username: string, password: string, forcePasswordChange: boolean) =>
