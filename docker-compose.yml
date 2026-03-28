@@ -28,6 +28,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is required}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      - DOWNLOAD_TOKEN_SECRET=${DOWNLOAD_TOKEN_SECRET:?DOWNLOAD_TOKEN_SECRET is required}
       - ADMIN_USERNAME=${ADMIN_USERNAME:?ADMIN_USERNAME is required}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       # VAPID (optional — push notifications disabled if not set)
@@ -49,6 +50,8 @@ services:
       - SOCKET_RATE_LIMIT_MAX=${SOCKET_RATE_LIMIT_MAX:-30}
       # Queue
       - QUEUE_CONCURRENCY=${QUEUE_CONCURRENCY:-5}
+    volumes:
+      - object_storage_data:/app/object_storage
     depends_on:
       db:
         condition: service_healthy
@@ -110,3 +113,4 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  object_storage_data:
