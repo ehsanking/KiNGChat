@@ -16,8 +16,10 @@ ENV NPM_CONFIG_LOGLEVEL=warn \
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY lockfile-check.js ./
-# Copy scripts directory before npm install to ensure postinstall scripts can run
+# Copy scripts and lib before npm ci because postinstall runs
+# scripts/prisma-generate.ts, which imports modules from lib/.
 COPY scripts ./scripts
+COPY lib ./lib
 
 # Validate the lockfile matches package.json expectations.  This will
 # exit with a non-zero code if there is a mismatch (e.g. after an
@@ -28,10 +30,6 @@ RUN node ./lockfile-check.js
 # existing lockfile to perform a clean, reproducible install and
 # includes devDependencies required for the build step.
 RUN npm ci --no-audit --no-fund
-
-# Generate the Prisma client before copying application source.  This
-# ensures that @prisma/client types exist for TypeScript compilation.
-RUN npx prisma generate
 
 # Preserve Prisma CLI + engines for runtime migrations before pruning
 # devDependencies. The entrypoint runs `prisma migrate deploy`
