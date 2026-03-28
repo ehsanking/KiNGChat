@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 
 /**
  * GET /api/settings/public
- * Returns public-facing settings (captcha enabled, registration enabled).
+ * Returns public-facing settings (registration enabled).
  * This is a REST endpoint used by login/register pages instead of
  * server actions, which can fail silently in custom-server Docker deployments.
  */
@@ -18,9 +18,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       settings: {
-        isCaptchaEnabled: settings.isCaptchaEnabled,
         isRegistrationEnabled: settings.isRegistrationEnabled,
-        captchaProvider: settings.isCaptchaEnabled ? 'local-math' : 'disabled',
       },
     });
   } catch (error) {
@@ -30,9 +28,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       settings: {
-        isCaptchaEnabled: false,
         isRegistrationEnabled: true,
-        captchaProvider: 'disabled',
       },
       fallback: true,
     });

@@ -4,6 +4,6 @@
 // implementations from the central auth module, allowing other parts of the
 // application to depend on smaller, more focused files instead of the
 // monolithic app/actions/auth.ts.  Use this module when dealing with user
-// sign-up, captcha generation and verification.
+// sign-up.
 
-export { generateCaptcha, registerUser } from './auth';
+export { registerUser } from './auth';

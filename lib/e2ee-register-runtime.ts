@@ -8,8 +8,6 @@ export type RegisterV2Input = {
   signedPreKeySig: string;
   recoveryQuestion: string;
   recoveryAnswer: string;
-  captchaId?: string;
-  captchaAnswer?: string;
 };
 
 export async function registerUserWithBundleV2(input: RegisterV2Input) {

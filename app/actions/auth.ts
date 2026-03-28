@@ -7,7 +7,6 @@ import { getOrSetCache } from '@/lib/cache';
 import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
-import { createLocalCaptchaChallenge, verifyLocalCaptchaChallenge } from '@/lib/local-captcha';
 import { recoverAuthUserSchemaIfNeeded } from '@/lib/user-auth-schema';
 import argon2 from 'argon2';
 import { headers, cookies } from 'next/headers';
@@ -61,8 +60,6 @@ type RegisterUserInput = {
   signingPublicKey?: string;
   recoveryQuestion?: string;
   recoveryAnswer?: string;
-  captchaId?: string;
-  captchaAnswer?: string;
 };
 
 type GetRecoveryQuestionInput = {
@@ -79,8 +76,6 @@ type RecoverPasswordInput = {
 type LoginUserInput = {
   username: string;
   password: string;
-  captchaId?: string;
-  captchaAnswer?: string;
 };
 
 type UpdateAdminCredentialsInput = {
@@ -174,22 +169,8 @@ async function logAuditAction(
   }
 }
 
-async function validateCaptcha(captchaId: string, captchaAnswer: string) {
-  return verifyLocalCaptchaChallenge(captchaId, captchaAnswer);
-}
-
-export async function generateCaptcha() {
-  const challenge = createLocalCaptchaChallenge();
-  return {
-    success: true,
-    captchaId: challenge.captchaId,
-    prompt: challenge.prompt,
-    expiresAt: challenge.expiresAt,
-  };
-}
-
 /**
- * Registers a new user after validating credentials, encryption keys, and captcha.
+ * Registers a new user after validating credentials and encryption keys.
  */
 export async function registerUser(formData: RegisterUserInput) {
   const username = asTrimmedString(formData.username);
@@ -201,8 +182,6 @@ export async function registerUser(formData: RegisterUserInput) {
   const signingPublicKey = asTrimmedString(formData.signingPublicKey);
   const recoveryQuestion = asTrimmedString(formData.recoveryQuestion);
   const recoveryAnswer = typeof formData.recoveryAnswer === 'string' ? formData.recoveryAnswer : '';
-  const captchaId = asTrimmedString(formData.captchaId);
-  const captchaAnswer = asTrimmedString(formData.captchaAnswer);
 
   if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig || !recoveryQuestion || recoveryAnswer.length === 0) {
     return { error: 'Missing required registration fields.' };
@@ -227,14 +206,6 @@ export async function registerUser(formData: RegisterUserInput) {
     const totalUsers = await prisma.user.count();
     if (totalUsers >= settings.maxRegistrations) {
       return { error: 'Registration limit reached. No more users can register.' };
-    }
-  }
-
-  // Validate Captcha
-  if (settings.isCaptchaEnabled) {
-    const isCaptchaValid = await validateCaptcha(captchaId, captchaAnswer);
-    if (!isCaptchaValid) {
-      return { error: 'Captcha validation failed. Please try again.' };
     }
   }
 
@@ -343,8 +314,6 @@ export async function registerUser(formData: RegisterUserInput) {
 export async function loginUser(formData: LoginUserInput) {
   const username = asTrimmedString(formData.username);
   const password = asTrimmedString(formData.password);
-  const captchaId = asTrimmedString(formData.captchaId);
-  const captchaAnswer = asTrimmedString(formData.captchaAnswer);
 
   if (!username || !password) {
     return { error: 'Username and password are required.' };
@@ -353,19 +322,6 @@ export async function loginUser(formData: LoginUserInput) {
   const rateResult = await rateLimit(`login:${ip}:${username}`);
   if (!rateResult.allowed) {
     return { error: 'Too many login attempts. Please try again later.' };
-  }
-
-  // Get settings
-  const settings = await getOrSetCache('adminSettings', async () => {
-    return getOrCreateAdminSettings();
-  });
-
-  // Validate Captcha
-  if (settings.isCaptchaEnabled) {
-    const isCaptchaValid = await validateCaptcha(captchaId, captchaAnswer);
-    if (!isCaptchaValid) {
-      return { error: 'Captcha validation failed. Please try again.' };
-    }
   }
 
   // 1. IP Rate Limiting Check
@@ -765,7 +721,6 @@ export async function getPublicSettings() {
       const storedSettings = await getOrCreateAdminSettings();
       return {
         isRegistrationEnabled: storedSettings.isRegistrationEnabled,
-        isCaptchaEnabled: storedSettings.isCaptchaEnabled,
       };
     });
 

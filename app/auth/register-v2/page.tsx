@@ -4,14 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import LocalCaptcha from '@/components/LocalCaptcha';
 import { createRegistrationBundleV2, persistRegistrationBundleV2 } from '@/lib/e2ee-registration';
 import { registerUserWithBundleV2 } from '@/lib/e2ee-register-runtime';
 
 type PublicSettings = {
-  isCaptchaEnabled: boolean;
   isRegistrationEnabled: boolean;
-  captchaProvider?: string;
 };
 
 export default function RegisterV2Page() {
@@ -20,21 +17,15 @@ export default function RegisterV2Page() {
   const [password, setPassword] = useState('');
   const [recoveryQuestion, setRecoveryQuestion] = useState('');
   const [recoveryAnswer, setRecoveryAnswer] = useState('');
-  const [captchaId, setCaptchaId] = useState('');
-  const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [publicSettings, setPublicSettings] = useState<PublicSettings>({
-    isCaptchaEnabled: false,
     isRegistrationEnabled: true,
-    captchaProvider: 'disabled',
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
-  const [captchaError, setCaptchaError] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState('Ready to create your account.');
   const passwordHint = useMemo(() => 'Use 8+ characters with upper/lowercase letters, a number, and a symbol.', []);
-  const isCaptchaReady = !publicSettings.isCaptchaEnabled || (captchaId.length > 0 && captchaAnswer.length > 0);
 
   const fetchJsonWithRetry = async (url: string, attempts = 3) => {
     let lastError: Error | null = null;
@@ -71,7 +62,6 @@ export default function RegisterV2Page() {
 
       setSettingsLoadFailed(true);
       setSettingsLoaded(true);
-      setCaptchaError('Unable to load security settings. Please refresh and try again.');
     };
 
     loadPublicSettings();
@@ -103,13 +93,10 @@ export default function RegisterV2Page() {
         signedPreKeySig: bundle.signedPreKeySig,
         recoveryQuestion,
         recoveryAnswer,
-        captchaId,
-        captchaAnswer,
       });
 
       if (result?.error) {
         setError(result.error);
-        setCaptchaAnswer('');
       } else {
         router.replace('/auth/login');
       }
@@ -162,19 +149,7 @@ export default function RegisterV2Page() {
             </p>
           </div>
 
-          {publicSettings.isCaptchaEnabled ? (
-            <LocalCaptcha
-              enabled={publicSettings.isCaptchaEnabled}
-              onChange={({ captchaId: nextCaptchaId, captchaAnswer: nextCaptchaAnswer }) => {
-                setCaptchaId(nextCaptchaId);
-                setCaptchaAnswer(nextCaptchaAnswer);
-              }}
-            />
-          ) : null}
-
-          {captchaError && <p className="text-xs text-amber-400">{captchaError}</p>}
-
-          <button type="submit" disabled={isLoading || !settingsLoaded || settingsLoadFailed || !publicSettings.isRegistrationEnabled || !isCaptchaReady} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+          <button type="submit" disabled={isLoading || !settingsLoaded || settingsLoadFailed || !publicSettings.isRegistrationEnabled} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
             {isLoading ? <><Loader2 className="w-5 h-5 animate-spin" />Creating account...</> : 'Create secure account'}
           </button>
         </form>
@@ -182,7 +157,6 @@ export default function RegisterV2Page() {
           <p className="text-zinc-500 text-sm text-center">{status}</p>
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-400 space-y-1">
             <p>• Your private keys stay on this device.</p>
-            <p>• We only ask for extra anti-abuse checks when the server requires them.</p>
             {!publicSettings.isRegistrationEnabled && <p className="text-amber-400">Registration is currently paused by the administrator.</p>}
           </div>
         </div>

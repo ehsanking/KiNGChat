@@ -10,7 +10,6 @@
 'use server';
 
 import {
-  generateCaptcha as authGenerateCaptcha,
   registerUser as authRegisterUser,
   loginUser as authLoginUser,
   searchUsers as authSearchUsers,
@@ -20,10 +19,6 @@ import {
   getRecoveryQuestion as authGetRecoveryQuestion,
   recoverPassword as authRecoverPassword,
 } from './auth';
-
-export async function generateCaptcha(...args: Parameters<typeof authGenerateCaptcha>) {
-  return authGenerateCaptcha(...args);
-}
 
 export async function registerUser(...args: Parameters<typeof authRegisterUser>) {
   return authRegisterUser(...args);

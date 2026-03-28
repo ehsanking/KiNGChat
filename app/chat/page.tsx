@@ -124,9 +124,8 @@ const buildDraftStorageKey = (currentUserId?: string, recipientId?: string | nul
 
 const buildPendingQueueStorageKey = (currentUserId?: string) => currentUserId ? `elahe:pending:${currentUserId}` : '';
 
-const adminSettingToggles: Array<{ label: string; key: keyof Pick<AdminSettings, 'isRegistrationEnabled' | 'isCaptchaEnabled'>; desc: string }> = [
+const adminSettingToggles: Array<{ label: string; key: keyof Pick<AdminSettings, 'isRegistrationEnabled'>; desc: string }> = [
   { label: 'User Registration', key: 'isRegistrationEnabled', desc: 'Allow new users' },
-  { label: 'CAPTCHA Protection', key: 'isCaptchaEnabled', desc: 'Require CAPTCHA' },
 ];
 
 const renderDeliveryLabel = (status?: DeliveryState) => {

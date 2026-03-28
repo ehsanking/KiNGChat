@@ -1,57 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Shield, Loader2, KeyRound, AlertTriangle } from 'lucide-react';
+import { Shield, Loader2, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import LocalCaptcha from '@/components/LocalCaptcha';
-
-type PublicSettings = {
-  isCaptchaEnabled: boolean;
-  isRegistrationEnabled: boolean;
-  captchaProvider?: string;
-};
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [captchaId, setCaptchaId] = useState('');
-  const [captchaAnswer, setCaptchaAnswer] = useState('');
-  const [settings, setSettings] = useState<PublicSettings>({
-    isCaptchaEnabled: false,
-    isRegistrationEnabled: true,
-    captchaProvider: 'disabled',
-  });
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
-  const [captchaErrorMessage, setCaptchaErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [show2FA, setShow2FA] = useState(false);
   const [pending2FAUserId, setPending2FAUserId] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const router = useRouter();
-
-  const isCaptchaReady = !settings.isCaptchaEnabled || (captchaId.length > 0 && captchaAnswer.length > 0);
-
-  const fetchJsonWithRetry = useCallback(async (url: string, attempts = 3) => {
-    let lastError: Error | null = null;
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) {
-          throw new Error(`${url} returned ${response.status}`);
-        }
-        return await response.json();
-      } catch (requestError) {
-        lastError = requestError instanceof Error ? requestError : new Error('Unknown network error');
-        if (attempt < attempts) {
-          await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-        }
-      }
-    }
-    throw lastError ?? new Error('Request failed');
-  }, []);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -69,35 +31,8 @@ export default function LoginPage() {
     checkSession();
   }, [router]);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const settingsData = await fetchJsonWithRetry('/api/settings/public');
-        if (settingsData?.success && settingsData?.settings) {
-          setSettings(settingsData.settings);
-          setSettingsLoadFailed(false);
-          setSettingsLoaded(true);
-          return;
-        }
-      } catch (settingsError) {
-        console.error('Public settings load failed:', settingsError);
-      }
-
-      setSettingsLoadFailed(true);
-      setSettingsLoaded(true);
-      setCaptchaErrorMessage('Could not load security settings. Please refresh and try again.');
-    };
-
-    loadSettings();
-  }, [fetchJsonWithRetry]);
-
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!settingsLoaded || settingsLoadFailed) {
-      setError('Security settings are unavailable. Please refresh and try again.');
-      return;
-    }
-
     setIsLoading(true);
     setError('');
 
@@ -109,15 +44,12 @@ export default function LoginPage() {
         body: JSON.stringify({
           username,
           password,
-          captchaId,
-          captchaAnswer,
         }),
       });
       const data = await res.json();
 
       if (!res.ok || data.error) {
         setError(data.error || 'Login failed');
-        setCaptchaAnswer('');
       } else if (data.requires2FA) {
         setShow2FA(true);
         setPending2FAUserId(data.userId ?? '');
@@ -273,31 +205,9 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {settings.isCaptchaEnabled && (
-            <LocalCaptcha
-              enabled={settings.isCaptchaEnabled}
-              onChange={({ captchaId: nextCaptchaId, captchaAnswer: nextCaptchaAnswer }) => {
-                setCaptchaId(nextCaptchaId);
-                setCaptchaAnswer(nextCaptchaAnswer);
-              }}
-            />
-          )}
-
-          {/* Show captcha load error only if captcha is expected to be enabled */}
-          {captchaErrorMessage && (
-            <div className="bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs p-3 rounded-xl flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 mt-0.5" />
-              <div>{captchaErrorMessage}</div>
-            </div>
-          )}
-
-          {settings.isCaptchaEnabled && !isCaptchaReady && (
-            <p className="text-xs text-amber-400">Please complete the security challenge before signing in.</p>
-          )}
-
           <button
             type="submit"
-            disabled={isLoading || !settingsLoaded || settingsLoadFailed || !isCaptchaReady}
+            disabled={isLoading}
             className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-semibold py-3 rounded-xl transition-colors mt-6 flex items-center justify-center gap-2"
           >
             {isLoading ? (
