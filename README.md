@@ -108,10 +108,17 @@
 
 ## Quick Start
 
-### One-Line Installer (Linux)
+### Installer (Linux, safer flow)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
+# 1) Download installer
+curl -fsSL -o install.sh https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh
+
+# 2) (Optional) Inspect installer before running
+less install.sh
+
+# 3) Run explicitly as root
+sudo bash install.sh
 ```
 
 The installer now supports explicit modes:
@@ -127,8 +134,9 @@ Installer safety behavior:
 - Aborts upgrades when git sync fails or the worktree is dirty (no implicit `rm -rf` fallback).
 - Uses Caddy on `:80/:443`; in IP-only mode the generated `APP_URL` uses `http://<server-ip>` (no internal `:3000` mismatch).
 - Never prints bootstrap admin password in terminal output; auto-generated credentials are written once to a local secrets file with restrictive permissions.
-- Verifies post-launch health and only reports success after DB and app health checks pass and Caddy is running.
-- `ADMIN_USERNAME`/`ADMIN_PASSWORD` are create-only by default; they do **not** replace an existing admin on upgrade unless `ADMIN_BOOTSTRAP_RESET_EXISTING=true` is set intentionally for a one-time reset.
+- Verifies post-launch health and only reports success after DB/app health checks and Caddy runtime config validation pass.
+- In domain mode, installer now distinguishes local container health from external DNS/TLS readiness.
+- `ADMIN_USERNAME`/`ADMIN_PASSWORD` are create-only by default; if `ADMIN_BOOTSTRAP_RESET_EXISTING=true` is used, reset is consumed once per credential set (not repeated on every restart).
 
 ---
 

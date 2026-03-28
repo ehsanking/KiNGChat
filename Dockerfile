@@ -57,7 +57,7 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
-RUN apk add --no-cache openssl libc6-compat wget
+RUN apk add --no-cache openssl libc6-compat wget su-exec
 
 # Non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
@@ -103,8 +103,6 @@ RUN chmod +x /docker-entrypoint.sh
 
 # Create uploads directory (writable by the non-root user)
 RUN mkdir -p public/uploads && chown -R nextjs:nodejs /app
-
-USER nextjs
 
 EXPOSE 3000
 ENV PORT=3000 \

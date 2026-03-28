@@ -4,6 +4,31 @@
 
 set -eu
 
+prepare_runtime_dirs() {
+  storage_root="${OBJECT_STORAGE_ROOT:-/app/object_storage}"
+  case "$storage_root" in
+    /*) ;;
+    *) storage_root="/app/${storage_root}" ;;
+  esac
+
+  mkdir -p "$storage_root" || {
+    echo "[entrypoint] ERROR: Could not create object storage root at ${storage_root}." >&2
+    exit 1
+  }
+  chown -R nextjs:nodejs "$storage_root" || {
+    echo "[entrypoint] ERROR: Could not assign ownership for ${storage_root}." >&2
+    exit 1
+  }
+  chmod 750 "$storage_root" || true
+}
+
+if [ "${1:-}" = "--as-nextjs" ]; then
+  shift
+elif [ "$(id -u)" -eq 0 ]; then
+  prepare_runtime_dirs
+  exec su-exec nextjs:nodejs /docker-entrypoint.sh --as-nextjs "$@"
+fi
+
 on_err() {
   line="$1"
   echo "[entrypoint] ERROR: bootstrap failed near line ${line}. Check previous logs for root cause." >&2
