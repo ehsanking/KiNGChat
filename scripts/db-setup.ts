@@ -13,21 +13,22 @@
 import { execSync } from 'child_process';
 import path from 'path';
 
-import { EnvPolicy, loadEnvWithPolicy } from '../lib/env-loader';
+import { loadEnvWithPolicy } from '../lib/env-loader';
 
 const ROOT = path.join(__dirname, '..');
 
 type SetupMode = 'init-dev' | 'migrate-prod';
 
-function resolvePolicy(mode: SetupMode): EnvPolicy {
-  // Merge-resolved source of truth: policy-based loader (no legacy readEnvLocal path).
-  return mode === 'migrate-prod' ? 'docker-compose' : 'local-dev';
+function readConfiguredEnv(mode: SetupMode): Record<string, string> {
+  const policy = mode === 'migrate-prod' ? 'docker-compose' : 'local-dev';
+  return loadEnvWithPolicy(ROOT, policy).values;
 }
 
 function getEffectiveDatabaseUrl(mode: SetupMode): string {
-  const policy = resolvePolicy(mode);
-  const envState = loadEnvWithPolicy(ROOT, policy);
-  if (envState.values.DATABASE_URL) return envState.values.DATABASE_URL;
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+
+  const loadedEnv = readConfiguredEnv(mode);
+  if (loadedEnv.DATABASE_URL) return loadedEnv.DATABASE_URL;
 
   if (mode === 'init-dev') {
     return 'file:./prisma/dev.db';
