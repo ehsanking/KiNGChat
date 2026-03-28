@@ -151,7 +151,7 @@ npm run build
 npm start
 ```
 
-> **First run:** `npm install` automatically runs `scripts/db-setup.ts` which detects your database type and generates the correct Prisma client.
+> **First run:** `npm install` now only generates the Prisma client. Run DB setup explicitly with `npm run db:init:dev` (SQLite/dev) or `npm run db:migrate:prod` (PostgreSQL/prod).
 
 ---
 
@@ -290,7 +290,8 @@ npm run build        # Production build
 npm run lint         # ESLint check
 npm run format       # Prettier auto-format
 npm test             # Run Vitest test suite
-npm run db:setup     # Detect DB type and run migrations
+npm run db:init:dev   # SQLite/dev bootstrap
+npm run db:migrate:prod # PostgreSQL/prod migrations (fail-fast)
 npm run backup       # Create database backup archive
 ```
 

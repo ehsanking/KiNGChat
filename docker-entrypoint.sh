@@ -102,24 +102,16 @@ else
   warn "Could not parse DATABASE_URL — skipping database wait."
 fi
 
-# ── Run Prisma migrations ─────────────────────
-if [ -n "$PRISMA_BIN" ]; then
-  log "Running Prisma database migrations..."
-  if ! run_prisma migrate deploy --schema=./prisma/schema.prisma 2>&1; then
-    warn "prisma migrate deploy failed. Trying db push as fallback..."
-    if ! run_prisma db push --schema=./prisma/schema.prisma --accept-data-loss --skip-generate 2>&1; then
-      warn "db push also failed. Database may need manual setup."
-    fi
-  else
-    # Safety net: ensure schema and tables exist even if migration history was out of sync.
-    # This prevents runtime errors like missing AdminSettings on first login.
-    log "Running Prisma schema sync safety check (db push --skip-generate)..."
-    if ! run_prisma db push --schema=./prisma/schema.prisma --skip-generate 2>&1; then
-      warn "Schema sync safety check failed after migrate deploy."
-    fi
-  fi
-else
-  warn "Prisma CLI not available. Skipping migrations — database must be set up manually."
+# ── Run Prisma migrations (fail-fast) ─────────
+if [ -z "$PRISMA_BIN" ]; then
+  warn "Prisma CLI not available. Cannot run required migrations."
+  exit 1
+fi
+
+log "Running Prisma database migrations (migrate deploy)..."
+if ! run_prisma migrate deploy --schema=./prisma/schema.prisma 2>&1; then
+  warn "prisma migrate deploy failed. Refusing schema sync fallback in production."
+  exit 1
 fi
 
 # ── Locate and start the server ───────────────

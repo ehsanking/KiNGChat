@@ -13,8 +13,10 @@
     "format:check": "prettier --check .",
     "clean": "next clean",
     "backup": "tsx scripts/backup.ts",
-    "db:setup": "tsx scripts/db-setup.ts",
-    "postinstall": "tsx scripts/db-setup.ts",
+    "db:setup": "npm run db:init:dev",
+    "db:init:dev": "tsx scripts/db-setup.ts init-dev",
+    "db:migrate:prod": "tsx scripts/db-setup.ts migrate-prod",
+    "postinstall": "prisma generate",
     "prebuild": "prisma generate"
   },
   "dependencies": {
