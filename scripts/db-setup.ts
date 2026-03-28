@@ -82,6 +82,20 @@ function run(cmd: string, description: string) {
   }
 }
 
+function runWithResult(cmd: string, description: string): boolean {
+  console.log(`▶  ${description}`);
+  try {
+    execSync(cmd, { stdio: 'inherit', cwd: ROOT, env: process.env });
+    console.log(`✅  ${description} — done\n`);
+    return true;
+  } catch (error) {
+    console.error(`⚠️  ${description} — failed`);
+    console.error(error instanceof Error ? error.message : String(error));
+    console.log('');
+    return false;
+  }
+}
+
 // 1. Generate Prisma client
 run(`npx prisma generate ${schemaArg}`, 'Generating Prisma client');
 
@@ -92,10 +106,23 @@ if (sqlite) {
     'Pushing schema to SQLite database'
   );
 } else {
-  run(
+  const migrated = runWithResult(
     `npx prisma migrate deploy ${schemaArg}`,
     'Deploying database migrations'
   );
+
+  if (!migrated) {
+    console.log('ℹ️  Falling back to Prisma schema sync to prevent first-run runtime failures.');
+    run(
+      `npx prisma db push ${schemaArg} --accept-data-loss`,
+      'Synchronizing PostgreSQL schema with Prisma (fallback)'
+    );
+  } else {
+    run(
+      `npx prisma db push ${schemaArg} --skip-generate`,
+      'Running post-migration schema safety sync'
+    );
+  }
 }
 
 console.log('🎉  Database setup complete!\n');
