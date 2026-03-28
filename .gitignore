@@ -5,5 +5,11 @@ coverage/
 *.log
 .env*
 !.env.example
+.installer-secrets/
+.installer-backups/
+*.backup.*
+*.installer.backup.*
+*.installer-secret*
+bootstrap-admin.txt
 
 *.tsbuildinfo

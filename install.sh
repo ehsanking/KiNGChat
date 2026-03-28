@@ -26,6 +26,7 @@ ADMIN_CREATED_FILE=""
 ADMIN_AUTO_GENERATED=false
 ADMIN_FORCE_PASSWORD_CHANGE=false
 UPGRADE_BACKUP_DIR=""
+CADDY_RUNTIME_VALIDATED=false
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -56,6 +57,13 @@ require_root() {
 compose_service_exists() {
   local service="$1"
   docker compose config --services 2>/dev/null | grep -Fxq "$service"
+}
+
+get_primary_ipv4() {
+  local server_ip
+  server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  [ -z "$server_ip" ] && server_ip="127.0.0.1"
+  printf '%s' "$server_ip"
 }
 
 read_tty_input() {
@@ -523,11 +531,72 @@ EOC
     encode gzip zstd
 }
 EOC
-    local server_ip
-    server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-    [ -z "$server_ip" ] && server_ip="127.0.0.1"
-    RESOLVED_APP_URL="http://${server_ip}"
+    RESOLVED_APP_URL="http://$(get_primary_ipv4)"
   fi
+}
+
+infer_origin_from_caddyfile() {
+  local caddy_file="$1"
+  local site_block raw candidate
+  [ -f "$caddy_file" ] || return 1
+
+  site_block="$(awk '
+    /^[[:space:]]*($|#|\{|\})/ { next }
+    /\{$/ {
+      line=$0
+      sub(/[[:space:]]*\{$/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line != "" && line != ":80" && line !~ /^www\./) {
+        print line
+        exit
+      }
+    }
+  ' "$caddy_file")"
+
+  [ -n "$site_block" ] || return 1
+  raw="${site_block%%,*}"
+  candidate="$(trim_space "$raw")"
+  [ -n "$candidate" ] || return 1
+  case "$candidate" in
+    http://*|https://*)
+      printf '%s' "$candidate"
+      return 0
+      ;;
+    :80|*:80)
+      printf 'http://%s' "$(get_primary_ipv4)"
+      return 0
+      ;;
+  esac
+
+  if [[ "$candidate" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$ ]]; then
+    printf 'http://%s' "$candidate"
+    return 0
+  fi
+
+  if [[ "$candidate" =~ ^([a-z0-9-]+\.)+[a-z]{2,}(:[0-9]+)?$ ]]; then
+    printf 'https://%s' "$candidate"
+    return 0
+  fi
+
+  return 1
+}
+
+stop_existing_stack_if_needed() {
+  [ "$INSTALL_MODE" = "reinstall" ] || return 0
+
+  log_step "Stopping existing services before reinstall cleanup"
+  if [ -f "$TARGET_DIR/docker-compose.yml" ]; then
+    (
+      cd "$TARGET_DIR"
+      if docker compose ps >/dev/null 2>&1; then
+        docker compose down --remove-orphans || true
+      fi
+    )
+    log_success "Existing compose stack stopped."
+    return 0
+  fi
+
+  log_warn "No compose file found in existing target directory; skipping compose down."
 }
 
 ensure_install_directory() {
@@ -622,8 +691,27 @@ configure_runtime_env() {
   fi
 
   local should_update_ingress_env=false
+  local inferred_origin=""
   if [ "$INSTALL_MODE" != "upgrade" ] || [ "$PROXY_CONFIG_ACTION" = "regenerate" ]; then
     should_update_ingress_env=true
+  fi
+
+  if [ "$INSTALL_MODE" = "upgrade" ] && [ "$PROXY_CONFIG_ACTION" = "preserve" ]; then
+    local existing_app_url existing_allowed
+    existing_app_url="$(trim_space "$(env_get APP_URL)")"
+    existing_allowed="$(trim_space "$(env_get ALLOWED_ORIGINS)")"
+
+    if [ -z "$existing_app_url" ] || [ -z "$existing_allowed" ]; then
+      inferred_origin="$(infer_origin_from_caddyfile "$TARGET_DIR/Caddyfile" || true)"
+      if [ -z "$inferred_origin" ]; then
+        log_error "Preserve mode requires APP_URL and ALLOWED_ORIGINS or an inferable Caddyfile origin."
+        log_error "Set APP_URL/ALLOWED_ORIGINS in .env or choose proxy regeneration."
+        exit 1
+      fi
+      log_warn "Preserve mode had incomplete origin env; inferred public origin from Caddyfile: ${inferred_origin}"
+      [ -z "$existing_app_url" ] && env_set_explicit "APP_URL" "$inferred_origin"
+      [ -z "$existing_allowed" ] && env_set_explicit "ALLOWED_ORIGINS" "$inferred_origin"
+    fi
   fi
 
   if [ "$USE_DOMAIN" = true ]; then
@@ -634,10 +722,8 @@ configure_runtime_env() {
       env_set_explicit "ALLOWED_ORIGINS" "https://${DOMAIN_NAME},https://www.${DOMAIN_NAME}"
     fi
   else
-    local server_ip
-    server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-    [ -z "$server_ip" ] && server_ip="127.0.0.1"
-    local ip_origin="http://${server_ip}"
+    local ip_origin
+    ip_origin="http://$(get_primary_ipv4)"
 
     env_set_if_missing "APP_URL" "$ip_origin"
     env_set_if_missing "ALLOWED_ORIGINS" "$ip_origin,http://localhost:3000,http://127.0.0.1:3000"
@@ -720,6 +806,19 @@ validate_caddy_config() {
     fi
   )
   log_success "Caddyfile is valid."
+}
+
+validate_caddy_runtime_config() {
+  log_step "Validating runtime Caddy container config"
+  (
+    cd "$TARGET_DIR"
+    local caddy_cid
+    caddy_cid="$(docker compose ps -q caddy 2>/dev/null | head -n1)"
+    [ -n "$caddy_cid" ] || { log_error "Caddy container ID not found."; exit 1; }
+    docker exec "$caddy_cid" caddy validate --config /etc/caddy/Caddyfile >/dev/null
+  )
+  CADDY_RUNTIME_VALIDATED=true
+  log_success "Caddy runtime config validation passed."
 }
 
 launch_services() {
@@ -835,6 +934,22 @@ verify_post_launch_health() {
     exit 1
   fi
   log_success "Caddy container is running."
+
+  if ! validate_caddy_runtime_config; then
+    print_failure_diagnostics
+    exit 1
+  fi
+
+  if curl -fsS --max-time 8 "http://127.0.0.1/api/health/live" >/dev/null 2>&1; then
+    log_success "Local Caddy HTTP routing probe passed."
+  else
+    log_warn "Local Caddy HTTP routing probe failed (http://127.0.0.1/api/health/live)."
+  fi
+
+  if [ "$USE_DOMAIN" = true ]; then
+    log_warn "Domain mode: container/config checks passed, but external DNS/TLS issuance is not guaranteed yet."
+    log_warn "Verify DNS A/AAAA records and run: curl -Iv https://${DOMAIN_NAME}"
+  fi
 }
 
 print_summary() {
@@ -851,6 +966,9 @@ print_summary() {
     echo "To reset an existing admin via env, set ADMIN_BOOTSTRAP_RESET_EXISTING=true for a one-time reset."
   fi
   echo "No admin password was printed to terminal output."
+  if [ "$CADDY_RUNTIME_VALIDATED" = true ]; then
+    echo "Caddy runtime config validated inside container."
+  fi
   echo "Caddy handles TLS renewals internally; no extra cron entry was installed."
 }
 
@@ -867,6 +985,7 @@ main() {
   ensure_docker_ready
   ensure_install_directory
   backup_upgrade_artifacts
+  stop_existing_stack_if_needed
   sync_source_tree
   if [ "$INSTALL_MODE" = "upgrade" ]; then
     choose_proxy_config_action_upgrade

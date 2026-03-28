@@ -11,6 +11,8 @@ services:
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
       - PRISMA_CONNECTION_LIMIT=${PRISMA_CONNECTION_LIMIT:-10}
       # Storage
+      - OBJECT_STORAGE_DRIVER=${OBJECT_STORAGE_DRIVER:-local}
+      - OBJECT_STORAGE_ROOT=${OBJECT_STORAGE_ROOT:-/app/object_storage}
       # File storage now defaults to the local filesystem.  To enable an
       # external object store (e.g. MinIO or S3) set the corresponding
       # environment variables (MINIO_ENDPOINT, MINIO_ACCESS_KEY,
@@ -31,6 +33,8 @@ services:
       - DOWNLOAD_TOKEN_SECRET=${DOWNLOAD_TOKEN_SECRET:?DOWNLOAD_TOKEN_SECRET is required}
       - ADMIN_USERNAME=${ADMIN_USERNAME:?ADMIN_USERNAME is required}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      - ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE=${ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE:-false}
+      - ADMIN_BOOTSTRAP_RESET_EXISTING=${ADMIN_BOOTSTRAP_RESET_EXISTING:-false}
       # VAPID (optional — push notifications disabled if not set)
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
