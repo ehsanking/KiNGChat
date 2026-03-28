@@ -14,7 +14,8 @@
     "clean": "next clean",
     "backup": "tsx scripts/backup.ts",
     "db:setup": "tsx scripts/db-setup.ts",
-    "postinstall": "tsx scripts/db-setup.ts"
+    "postinstall": "tsx scripts/db-setup.ts",
+    "prebuild": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
