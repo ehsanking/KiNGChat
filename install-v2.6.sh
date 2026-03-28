@@ -213,7 +213,7 @@ EOF
 
 write_env() {
   local server_ip app_url allowed_origins
-  local jwt_secret session_secret encryption_key pg_password admin_password
+  local jwt_secret session_secret encryption_key pg_user pg_password admin_password
 
   server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
   [ -z "${server_ip:-}" ] && server_ip="127.0.0.1"
@@ -229,14 +229,15 @@ write_env() {
   jwt_secret=$(openssl rand -hex 32)
   session_secret=$(openssl rand -hex 32)
   encryption_key=$(openssl rand -hex 16)
+  pg_user="elahe_$(openssl rand -hex 4)"
   pg_password=$(openssl rand -hex 24)
   admin_password=$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AB' | cut -c1-24)
 
   cat > "${TARGET_DIR}/.env" <<EOF
-POSTGRES_USER=user
+POSTGRES_USER=${pg_user}
 POSTGRES_PASSWORD=${pg_password}
 POSTGRES_DB=elahe
-DATABASE_URL=postgresql://user:${pg_password}@db:5432/elahe
+DATABASE_URL=postgresql://${pg_user}:${pg_password}@db:5432/elahe
 PRISMA_CONNECTION_LIMIT=10
 APP_URL=${app_url}
 ALLOWED_ORIGINS=${allowed_origins}
