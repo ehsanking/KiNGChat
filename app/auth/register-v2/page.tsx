@@ -27,6 +27,8 @@ export default function RegisterV2Page() {
     isRegistrationEnabled: true,
     captchaProvider: 'disabled',
   });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [captchaError, setCaptchaError] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -59,18 +61,17 @@ export default function RegisterV2Page() {
         const data = await fetchJsonWithRetry('/api/settings/public');
         if (data?.success && data?.settings) {
           setPublicSettings(data.settings);
+          setSettingsLoadFailed(false);
+          setSettingsLoaded(true);
           return;
         }
       } catch {
         // ignore
       }
 
-      setCaptchaError('Unable to load security settings.');
-      setPublicSettings({
-        isCaptchaEnabled: false,
-        isRegistrationEnabled: true,
-        captchaProvider: 'disabled',
-      });
+      setSettingsLoadFailed(true);
+      setSettingsLoaded(true);
+      setCaptchaError('Unable to load security settings. Please refresh and try again.');
     };
 
     loadPublicSettings();
@@ -78,6 +79,11 @@ export default function RegisterV2Page() {
 
   const handleRegister = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!settingsLoaded || settingsLoadFailed) {
+      setError('Security settings are unavailable. Please refresh and try again.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -168,7 +174,7 @@ export default function RegisterV2Page() {
 
           {captchaError && <p className="text-xs text-amber-400">{captchaError}</p>}
 
-          <button type="submit" disabled={isLoading || !publicSettings.isRegistrationEnabled || !isCaptchaReady} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+          <button type="submit" disabled={isLoading || !settingsLoaded || settingsLoadFailed || !publicSettings.isRegistrationEnabled || !isCaptchaReady} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
             {isLoading ? <><Loader2 className="w-5 h-5 animate-spin" />Creating account...</> : 'Create secure account'}
           </button>
         </form>

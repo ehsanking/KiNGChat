@@ -22,6 +22,8 @@ export default function LoginPage() {
     isRegistrationEnabled: true,
     captchaProvider: 'disabled',
   });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [captchaErrorMessage, setCaptchaErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -73,18 +75,17 @@ export default function LoginPage() {
         const settingsData = await fetchJsonWithRetry('/api/settings/public');
         if (settingsData?.success && settingsData?.settings) {
           setSettings(settingsData.settings);
+          setSettingsLoadFailed(false);
+          setSettingsLoaded(true);
           return;
         }
       } catch (settingsError) {
         console.error('Public settings load failed:', settingsError);
       }
 
-      setSettings({
-        isCaptchaEnabled: false,
-        isRegistrationEnabled: true,
-        captchaProvider: 'disabled',
-      });
-      setCaptchaErrorMessage('Could not load security settings. Captcha is disabled temporarily.');
+      setSettingsLoadFailed(true);
+      setSettingsLoaded(true);
+      setCaptchaErrorMessage('Could not load security settings. Please refresh and try again.');
     };
 
     loadSettings();
@@ -92,6 +93,11 @@ export default function LoginPage() {
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!settingsLoaded || settingsLoadFailed) {
+      setError('Security settings are unavailable. Please refresh and try again.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -278,7 +284,7 @@ export default function LoginPage() {
           )}
 
           {/* Show captcha load error only if captcha is expected to be enabled */}
-          {settings.isCaptchaEnabled && captchaErrorMessage && (
+          {captchaErrorMessage && (
             <div className="bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs p-3 rounded-xl flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5" />
               <div>{captchaErrorMessage}</div>
@@ -291,7 +297,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={isLoading || !isCaptchaReady}
+            disabled={isLoading || !settingsLoaded || settingsLoadFailed || !isCaptchaReady}
             className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-semibold py-3 rounded-xl transition-colors mt-6 flex items-center justify-center gap-2"
           >
             {isLoading ? (
