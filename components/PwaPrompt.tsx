@@ -1,82 +1,99 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Download, Bell, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { Bell, Download, X } from 'lucide-react';
 import { requestNotificationPermission } from '@/lib/firebase';
 
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
+const isStandaloneMode = () =>
+  window.matchMedia('(display-mode: standalone)').matches
+  || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+
 export default function PwaPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const pathname = usePathname();
+  const [deferredPrompt, setDeferredPrompt] = useState<InstallPromptEvent | null>(null);
   const [showInstall, setShowInstall] = useState(false);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [isIosSafari, setIsIosSafari] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  const routeContext = useMemo<'marketing' | 'auth' | 'chat'>(() => {
+    if (pathname.startsWith('/auth/')) return 'auth';
+    if (pathname.startsWith('/chat')) return 'chat';
+    return 'marketing';
+  }, [pathname]);
 
   useEffect(() => {
-    // Check if already installed
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    
-    if (!isStandalone) {
-      // Listen for the beforeinstallprompt event
-      window.addEventListener('beforeinstallprompt', (e) => {
-        // Prevent the mini-infobar from appearing on mobile
-        e.preventDefault();
-        // Stash the event so it can be triggered later.
-        setDeferredPrompt(e);
-        // Update UI notify the user they can install the PWA
-        setShowInstall(true);
-      });
+    const ua = window.navigator.userAgent.toLowerCase();
+    const iOS = /iphone|ipad|ipod/.test(ua);
+    const isSafari = iOS && /safari/.test(ua) && !/crios|fxios|edgios/.test(ua);
+    setIsIosSafari(isSafari);
+    setIsStandalone(isStandaloneMode());
+
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setDeferredPrompt(event as InstallPromptEvent);
+      setShowInstall(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isStandalone || routeContext === 'chat') {
+      setShowInstall(false);
+      return;
     }
 
-    // Check notification permissions
-    if ('Notification' in window) {
-      const hasDismissed = localStorage.getItem('elahe_notifications_dismissed');
-      
-      if (Notification.permission === 'default' && !hasDismissed) {
-        // If in standalone mode (PWA opened), prompt more urgently
-        // Otherwise, wait a bit
-        const delay = isStandalone ? 1000 : 5000;
-        
-        const timer = setTimeout(() => {
-          setShowNotificationPrompt(true);
-        }, delay);
-        
-        return () => clearTimeout(timer);
-      }
+    if (deferredPrompt) {
+      setShowInstall(true);
+      return;
     }
-  }, []);
+
+    if (isIosSafari) {
+      setShowInstall(true);
+    }
+  }, [deferredPrompt, isIosSafari, isStandalone, routeContext]);
+
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'default') return;
+    if (routeContext !== 'chat' && routeContext !== 'auth') return;
+    if (isStandaloneMode()) return;
+
+    const hasDismissed = localStorage.getItem('elahe_notifications_dismissed');
+    if (hasDismissed) return;
+
+    const timer = window.setTimeout(() => setShowNotificationPrompt(true), 5000);
+    return () => window.clearTimeout(timer);
+  }, [routeContext]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-    
-    // Show the install prompt
-    deferredPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-    } else {
-      console.log('User dismissed the install prompt');
-    }
-    
-    // We've used the prompt, and can't use it again, throw it away
+    await deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
     setDeferredPrompt(null);
     setShowInstall(false);
   };
 
   const handleNotificationClick = async () => {
     try {
-      const token = await requestNotificationPermission();
-      if (token) {
-        console.log('Notification permission granted', token);
-      }
-    } catch (err) {
-      console.error('Failed to get notification permission', err);
+      await requestNotificationPermission();
+    } finally {
+      setShowNotificationPrompt(false);
     }
-    setShowNotificationPrompt(false);
   };
 
   const dismissNotificationPrompt = () => {
-    // Store dismissal for 7 days
     localStorage.setItem('elahe_notifications_dismissed', 'true');
     setShowNotificationPrompt(false);
   };
@@ -84,7 +101,7 @@ export default function PwaPrompt() {
   if (!showInstall && !showNotificationPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 flex flex-col gap-3" dir="rtl">
+    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 flex flex-col gap-3">
       {showInstall && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-5">
           <div className="flex items-start gap-4">
@@ -92,37 +109,40 @@ export default function PwaPrompt() {
               <Download className="w-6 h-6 text-brand-gold" />
             </div>
             <div className="flex-1">
-              <h4 className="text-base font-bold text-zinc-50">نصب کینگ‌چت</h4>
+              <h4 className="text-base font-bold text-zinc-50">Install Elahe Messenger</h4>
               <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                برای تجربه بهتر، سرعت بالاتر و استفاده آفلاین، اپلیکیشن را نصب کنید.
+                Add Elahe Messenger to your home screen for a faster, app-like experience.
               </p>
             </div>
             <button onClick={() => setShowInstall(false)} className="text-zinc-500 hover:text-zinc-300 transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
-          
-          <div className="bg-zinc-950/50 rounded-xl p-3 border border-zinc-800/50">
-            <p className="text-[10px] text-zinc-500 font-medium mb-1 uppercase tracking-wider">راهنمای نصب سریع:</p>
-            <p className="text-[11px] text-zinc-400 leading-relaxed">
-              در آیفون: دکمه <span className="text-zinc-200">Share</span> و سپس <span className="text-zinc-200">Add to Home Screen</span> را بزنید.
-              <br />
-              در اندروید: روی سه نقطه مرورگر و سپس <span className="text-zinc-200">Install App</span> کلیک کنید.
-            </p>
-          </div>
+
+          {isIosSafari && !deferredPrompt ? (
+            <div className="bg-zinc-950/50 rounded-xl p-3 border border-zinc-800/50 text-[11px] text-zinc-300 leading-relaxed">
+              On iPhone/iPad Safari, tap <span className="font-semibold">Share</span> then <span className="font-semibold">Add to Home Screen</span>.
+            </div>
+          ) : (
+            <div className="bg-zinc-950/50 rounded-xl p-3 border border-zinc-800/50 text-[11px] text-zinc-300 leading-relaxed">
+              On Android, use the install dialog to pin Elahe Messenger to your home screen.
+            </div>
+          )}
 
           <div className="flex gap-2">
-            <button 
-              onClick={handleInstallClick}
-              className="flex-1 py-2.5 bg-brand-gold hover:bg-brand-gold/90 text-zinc-950 text-sm font-bold rounded-xl transition-all active:scale-95"
-            >
-              نصب اپلیکیشن
-            </button>
-            <button 
+            {deferredPrompt && (
+              <button
+                onClick={handleInstallClick}
+                className="flex-1 py-2.5 bg-brand-gold hover:bg-brand-gold/90 text-zinc-950 text-sm font-bold rounded-xl transition-all active:scale-95"
+              >
+                Install app
+              </button>
+            )}
+            <button
               onClick={() => setShowInstall(false)}
               className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-50 text-sm font-bold rounded-xl transition-all active:scale-95"
             >
-              متوجه شدم
+              Dismiss
             </button>
           </div>
         </div>
@@ -135,28 +155,26 @@ export default function PwaPrompt() {
               <Bell className="w-6 h-6 text-brand-blue" />
             </div>
             <div className="flex-1">
-              <h4 className="text-base font-bold text-zinc-50">فعال‌سازی اعلان‌ها</h4>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                با فعال‌سازی اعلان‌ها، هیچ پیام رمزنگاری شده‌ای را از دست نخواهید داد.
-              </p>
+              <h4 className="text-base font-bold text-zinc-50">Enable notifications</h4>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">Stay up to date with secure message alerts.</p>
             </div>
             <button onClick={dismissNotificationPrompt} className="text-zinc-500 hover:text-zinc-300 transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
-          
+
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={handleNotificationClick}
               className="flex-1 py-2.5 bg-brand-blue hover:bg-brand-blue/90 text-white text-sm font-bold rounded-xl transition-all active:scale-95"
             >
-              فعال‌سازی
+              Enable
             </button>
-            <button 
+            <button
               onClick={dismissNotificationPrompt}
               className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-50 text-sm font-bold rounded-xl transition-all active:scale-95"
             >
-              متوجه شدم
+              Later
             </button>
           </div>
         </div>

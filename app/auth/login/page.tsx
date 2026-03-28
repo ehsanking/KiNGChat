@@ -6,6 +6,13 @@ import { Shield, Loader2, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import GoogleRecaptcha from '@/components/auth/google-recaptcha';
 
+
+
+const sanitizeNextPath = (value: string | null) => {
+  if (!value) return '/chat';
+  if (!value.startsWith('/') || value.startsWith('//')) return '/chat';
+  return value;
+};
 type PublicSettings = {
   isCaptchaEnabled: boolean;
   recaptchaSiteKey: string | null;
@@ -25,6 +32,7 @@ export default function LoginPage() {
     recaptchaSiteKey: null,
   });
   const router = useRouter();
+  const nextPath = sanitizeNextPath(typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('next'));
 
   useEffect(() => {
     const checkSession = async () => {
@@ -33,14 +41,14 @@ export default function LoginPage() {
         if (!res.ok) return;
         const data = await res.json();
         if (data?.authenticated && data.user) {
-          router.replace('/chat');
+          router.replace(nextPath);
         }
       } catch {
         // ignore
       }
     };
     checkSession();
-  }, [router]);
+  }, [router, nextPath]);
 
   useEffect(() => {
     const loadPublicSettings = async () => {
@@ -87,7 +95,7 @@ export default function LoginPage() {
         setShow2FA(true);
         setPending2FAUserId(data.userId ?? '');
       } else {
-        router.push('/chat');
+        router.replace(nextPath);
       }
     } catch (requestError) {
       console.error(requestError);
@@ -116,7 +124,7 @@ export default function LoginPage() {
       if (!res.ok || data.error) {
         setError(data.error || 'Invalid 2FA code');
       } else if (data.success) {
-        router.push('/chat');
+        router.replace(nextPath);
       }
     } catch (requestError) {
       console.error(requestError);
@@ -263,7 +271,7 @@ export default function LoginPage() {
 
         <p className="text-center text-zinc-500 text-sm mt-8">
           Don&apos;t have an account?{' '}
-          <Link href="/auth/register" className="text-emerald-400 hover:underline">
+          <Link href={`/auth/register?next=${encodeURIComponent(nextPath)}`} className="text-emerald-400 hover:underline">
             Create one
           </Link>
         </p>

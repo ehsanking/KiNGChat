@@ -138,6 +138,7 @@ Installer safety behavior:
 - Never prints bootstrap admin password in terminal output; auto-generated credentials are written once to a local secrets file with restrictive permissions.
 - Verifies post-launch health in explicit phases: container health, local reverse-proxy routing, and external DNS/TLS readiness guidance.
 - Fails install when local reverse-proxy routing does not work, and only warns for external DNS/TLS propagation uncertainty.
+- Source trust defaults to a pinned tag when available; mutable branch-head installs are opt-in and explicitly warned during installer prompts.
 - `ADMIN_USERNAME`/`ADMIN_PASSWORD` are create-only by default; if `ADMIN_BOOTSTRAP_RESET_EXISTING=true` is used, reset is consumed once per credential set (not repeated on every restart).
 - Does **not** auto-enable UFW; firewall changes remain operator-driven.
 
@@ -292,6 +293,7 @@ Container names and services:
 - `DATABASE_URL` should point to `APP_DB_USER`, not the bootstrap account.
 - Installer provisions and grants runtime role permissions required for Prisma migrations (`migrate deploy`) without granting superuser-like privileges.
 - Treat both bootstrap and runtime DB secrets as sensitive; rotate and store with least access (prefer secret manager or Docker secrets over plaintext files where possible).
+- `SESSION_SECRET` is a dedicated session-signing secret and must not be reused as a fallback for unrelated security domains.
 
 ### Backup & Host-Compromise Notes
 
@@ -339,6 +341,16 @@ Health endpoints:
 - Readiness: `GET /api/health/ready` (legacy `GET /api/health` remains as readiness)
 
 ---
+
+
+### PWA / Installed App Shell Behavior
+
+- Web visitors opening `/` get the public marketing shell.
+- Auth flows are isolated under `/auth/*`.
+- The installed PWA starts at `/chat?source=pwa` (manifest `start_url`) so users land directly in the app shell.
+- `/chat` is server-guarded: authenticated users see chat; unauthenticated users are redirected to `/auth/login?next=/chat`.
+- Login and 2FA completion honor the `next` parameter and return users directly to chat.
+- Registration redirects smoothly into login with `next=/chat` to avoid landing-page bounce loops.
 
 ## Security
 

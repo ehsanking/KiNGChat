@@ -1,6 +1,6 @@
 "use client";
 
-import ChatDashboard from './page';
+import ChatDashboard from './ChatDashboardClient';
 
 /**
  * ChatShell is a thin wrapper around the default chat dashboard page component.

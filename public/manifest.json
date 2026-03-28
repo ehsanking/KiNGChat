@@ -2,7 +2,7 @@
   "name": "Elahe Messenger",
   "short_name": "Elahe",
   "description": "Privacy-first, self-hosted end-to-end encrypted messenger. Own your data.",
-  "start_url": "/",
+  "start_url": "/chat?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
@@ -10,7 +10,11 @@
   "theme_color": "#0f365b",
   "lang": "en",
   "dir": "ltr",
-  "categories": ["social", "communication", "productivity"],
+  "categories": [
+    "social",
+    "communication",
+    "productivity"
+  ],
   "prefer_related_applications": false,
   "icons": [
     {

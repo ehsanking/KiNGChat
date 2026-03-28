@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 beforeEach(() => {
-  process.env.JWT_SECRET = 'x'.repeat(32);
+  process.env.SESSION_SECRET = 'x'.repeat(32);
 });
 
 afterEach(() => {

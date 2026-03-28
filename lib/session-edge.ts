@@ -5,9 +5,9 @@ const SESSION_COOKIE_NAME = 'elahe_session';
 const textEncoder = new TextEncoder();
 
 const getSessionSecret = () => {
-  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+  const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) {
-    throw new Error('SESSION_SECRET or JWT_SECRET with at least 32 characters is required.');
+    throw new Error('SESSION_SECRET with at least 32 characters is required.');
   }
   return secret;
 };

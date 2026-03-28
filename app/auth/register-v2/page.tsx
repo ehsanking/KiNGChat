@@ -8,6 +8,13 @@ import { createRegistrationBundleV2, persistRegistrationBundleV2 } from '@/lib/e
 import { registerUserWithBundleV2 } from '@/lib/e2ee-register-runtime';
 import GoogleRecaptcha from '@/components/auth/google-recaptcha';
 
+
+
+const sanitizeNextPath = (value: string | null) => {
+  if (!value) return '/chat';
+  if (!value.startsWith('/') || value.startsWith('//')) return '/chat';
+  return value;
+};
 type PublicSettings = {
   isRegistrationEnabled: boolean;
   isCaptchaEnabled: boolean;
@@ -16,6 +23,7 @@ type PublicSettings = {
 
 export default function RegisterV2Page() {
   const router = useRouter();
+  const nextPath = sanitizeNextPath(typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('next'));
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [recoveryQuestion, setRecoveryQuestion] = useState('');
@@ -111,7 +119,7 @@ export default function RegisterV2Page() {
       if (result?.error) {
         setError(result.error);
       } else {
-        router.replace('/auth/login');
+        router.replace(`/auth/login?next=${encodeURIComponent(nextPath)}`);
       }
     } catch {
       setError('Registration failed.');
@@ -191,7 +199,7 @@ export default function RegisterV2Page() {
             {!publicSettings.isRegistrationEnabled && <p className="text-amber-400">Registration is currently paused by the administrator.</p>}
           </div>
         </div>
-        <p className="text-center text-zinc-500 text-sm mt-6">Already have an account? <Link href="/auth/login" className="text-emerald-400 hover:underline">Sign in</Link></p>
+        <p className="text-center text-zinc-500 text-sm mt-6">Already have an account? <Link href={`/auth/login?next=${encodeURIComponent(nextPath)}`} className="text-emerald-400 hover:underline">Sign in</Link></p>
       </div>
     </div>
   );

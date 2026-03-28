@@ -25,7 +25,11 @@ export async function middleware(request: NextRequest) {
 
   // If no session and user is trying to access chat or admin setup, redirect to login
   if (!session && (pathname === CHAT_ROUTE || pathname.startsWith(`${CHAT_ROUTE}/`) || pathname === SETUP_ADMIN_ROUTE)) {
-    const response = NextResponse.redirect(new URL('/auth/login', request.url));
+    const loginUrl = new URL('/auth/login', request.url);
+    if (pathname === CHAT_ROUTE || pathname.startsWith(`${CHAT_ROUTE}/`)) {
+      loginUrl.searchParams.set('next', CHAT_ROUTE);
+    }
+    const response = NextResponse.redirect(loginUrl);
     applySecurityHeaders(response.headers);
     return response;
   }
