@@ -31,6 +31,8 @@ export type AdminSettings = {
   isRegistrationEnabled: boolean;
   maxRegistrations?: number | null;
   isCaptchaEnabled: boolean;
+  recaptchaSiteKey?: string | null;
+  recaptchaSecretKey?: string | null;
   maxAttachmentSize: number;
   allowedFileFormats: string;
   reservedUsernames: string;

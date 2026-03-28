@@ -6,9 +6,12 @@ import { Loader2, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createRegistrationBundleV2, persistRegistrationBundleV2 } from '@/lib/e2ee-registration';
 import { registerUserWithBundleV2 } from '@/lib/e2ee-register-runtime';
+import GoogleRecaptcha from '@/components/auth/google-recaptcha';
 
 type PublicSettings = {
   isRegistrationEnabled: boolean;
+  isCaptchaEnabled: boolean;
+  recaptchaSiteKey: string | null;
 };
 
 export default function RegisterV2Page() {
@@ -19,7 +22,10 @@ export default function RegisterV2Page() {
   const [recoveryAnswer, setRecoveryAnswer] = useState('');
   const [publicSettings, setPublicSettings] = useState<PublicSettings>({
     isRegistrationEnabled: true,
+    isCaptchaEnabled: false,
+    recaptchaSiteKey: null,
   });
+  const [captchaToken, setCaptchaToken] = useState('');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [error, setError] = useState('');
@@ -51,7 +57,13 @@ export default function RegisterV2Page() {
       try {
         const data = await fetchJsonWithRetry('/api/settings/public');
         if (data?.success && data?.settings) {
-          setPublicSettings(data.settings);
+          setPublicSettings({
+            isRegistrationEnabled: Boolean(data.settings.isRegistrationEnabled),
+            isCaptchaEnabled: Boolean(data.settings.isCaptchaEnabled),
+            recaptchaSiteKey: typeof data.settings.recaptchaSiteKey === 'string'
+              ? data.settings.recaptchaSiteKey
+              : null,
+          });
           setSettingsLoadFailed(false);
           setSettingsLoaded(true);
           return;
@@ -93,6 +105,7 @@ export default function RegisterV2Page() {
         signedPreKeySig: bundle.signedPreKeySig,
         recoveryQuestion,
         recoveryAnswer,
+        captchaToken,
       });
 
       if (result?.error) {
@@ -149,7 +162,25 @@ export default function RegisterV2Page() {
             </p>
           </div>
 
-          <button type="submit" disabled={isLoading || !settingsLoaded || settingsLoadFailed || !publicSettings.isRegistrationEnabled} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+          {publicSettings.isCaptchaEnabled && publicSettings.recaptchaSiteKey && (
+            <GoogleRecaptcha
+              siteKey={publicSettings.recaptchaSiteKey}
+              onTokenChange={setCaptchaToken}
+              disabled={isLoading}
+            />
+          )}
+
+          <button
+            type="submit"
+            disabled={
+              isLoading
+              || !settingsLoaded
+              || settingsLoadFailed
+              || !publicSettings.isRegistrationEnabled
+              || (publicSettings.isCaptchaEnabled && !captchaToken)
+            }
+            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
             {isLoading ? <><Loader2 className="w-5 h-5 animate-spin" />Creating account...</> : 'Create secure account'}
           </button>
         </form>
