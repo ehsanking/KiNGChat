@@ -5,6 +5,9 @@ set -euo pipefail
 
 REPO_URL="https://github.com/ehsanking/ElaheMessenger.git"
 DEFAULT_BRANCH="main"
+INSTALL_REF_INPUT="${INSTALL_REF:-}"
+INSTALL_REF_RESOLVED=""
+INSTALL_REF_TYPE=""
 TARGET_DIR="ElaheMessenger"
 MIN_RAM_MB=1024
 
@@ -27,6 +30,7 @@ ADMIN_AUTO_GENERATED=false
 ADMIN_FORCE_PASSWORD_CHANGE=false
 UPGRADE_BACKUP_DIR=""
 CADDY_RUNTIME_VALIDATED=false
+LOCAL_PROXY_HEALTH_VALIDATED=false
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -200,6 +204,87 @@ safe_download_file() {
     log_error "Downloaded file is empty: $url"
     return 1
   fi
+}
+
+detect_latest_tag_ref() {
+  git ls-remote --tags --refs "$REPO_URL" 2>/dev/null \
+    | awk '{print $2}' \
+    | sed 's#refs/tags/##' \
+    | sort -V \
+    | tail -n1
+}
+
+resolve_install_ref() {
+  local candidate="$1"
+  [ -n "$candidate" ] || return 1
+
+  if [[ "$candidate" =~ ^[0-9a-f]{40}$ ]]; then
+    INSTALL_REF_RESOLVED="$candidate"
+    INSTALL_REF_TYPE="commit"
+    return 0
+  fi
+
+  if git ls-remote --exit-code --tags "$REPO_URL" "refs/tags/${candidate}" >/dev/null 2>&1; then
+    INSTALL_REF_RESOLVED="$candidate"
+    INSTALL_REF_TYPE="tag"
+    return 0
+  fi
+
+  if git ls-remote --exit-code "$REPO_URL" "refs/heads/${candidate}" >/dev/null 2>&1; then
+    INSTALL_REF_RESOLVED="$candidate"
+    INSTALL_REF_TYPE="branch"
+    return 0
+  fi
+
+  return 1
+}
+
+choose_source_ref() {
+  log_step "Source trust / git ref selection"
+
+  if [ -n "$INSTALL_REF_INPUT" ]; then
+    if resolve_install_ref "$INSTALL_REF_INPUT"; then
+      log_info "Using INSTALL_REF from environment: ${INSTALL_REF_RESOLVED} (${INSTALL_REF_TYPE})"
+      return 0
+    fi
+    log_error "INSTALL_REF '${INSTALL_REF_INPUT}' was not found (tag/branch/commit)."
+    exit 1
+  fi
+
+  local latest_tag
+  latest_tag="$(detect_latest_tag_ref || true)"
+  if [ -n "$latest_tag" ]; then
+    echo -e "${CYAN}Select source ref:${NC}"
+    echo "  1) Use latest tag (${latest_tag}) [recommended]"
+    echo "  2) Enter a specific tag/commit/branch"
+    echo "  3) Use mutable branch head (${DEFAULT_BRANCH})"
+    local choice custom_ref
+    choice=$(read_tty_input "${YELLOW}Enter choice [1-3]:${NC} " "1")
+    case "$choice" in
+      2)
+        custom_ref=$(trim_space "$(read_tty_input "${CYAN}Enter tag/commit/branch:${NC} " "")")
+        if ! resolve_install_ref "$custom_ref"; then
+          log_error "Ref '${custom_ref}' not found."
+          exit 1
+        fi
+        ;;
+      3)
+        INSTALL_REF_RESOLVED="$DEFAULT_BRANCH"
+        INSTALL_REF_TYPE="branch"
+        log_warn "Using mutable branch head (${DEFAULT_BRANCH}). Prefer a pinned tag/commit for production trust."
+        ;;
+      *)
+        INSTALL_REF_RESOLVED="$latest_tag"
+        INSTALL_REF_TYPE="tag"
+        ;;
+    esac
+  else
+    log_warn "Could not detect remote tags. Falling back to branch head '${DEFAULT_BRANCH}'."
+    INSTALL_REF_RESOLVED="$DEFAULT_BRANCH"
+    INSTALL_REF_TYPE="branch"
+  fi
+
+  log_info "Resolved install ref: ${INSTALL_REF_RESOLVED} (${INSTALL_REF_TYPE})"
 }
 
 choose_install_mode() {
@@ -647,7 +732,15 @@ sync_source_tree() {
     if [ -e "$TARGET_DIR" ]; then
       rm -rf "$TARGET_DIR"
     fi
-    git clone --branch "$DEFAULT_BRANCH" --depth 1 "$REPO_URL" "$TARGET_DIR"
+    if [ "$INSTALL_REF_TYPE" = "tag" ] || [ "$INSTALL_REF_TYPE" = "branch" ]; then
+      git clone --branch "$INSTALL_REF_RESOLVED" --depth 1 "$REPO_URL" "$TARGET_DIR"
+    else
+      git clone "$REPO_URL" "$TARGET_DIR"
+      (
+        cd "$TARGET_DIR"
+        git checkout --detach "$INSTALL_REF_RESOLVED"
+      )
+    fi
     return
   fi
 
@@ -665,14 +758,24 @@ sync_source_tree() {
       exit 1
     fi
 
-    if ! git fetch origin "$DEFAULT_BRANCH" --tags; then
+    if ! git fetch origin --tags; then
       log_error "git fetch failed. Upgrade aborted safely (no deletion performed)."
       exit 1
     fi
 
-    if ! git reset --hard "origin/$DEFAULT_BRANCH"; then
-      log_error "git reset failed. Upgrade aborted safely (no deletion performed)."
-      exit 1
+    if [ "$INSTALL_REF_TYPE" = "branch" ] && [ "$INSTALL_REF_RESOLVED" = "$DEFAULT_BRANCH" ]; then
+      if ! git reset --hard "origin/$DEFAULT_BRANCH"; then
+        log_error "git reset failed. Upgrade aborted safely (no deletion performed)."
+        exit 1
+      fi
+    else
+      if ! git checkout --force "$INSTALL_REF_RESOLVED"; then
+        log_error "git checkout of target ref failed. Upgrade aborted safely."
+        exit 1
+      fi
+      if [ "$INSTALL_REF_TYPE" = "commit" ]; then
+        git checkout --detach "$INSTALL_REF_RESOLVED"
+      fi
     fi
   )
 }
@@ -735,15 +838,31 @@ configure_runtime_env() {
   fi
 
   # Core values: only generate when missing
-  env_set_if_missing "POSTGRES_USER" "elahe_$(random_hex 4)"
+  env_set_if_missing "POSTGRES_USER" "elahe_bootstrap_$(random_hex 4)"
   env_set_if_missing "POSTGRES_PASSWORD" "$(random_hex 24)"
   env_set_if_missing "POSTGRES_DB" "elahe"
+  env_set_if_missing "APP_DB_USER" "elahe_app_$(random_hex 4)"
+  env_set_if_missing "APP_DB_PASSWORD" "$(random_hex 24)"
+  env_set_if_missing "APP_DB_SSLMODE" "disable"
 
-  local pg_user pg_pass pg_db
+  local pg_user pg_pass pg_db app_db_user app_db_pass app_db_sslmode
   pg_user="$(env_get POSTGRES_USER)"
   pg_pass="$(env_get POSTGRES_PASSWORD)"
   pg_db="$(env_get POSTGRES_DB)"
-  env_set_if_missing "DATABASE_URL" "postgresql://${pg_user}:${pg_pass}@db:5432/${pg_db}"
+  app_db_user="$(env_get APP_DB_USER)"
+  app_db_pass="$(env_get APP_DB_PASSWORD)"
+  app_db_sslmode="$(env_get APP_DB_SSLMODE)"
+  env_set_if_missing "DATABASE_URL" "postgresql://${app_db_user}:${app_db_pass}@db:5432/${pg_db}?schema=public&sslmode=${app_db_sslmode}"
+
+  # Upgrade hardening: stop using bootstrap/superuser-style DB role for runtime app DATABASE_URL.
+  local existing_database_url bootstrap_db_prefix app_db_prefix
+  existing_database_url="$(env_get DATABASE_URL)"
+  bootstrap_db_prefix="postgresql://${pg_user}:${pg_pass}@db:5432/${pg_db}"
+  app_db_prefix="postgresql://${app_db_user}:${app_db_pass}@db:5432/${pg_db}"
+  if [[ "$existing_database_url" == "${bootstrap_db_prefix}"* ]]; then
+    env_set_explicit "DATABASE_URL" "${existing_database_url/$bootstrap_db_prefix/$app_db_prefix}"
+    log_warn "DATABASE_URL was upgraded from bootstrap DB role to least-privilege runtime role."
+  fi
 
   env_set_if_missing "PRISMA_CONNECTION_LIMIT" "10"
   env_set_if_missing "LOG_LEVEL" "info"
@@ -762,6 +881,7 @@ configure_runtime_env() {
   env_set_if_missing "QUEUE_CONCURRENCY" "5"
   env_set_if_missing "OBJECT_STORAGE_DRIVER" "local"
   env_set_if_missing "OBJECT_STORAGE_ROOT" "/app/object_storage"
+  env_set_if_missing "ADMIN_BOOTSTRAP_STATE_DIR" "/app/runtime_state"
 
   if [ "$INSTALL_MODE" = "fresh" ] || [ "$INSTALL_MODE" = "reinstall" ]; then
     env_set_if_missing "ADMIN_USERNAME" "$ADMIN_USERNAME_VALUE"
@@ -821,6 +941,49 @@ validate_caddy_runtime_config() {
   log_success "Caddy runtime config validation passed."
 }
 
+provision_runtime_db_role() {
+  log_step "Provisioning least-privilege runtime DB role"
+  (
+    cd "$TARGET_DIR"
+    local db_cid db_user db_password db_name app_db_user app_db_password sql_file
+    db_cid="$(docker compose ps -q db 2>/dev/null | head -n1)"
+    [ -n "$db_cid" ] || { log_error "DB container ID not found for runtime role provisioning."; exit 1; }
+
+    db_user="$(env_get POSTGRES_USER)"
+    db_password="$(env_get POSTGRES_PASSWORD)"
+    db_name="$(env_get POSTGRES_DB)"
+    app_db_user="$(env_get APP_DB_USER)"
+    app_db_password="$(env_get APP_DB_PASSWORD)"
+
+    sql_file="$(mktemp)"
+    cat > "$sql_file" <<EOSQL
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${app_db_user}') THEN
+    CREATE ROLE "${app_db_user}" LOGIN PASSWORD '${app_db_password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+  ELSE
+    ALTER ROLE "${app_db_user}" WITH LOGIN PASSWORD '${app_db_password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+  END IF;
+END
+\$\$;
+GRANT CONNECT, TEMP ON DATABASE "${db_name}" TO "${app_db_user}";
+\c "${db_name}"
+GRANT USAGE, CREATE ON SCHEMA public TO "${app_db_user}";
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public TO "${app_db_user}";
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO "${app_db_user}";
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO "${app_db_user}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES TO "${app_db_user}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO "${app_db_user}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO "${app_db_user}";
+EOSQL
+
+    docker exec -e PGPASSWORD="$db_password" -i "$db_cid" \
+      psql -v ON_ERROR_STOP=1 -U "$db_user" -d postgres -f - < "$sql_file"
+    rm -f "$sql_file"
+  )
+  log_success "Runtime DB role provisioning complete."
+}
+
 launch_services() {
   log_step "Launching services"
   (
@@ -831,13 +994,21 @@ launch_services() {
     if [ "$INSTALL_MODE" = "upgrade" ]; then
       docker compose pull db caddy || true
       docker compose up -d db
-      docker compose build app
-      docker compose up -d app caddy
     else
       docker compose up -d db
-      docker compose build app
-      docker compose up -d app caddy
     fi
+  )
+
+  if ! wait_for_container_health "db" 180; then
+    print_failure_diagnostics
+    exit 1
+  fi
+  provision_runtime_db_role
+
+  (
+    cd "$TARGET_DIR"
+    docker compose build app
+    docker compose up -d app caddy
   )
 
   log_success "Compose services started."
@@ -917,6 +1088,7 @@ print_failure_diagnostics() {
 verify_post_launch_health() {
   log_step "Post-launch health verification"
 
+  log_info "Phase 1/3: local container health"
   if ! wait_for_container_health "db" 180; then
     print_failure_diagnostics
     exit 1
@@ -935,26 +1107,32 @@ verify_post_launch_health() {
   fi
   log_success "Caddy container is running."
 
+  log_info "Phase 2/3: local reverse proxy health"
   if ! validate_caddy_runtime_config; then
     print_failure_diagnostics
     exit 1
   fi
 
   if curl -fsS --max-time 8 "http://127.0.0.1/api/health/live" >/dev/null 2>&1; then
+    LOCAL_PROXY_HEALTH_VALIDATED=true
     log_success "Local Caddy HTTP routing probe passed."
   else
-    log_warn "Local Caddy HTTP routing probe failed (http://127.0.0.1/api/health/live)."
+    log_error "Local Caddy HTTP routing probe failed (http://127.0.0.1/api/health/live)."
+    print_failure_diagnostics
+    exit 1
   fi
 
+  log_info "Phase 3/3: external readiness checks"
   if [ "$USE_DOMAIN" = true ]; then
-    log_warn "Domain mode: container/config checks passed, but external DNS/TLS issuance is not guaranteed yet."
-    log_warn "Verify DNS A/AAAA records and run: curl -Iv https://${DOMAIN_NAME}"
+    log_warn "Container/proxy checks passed. External DNS/TLS issuance is NOT guaranteed yet."
+    log_warn "Verify DNS A/AAAA records, then run: curl -Iv https://${DOMAIN_NAME}"
   fi
 }
 
 print_summary() {
   log_step "Complete"
   echo "Mode: $INSTALL_MODE"
+  echo "Source ref: ${INSTALL_REF_RESOLVED:-unknown} (${INSTALL_REF_TYPE:-unknown})"
   echo "App URL: ${RESOLVED_APP_URL}"
   echo "Project dir: $TARGET_DIR"
   echo "Config policy: preserve .env/Caddyfile/operator overrides by default; regenerate only when explicitly selected."
@@ -969,6 +1147,11 @@ print_summary() {
   if [ "$CADDY_RUNTIME_VALIDATED" = true ]; then
     echo "Caddy runtime config validated inside container."
   fi
+  if [ "$LOCAL_PROXY_HEALTH_VALIDATED" = true ]; then
+    echo "Local reverse-proxy route validated via http://127.0.0.1/api/health/live."
+  fi
+  echo "PostgreSQL remains internal to Docker network by default (no host 5432 publish)."
+  echo "Firewall (UFW) is operator-managed and was not auto-enabled by installer."
   echo "Caddy handles TLS renewals internally; no extra cron entry was installed."
 }
 
@@ -986,6 +1169,7 @@ main() {
   ensure_install_directory
   backup_upgrade_artifacts
   stop_existing_stack_if_needed
+  choose_source_ref
   sync_source_tree
   if [ "$INSTALL_MODE" = "upgrade" ]; then
     choose_proxy_config_action_upgrade

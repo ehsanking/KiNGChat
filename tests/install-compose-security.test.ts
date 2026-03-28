@@ -6,7 +6,9 @@ describe('installer and compose production hardening', () => {
     const install = fs.readFileSync('install.sh', 'utf8');
     expect(install).not.toContain('ADMIN_USERNAME=admin');
     expect(install).not.toContain('strict-ssl=false');
-    expect(install).toContain('prompt_admin_credentials');
+    expect(install).toContain('prompt_admin_credentials_fresh');
+    expect(install).toContain('choose_source_ref');
+    expect(install).toContain('provision_runtime_db_role');
   });
 
   it('production compose is documented as override strategy', () => {

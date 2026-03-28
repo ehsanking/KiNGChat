@@ -41,13 +41,12 @@ export const validateProductionEnvironment = () => {
   const sessionSecret = requireEnv('SESSION_SECRET');
   const encryptionKey = requireEnv('ENCRYPTION_KEY');
   const adminPassword = requireEnv('ADMIN_PASSWORD');
-  const postgresPassword = requireEnv('POSTGRES_PASSWORD');
+  const appDbPassword = requireEnv('APP_DB_PASSWORD');
   const databaseUrl = requireEnv('DATABASE_URL');
   const adminUsername = requireEnv('ADMIN_USERNAME');
   requireEnv('APP_URL');
   requireEnv('ALLOWED_ORIGINS');
-  requireEnv('POSTGRES_USER');
-  requireEnv('POSTGRES_DB');
+  requireEnv('APP_DB_USER');
   // MinIO credentials are optional.  If MINIO_ENDPOINT is set, require
   // access key and secret; otherwise skip these checks.  This allows the
   // server to run without object storage configured (defaulting to local
@@ -62,14 +61,14 @@ export const validateProductionEnvironment = () => {
   requireMinLength('SESSION_SECRET', sessionSecret);
   requireMinLength('ENCRYPTION_KEY', encryptionKey);
   requireMinLength('ADMIN_PASSWORD', adminPassword, 16);
-  requireMinLength('POSTGRES_PASSWORD', postgresPassword, 16);
+  requireMinLength('APP_DB_PASSWORD', appDbPassword, 16);
   if (minioEndpoint) {
     const minioSecret = process.env.MINIO_SECRET_KEY!;
     requireMinLength('MINIO_SECRET_KEY', minioSecret, 16);
   }
 
   forbidWeakValue('ADMIN_PASSWORD', adminPassword, ['admin', 'changeme', 'password', 'change_this_admin_password']);
-  forbidWeakValue('POSTGRES_PASSWORD', postgresPassword, ['pass', 'postgres', 'password']);
+  forbidWeakValue('APP_DB_PASSWORD', appDbPassword, ['pass', 'postgres', 'password']);
 
   forbidPlaceholderPattern('JWT_SECRET', jwtSecret, [/^__change_me/i, /^your-super-secret-jwt-key-change-this-in-production$/i]);
   forbidPlaceholderPattern('ENCRYPTION_KEY', encryptionKey, [/^__change_me/i, /^your-32-character-encryption-key$/i]);

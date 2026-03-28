@@ -136,3 +136,14 @@ npm run db:setup   # Veritabanı kurulumu
 [MIT Lisansı](./LICENSE) altında yayınlanmıştır. Copyright © 2025 Elahe Messenger Katkıda Bulunanları.
 
 <p align="center">❤️ ile yapıldı: <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
+
+---
+
+## Production Security Update (2026-03)
+
+For critical production safety guidance, see the English README sections:
+- **Production Networking Policy** (public vs private ports)
+- **Database Hardening** (`POSTGRES_*` bootstrap role vs `APP_DB_*` runtime role)
+- **UFW manual, opt-in setup** (never auto-enable before allowing SSH)
+
+Keep PostgreSQL (`5432`) internal-only by default.

@@ -92,3 +92,14 @@ npm run build && npm start
 เผยแพร่ภายใต้ [ใบอนุญาต MIT](./LICENSE) Copyright © 2025 Elahe Messenger Contributors
 
 <p align="center">สร้างด้วย ❤️ โดย <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
+
+---
+
+## Production Security Update (2026-03)
+
+For critical production safety guidance, see the English README sections:
+- **Production Networking Policy** (public vs private ports)
+- **Database Hardening** (`POSTGRES_*` bootstrap role vs `APP_DB_*` runtime role)
+- **UFW manual, opt-in setup** (never auto-enable before allowing SSH)
+
+Keep PostgreSQL (`5432`) internal-only by default.

@@ -10,6 +10,8 @@ services:
       # Database — PostgreSQL via docker network
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
       - PRISMA_CONNECTION_LIMIT=${PRISMA_CONNECTION_LIMIT:-10}
+      - ADMIN_BOOTSTRAP_STATE_DIR=${ADMIN_BOOTSTRAP_STATE_DIR:-/app/runtime_state}
+      - OBJECT_STORAGE_ENSURE_OWNERSHIP_RECURSIVE=${OBJECT_STORAGE_ENSURE_OWNERSHIP_RECURSIVE:-false}
       # Storage
       - OBJECT_STORAGE_DRIVER=${OBJECT_STORAGE_DRIVER:-local}
       - OBJECT_STORAGE_ROOT=${OBJECT_STORAGE_ROOT:-/app/object_storage}
@@ -56,6 +58,7 @@ services:
       - QUEUE_CONCURRENCY=${QUEUE_CONCURRENCY:-5}
     volumes:
       - object_storage_data:/app/object_storage
+      - runtime_state_data:/app/runtime_state
     depends_on:
       db:
         condition: service_healthy
@@ -91,9 +94,13 @@ services:
     container_name: elahe-db
     restart: unless-stopped
     environment:
+      # Bootstrap/provisioning account used by postgres init and installer role grants.
       - POSTGRES_USER=${POSTGRES_USER:?POSTGRES_USER is required}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - POSTGRES_DB=${POSTGRES_DB:?POSTGRES_DB is required}
+      # Runtime app credentials are provisioned by installer and should remain least-privilege.
+      - APP_DB_USER=${APP_DB_USER:?APP_DB_USER is required}
+      - APP_DB_PASSWORD=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -118,3 +125,4 @@ volumes:
   caddy_data:
   caddy_config:
   object_storage_data:
+  runtime_state_data:
