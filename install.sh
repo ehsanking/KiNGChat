@@ -341,7 +341,7 @@ preflight_checks() {
 configure_secure_env() {
     log_step "Runtime Environment Configuration"
 
-    local APP_BASE_URL ALLOWED_ORIGINS_VALUE JWT_SECRET_VALUE ENCRYPTION_KEY_VALUE ADMIN_PASSWORD_VALUE EXISTING_ADMIN_PASSWORD
+    local APP_BASE_URL ALLOWED_ORIGINS_VALUE JWT_SECRET_VALUE ENCRYPTION_KEY_VALUE ADMIN_PASSWORD_VALUE EXISTING_ADMIN_PASSWORD PG_USER_VALUE PG_PASSWORD_VALUE
 
     if [ "$USE_DOMAIN" = true ] && [ -n "${DOMAIN_NAME:-}" ]; then
         APP_BASE_URL="https://${DOMAIN_NAME}"
@@ -356,6 +356,8 @@ configure_secure_env() {
 
     JWT_SECRET_VALUE=$(openssl rand -hex 32)
     ENCRYPTION_KEY_VALUE=$(openssl rand -hex 16)
+    PG_USER_VALUE="elahe_$(openssl rand -hex 4)"
+    PG_PASSWORD_VALUE=$(openssl rand -hex 24)
 
     if [ -f "${TARGET_DIR}/.env" ]; then
         EXISTING_ADMIN_PASSWORD=$(grep -E '^ADMIN_PASSWORD=' "${TARGET_DIR}/.env" | tail -n1 | cut -d '=' -f2- || true)
@@ -372,10 +374,10 @@ configure_secure_env() {
     fi
 
     cat > "${TARGET_DIR}/.env" <<EOF
-POSTGRES_USER=user
-POSTGRES_PASSWORD=pass
+POSTGRES_USER=${PG_USER_VALUE}
+POSTGRES_PASSWORD=${PG_PASSWORD_VALUE}
 POSTGRES_DB=elahe
-DATABASE_URL=postgresql://user:pass@db:5432/elahe
+DATABASE_URL=postgresql://${PG_USER_VALUE}:${PG_PASSWORD_VALUE}@db:5432/elahe
 PRISMA_CONNECTION_LIMIT=10
 APP_URL=${APP_BASE_URL}
 ALLOWED_ORIGINS=${ALLOWED_ORIGINS_VALUE}
