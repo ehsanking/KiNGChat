@@ -17,6 +17,7 @@ describe('installer env compatibility with production validation', () => {
       JWT_SECRET: randomHex(64),
       SESSION_SECRET: randomHex(64),
       ENCRYPTION_KEY: randomHex(64),
+      DOWNLOAD_TOKEN_SECRET: randomHex(64),
       ADMIN_PASSWORD: adminPassword,
       ADMIN_USERNAME: adminUsername,
       APP_DB_PASSWORD: `P${randomHex(16)}!x${randomHex(8)}`,

@@ -22,7 +22,7 @@ describe('security hardening regressions', () => {
   });
 
   it('stores encrypted TOTP secrets and migrates plaintext on read', () => {
-    const authSource = fs.readFileSync('app/actions/auth.ts', 'utf8');
+    const authSource = fs.readFileSync('app/actions/auth-legacy.ts', 'utf8');
     expect(authSource).toContain('data: { totpSecret: encryptSecret(secret.base32) }');
     expect(authSource).toContain('readTotpSecretWithMigration');
 

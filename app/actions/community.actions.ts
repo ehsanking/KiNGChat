@@ -21,7 +21,7 @@ import {
   getGroupMembers as origGetGroupMembers,
   leaveGroup as origLeaveGroup,
   getMessageHistory as origGetMessageHistory,
-} from './auth';
+} from './auth-legacy';
 
 async function getSession() {
   try {

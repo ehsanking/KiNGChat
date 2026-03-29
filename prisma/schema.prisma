@@ -4,13 +4,8 @@ generator client {
 }
 
 datasource db {
-  // Supports both PostgreSQL (production/docker) and SQLite (local dev)
-  // Set DATABASE_URL env var to switch:
-  //   PostgreSQL: postgresql://user:pass@db:5432/kingchat
-  //   SQLite:     file:./dev.db
-  // NOTE: Prisma does not allow env() for provider; keep this as "postgresql".
-  // For SQLite local dev, use the separate schema.sqlite.prisma with `prisma generate --schema=prisma/schema.sqlite.prisma`
-  // or simply set DATABASE_URL="file:./prisma/dev.db" with provider="sqlite" in a .env.local override.
+  // Production schema (PostgreSQL only).
+  // For local SQLite development use prisma/schema.sqlite.prisma explicitly.
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }

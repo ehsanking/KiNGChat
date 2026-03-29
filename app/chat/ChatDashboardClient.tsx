@@ -382,13 +382,13 @@ function ChatDashboardContent() {
     // Do not call if no session yet
     if (!currentUser?.id) return;
     const res = await getContacts();
-    if (res.success) setContacts(res.contacts || []);
+    if ('success' in res && res.success) setContacts(res.contacts || []);
   };
 
   const loadCommunities = async () => {
     if (!currentUser?.id) return;
     const res = await getUserCommunities();
-    if (res.success) setCommunities(res.communities || []);
+    if ('success' in res && res.success) setCommunities(res.communities || []);
   };
 
   useEffect(() => {
@@ -464,7 +464,7 @@ function ChatDashboardContent() {
         selectedGroup?.id,
       );
 
-      if (res.success && res.messages) {
+      if ('success' in res && res.success && res.messages) {
         const decryptedMessages: ChatMessage[] = [];
         for (const msg of res.messages) {
           let text = msg.ciphertext || '';
@@ -566,11 +566,11 @@ function ChatDashboardContent() {
         getAuditLogs(),
         getSystemOverview(),
       ]);
-      if (usersRes.success) setAdminUsers(usersRes.users);
-      if (settingsRes.success) setAdminSettings(settingsRes.settings);
-      if (reportsRes.success) setAdminReports(reportsRes.reports);
-      if (auditRes.success) setAdminAuditLogs(auditRes.logs);
-      if (overviewRes.success) setAdminOverview(overviewRes.stats);
+      if ('success' in usersRes && usersRes.success) setAdminUsers(usersRes.users);
+      if ('success' in settingsRes && settingsRes.success) setAdminSettings(settingsRes.settings);
+      if ('success' in reportsRes && reportsRes.success) setAdminReports(reportsRes.reports);
+      if ('success' in auditRes && auditRes.success) setAdminAuditLogs(auditRes.logs);
+      if ('success' in overviewRes && overviewRes.success) setAdminOverview(overviewRes.stats);
     } catch (error) {
       console.error('Fetch admin data error:', error);
     } finally {
@@ -581,14 +581,14 @@ function ChatDashboardContent() {
   const handleToggleBan = async (userId: string) => {
     if (!currentUser) return;
     const res = await toggleBanUser(userId);
-    if (res.success) fetchAdminData();
+    if ('success' in res && res.success) fetchAdminData();
     else alert(res.error);
   };
 
   const handleUpdateUserBadges = async (userId: string, badge: string | null | undefined, isVerified: boolean) => {
     if (!currentUser) return;
     const res = await updateUserBadges(userId, badge ?? null, isVerified);
-    if (res.success) fetchAdminData();
+    if ('success' in res && res.success) fetchAdminData();
     else alert(res.error);
   };
 
@@ -611,7 +611,7 @@ function ChatDashboardContent() {
     e.preventDefault();
     if (!currentUser || !adminSettings) return;
     const res = await updateAdminSettings(adminSettings);
-    if (res.success) alert('Settings updated successfully');
+    if ('success' in res && res.success) alert('Settings updated successfully');
     else alert(res.error);
   };
 
@@ -619,7 +619,7 @@ function ChatDashboardContent() {
   const handleExportData = async () => {
     if (!currentUser) return;
     const res = await exportSystemData();
-    if (res.success) {
+    if ('success' in res && res.success) {
       const blob = new Blob([res.data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -633,7 +633,7 @@ function ChatDashboardContent() {
   const handleResolveReport = async (reportId: string, status: 'RESOLVED' | 'DISMISSED') => {
     if (!currentUser) return;
     const res = await resolveReport(reportId, status);
-    if (res.success) fetchAdminData();
+    if ('success' in res && res.success) fetchAdminData();
     else alert(res.error);
   };
 
@@ -815,7 +815,7 @@ function ChatDashboardContent() {
     const delay = setTimeout(async () => {
       setIsSearching(true);
       const result = await searchUsers(searchQuery);
-      if (result.success) setSearchResults(result.users || []);
+      if ('success' in result && result.success) setSearchResults(result.users || []);
       setIsSearching(false);
     }, 500);
     return () => clearTimeout(delay);
@@ -824,7 +824,7 @@ function ChatDashboardContent() {
   const handleAddContact = async (user: any) => {
     if (!currentUser) return;
     const res = await addContact(user.id);
-    if (res.success) {
+    if ('success' in res && res.success) {
       loadContacts();
       setSelectedRecipient(user);
       setSelectedGroup(null);
@@ -859,7 +859,7 @@ function ChatDashboardContent() {
   const handleCreateGroup = async () => {
     if (!currentUser || !newGroupName.trim()) return;
     const res = await createCommunity(newGroupName, newGroupType, newGroupDesc);
-    if (res.success) {
+    if ('success' in res && res.success) {
       setShowCreateGroup(false);
       setNewGroupName('');
       setNewGroupDesc('');

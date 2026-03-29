@@ -18,7 +18,7 @@ import {
   validate2FALogin as authValidate2FALogin,
   getRecoveryQuestion as authGetRecoveryQuestion,
   recoverPassword as authRecoverPassword,
-} from './auth';
+} from './auth-legacy';
 
 export async function registerUser(...args: Parameters<typeof authRegisterUser>) {
   return authRegisterUser(...args);

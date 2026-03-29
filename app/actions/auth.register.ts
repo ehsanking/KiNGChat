@@ -6,4 +6,4 @@
 // monolithic app/actions/auth.ts.  Use this module when dealing with user
 // sign-up.
 
-export { registerUser } from './auth';
+export { registerUser } from './auth-legacy';

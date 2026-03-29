@@ -6,4 +6,4 @@
 // of the monolithic app/actions/auth.ts.  Use this module for setting up,
 // verifying, disabling and validating 2FA tokens during login.
 
-export { setup2FA, verify2FA, disable2FA, validate2FALogin } from './auth';
+export { setup2FA, verify2FA, disable2FA, validate2FALogin } from './auth-legacy';

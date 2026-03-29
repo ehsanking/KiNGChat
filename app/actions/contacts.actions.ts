@@ -16,7 +16,7 @@ import {
   getContacts as origGetContacts,
   addContact as origAddContact,
   removeContact as origRemoveContact,
-} from './auth';
+} from './auth-legacy';
 
 async function getSession() {
   try {

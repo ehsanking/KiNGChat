@@ -17,7 +17,7 @@ import {
   verify2FA as origVerify2FA,
   disable2FA as origDisable2FA,
   validate2FALogin,
-} from './auth';
+} from './auth-legacy';
 
 async function getSession() {
   try {

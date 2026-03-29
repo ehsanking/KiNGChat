@@ -13,7 +13,7 @@ import {
   listConversationDrafts as origListConversationDrafts,
   deleteConversationDraft as origDeleteConversationDraft,
   searchConversationMessages as origSearchConversationMessages,
-} from './auth';
+} from './auth-legacy';
 
 async function getSession() {
   try {

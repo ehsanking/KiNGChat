@@ -41,6 +41,7 @@ export const validateProductionEnvironment = () => {
   const sessionSecret = requireEnv('SESSION_SECRET');
   const encryptionKey = requireEnv('ENCRYPTION_KEY');
   const adminPassword = requireEnv('ADMIN_PASSWORD');
+  const downloadTokenSecret = requireEnv('DOWNLOAD_TOKEN_SECRET');
   const appDbPassword = requireEnv('APP_DB_PASSWORD');
   const databaseUrl = requireEnv('DATABASE_URL');
   const adminUsername = requireEnv('ADMIN_USERNAME');
@@ -62,6 +63,7 @@ export const validateProductionEnvironment = () => {
   requireMinLength('ENCRYPTION_KEY', encryptionKey);
   requireMinLength('ADMIN_PASSWORD', adminPassword, 16);
   requireMinLength('APP_DB_PASSWORD', appDbPassword, 16);
+  requireMinLength('DOWNLOAD_TOKEN_SECRET', downloadTokenSecret);
   if (minioEndpoint) {
     const minioSecret = process.env.MINIO_SECRET_KEY!;
     requireMinLength('MINIO_SECRET_KEY', minioSecret, 16);
@@ -73,6 +75,7 @@ export const validateProductionEnvironment = () => {
   forbidPlaceholderPattern('JWT_SECRET', jwtSecret, [/^__change_me/i, /^your-super-secret-jwt-key-change-this-in-production$/i]);
   forbidPlaceholderPattern('ENCRYPTION_KEY', encryptionKey, [/^__change_me/i, /^your-32-character-encryption-key$/i]);
   forbidPlaceholderPattern('SESSION_SECRET', sessionSecret, [/^__change_me/i, /^replace-with-32-plus-char-secret$/i]);
+  forbidPlaceholderPattern('DOWNLOAD_TOKEN_SECRET', downloadTokenSecret, [/^__change_me/i, /^replace-with-32-plus-char-secret$/i]);
   forbidPlaceholderPattern('ADMIN_PASSWORD', adminPassword, [/^__change_me/i, /^replace-with-strong-admin-password$/i]);
   forbidPlaceholderPattern('DATABASE_URL', databaseUrl, [/__db_/i, /:\/\/[^:]+:__[^@]+__@/i, /__set_me/i]);
   forbidPlaceholderPattern('ADMIN_USERNAME', adminUsername, [/^admin$/i, /^__set_me/i]);

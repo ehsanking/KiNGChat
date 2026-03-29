@@ -7,9 +7,9 @@ import { incrementMetric } from '@/lib/observability';
 import { getPrivateObject, getPrivateObjectPath, putPrivateObject } from '@/lib/object-storage';
 
 const getSigningSecret = () => {
-  const secret = process.env.DOWNLOAD_TOKEN_SECRET || process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
+  const secret = process.env.DOWNLOAD_TOKEN_SECRET;
   if (!secret) {
-    throw new Error('Missing DOWNLOAD_TOKEN_SECRET, ENCRYPTION_KEY, or JWT_SECRET for secure upload signing.');
+    throw new Error('Missing DOWNLOAD_TOKEN_SECRET for secure upload signing.');
   }
   return secret;
 };

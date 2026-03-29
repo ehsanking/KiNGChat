@@ -119,6 +119,26 @@ export function setupSocket(io: Server, options: SocketOptions) {
       }
 
       try {
+        const sender = await prisma.user.findUnique({
+          where: { id: senderId },
+          select: { identityKeyPublic: true, signedPreKey: true, signedPreKeySig: true },
+        });
+        const senderEnrolled = Boolean(
+          sender?.identityKeyPublic?.trim() && sender?.signedPreKey?.trim() && sender?.signedPreKeySig?.trim(),
+        );
+        if (!senderEnrolled) {
+          socket.emit('messageRejected', { reason: 'e2ee_not_enrolled' });
+          incrementMetric('socket_messages_rejected', 1, { reason: 'e2ee_not_enrolled' });
+          await appendAuditLog({
+            action: 'SOCKET_SEND_REJECTED',
+            actorUserId: senderId,
+            ip,
+            outcome: 'blocked',
+            details: { reason: 'e2ee_not_enrolled', socketId: socket.id },
+          });
+          return;
+        }
+
         let message = data.idempotencyKey
           ? await prisma.message.findFirst({ where: { senderId, idempotencyKey: data.idempotencyKey } })
           : null;
@@ -206,18 +226,6 @@ export function setupSocket(io: Server, options: SocketOptions) {
           io.to(data.recipientId).emit('receiveMessage', messageData);
           if (data.recipientId !== senderId) {
             socket.emit('messageSent', { id: message.id, tempId: data.tempId, idempotencyKey: data.idempotencyKey });
-            emitDeliveryUpdate(io, senderId, {
-              id: message.id,
-              deliveryStatus: 'DELIVERED',
-              deliveredAt: new Date().toISOString(),
-            });
-            await prisma.message.update({
-              where: { id: message.id },
-              data: {
-                deliveryStatus: 'DELIVERED',
-                deliveredAt: new Date(),
-              } as any,
-            }).catch(() => undefined);
           }
         }
 

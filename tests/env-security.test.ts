@@ -7,6 +7,7 @@ const validBase = {
   JWT_SECRET: 'j'.repeat(40),
   SESSION_SECRET: 's'.repeat(40),
   ENCRYPTION_KEY: 'e'.repeat(40),
+  DOWNLOAD_TOKEN_SECRET: 'd'.repeat(40),
   ADMIN_PASSWORD: 'StrongAdminPassword1',
   ADMIN_USERNAME: 'owner',
   APP_DB_PASSWORD: 'StrongAppDbPassword1',

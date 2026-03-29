@@ -16,7 +16,7 @@ import {
   getPublicUserProfile as origGetPublicUserProfile,
   getSelfUserProfile as origGetSelfUserProfile,
   updateUserProfile as origUpdateUserProfile,
-} from './auth';
+} from './auth-legacy';
 
 // Helper to read and verify the session cookie.  Returns null if the
 // cookie is missing or invalid.
