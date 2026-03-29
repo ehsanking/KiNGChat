@@ -3,12 +3,11 @@ import Image from 'next/image';
 import { Lock, EyeOff, Globe, Scale, AlertTriangle, ChevronLeft } from 'lucide-react';
 
 export default function SecurityPage() {
-  const logoSrc = "https://s8.uupload.ir/files/transparent-logo_omst.png";
+  const logoSrc = 'https://s8.uupload.ir/files/transparent-logo_omst.png';
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-12">
-        {/* Header */}
         <header className="flex items-center justify-between border-b border-zinc-800 pb-8">
           <Link href="/" className="flex items-center gap-2 group">
             <ChevronLeft className="w-5 h-5 text-zinc-500 group-hover:text-brand-gold transition-colors" />
@@ -17,40 +16,35 @@ export default function SecurityPage() {
             </div>
             <span className="text-lg font-bold tracking-tighter text-brand-gold">Elahe Messenger Security</span>
           </Link>
-          <div className="hidden md:block text-xs text-zinc-500 font-mono">
-            PROTOCOL: E2EE-V1 // STATUS: SECURE
-          </div>
+          <div className="hidden md:block text-xs text-zinc-500 font-mono">PROTOCOL: E2EE-V2 // STATUS: EVOLVING</div>
         </header>
 
-        {/* Hero Section */}
         <section className="space-y-4">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-zinc-100">
             Security & <span className="text-brand-gold">Compliance</span>
           </h1>
           <p className="text-zinc-400 text-lg max-w-2xl">
-            Elahe Messenger is engineered for absolute privacy. We combine military-grade encryption with a zero-trust architecture to ensure your data remains yours.
+            Elahe Messenger uses client-side cryptography for direct messaging and encrypted attachments. We document current protections and known limitations so operators can make informed deployment decisions.
           </p>
         </section>
 
-        {/* Security Pillars */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-8 rounded-3xl bg-zinc-900 border border-zinc-800">
             <Lock className="w-8 h-8 text-brand-gold mb-4" />
-            <h3 className="text-xl font-bold mb-2">End-to-End Encryption</h3>
+            <h3 className="text-xl font-bold mb-2">Current Encryption Scope</h3>
             <p className="text-zinc-400 text-sm leading-relaxed">
-              Every message, file, and call is encrypted on the sender&apos;s device using X3DH and Double Ratchet algorithms. The server never holds the keys.
+              1:1 messaging uses browser-side ECDH (P-256), HKDF-SHA256, and AES-256-GCM. Group and channel E2EE is not shipped yet, and advanced ratcheting claims should be treated as roadmap work until fully implemented and audited.
             </p>
           </div>
           <div className="p-8 rounded-3xl bg-zinc-900 border border-zinc-800">
             <EyeOff className="w-8 h-8 text-brand-gold mb-4" />
-            <h3 className="text-xl font-bold mb-2">Zero Metadata Logging</h3>
+            <h3 className="text-xl font-bold mb-2">Metadata Reality</h3>
             <p className="text-zinc-400 text-sm leading-relaxed">
-              We do not store IP addresses, contact graphs, or message timestamps. Our database is designed to be &quot;blind&quot; by default.
+              The service stores operational metadata such as account records, conversation membership, timestamps, and audit events. Secure design reduces plaintext exposure, but it is not a zero-metadata system.
             </p>
           </div>
         </div>
 
-        {/* International Compliance */}
         <section className="space-y-6 pt-8">
           <div className="flex items-center gap-3">
             <Globe className="w-6 h-6 text-brand-gold" />
@@ -58,30 +52,29 @@ export default function SecurityPage() {
           </div>
           <div className="prose prose-invert max-w-none space-y-4 text-zinc-400">
             <p>
-              Elahe Messenger operates under the principles of international privacy standards, including the **General Data Protection Regulation (GDPR)** and the **Universal Declaration of Human Rights (Article 12)**, which states that no one shall be subjected to arbitrary interference with his privacy, family, home or correspondence.
+              Elahe Messenger is built for privacy-focused communication and can support regulated environments, but compliance outcomes depend on deployment choices and operator controls.
             </p>
             <div className="bg-zinc-900/50 border-l-4 border-brand-gold p-6 rounded-r-2xl">
               <h4 className="text-zinc-100 font-bold mb-2 flex items-center gap-2">
                 <Scale className="w-4 h-4 text-brand-gold" /> Legal Framework
               </h4>
               <p className="text-sm">
-                As a self-hosted platform, the legal responsibility for data residency and compliance rests with the server operator. Elahe Messenger provides the tools for secure communication but does not control the infrastructure on which it is deployed.
+                As a self-hosted platform, the legal responsibility for data residency, retention, and local regulatory compliance rests with the server operator.
               </p>
             </div>
             <p>
-              Users are required to comply with their local jurisdiction&apos;s laws regarding the use of encryption. Elahe Messenger is intended for lawful, private communication. The use of this platform for illegal activities, including but not limited to cybercrime, terrorism, or child exploitation, is strictly prohibited and violates our core mission of protecting human rights.
+              Users are required to comply with local laws regarding encryption and communications. The platform is intended for lawful use and abuse prevention remains an explicit part of operations.
             </p>
           </div>
         </section>
 
-        {/* Disclaimer */}
         <section className="p-8 rounded-3xl bg-brand-blue/10 border border-brand-blue/20">
           <div className="flex items-start gap-4">
             <AlertTriangle className="w-6 h-6 text-brand-blue shrink-0 mt-1" />
             <div>
               <h4 className="text-zinc-100 font-bold mb-2">Security Disclaimer</h4>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                While Elahe Messenger employs state-of-the-art cryptographic methods, no system is 100% infallible. Security is a shared responsibility. Users must ensure their devices are free of malware and their encryption keys are backed up securely.
+                Security depends on endpoint integrity, key handling, infrastructure hardening, and operational hygiene. Review the threat model and crypto status docs before production deployment.
               </p>
             </div>
           </div>

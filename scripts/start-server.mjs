@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 const isProduction = process.argv.includes('--production');
 const env = {
@@ -10,7 +12,14 @@ if (isProduction) {
   env.NODE_ENV = 'production';
 }
 
-const child = spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', 'server.ts'], {
+const tsxBin = join(process.cwd(), 'node_modules', '.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx');
+if (!existsSync(tsxBin)) {
+  console.error('[start-server] Missing local tsx binary. Run `npm install` first.');
+  process.exit(1);
+}
+
+// Use the pinned local tsx binary for deterministic startup.
+const child = spawn(tsxBin, ['server.ts'], {
   stdio: 'inherit',
   env,
 });

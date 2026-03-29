@@ -32,7 +32,7 @@
 
 **Elahe Messenger** is an open-source, self-hosted, end-to-end encrypted messaging platform built for teams, communities, and individuals who demand full control over their data. It combines the power of **Next.js 15**, **React 19**, and **Socket.IO** on a **Node.js** runtime, backed by **Prisma ORM** with **PostgreSQL** (or SQLite for local development) and optionally scaled horizontally via **Redis**.
 
-> The server never sees plaintext messages. All cryptographic operations are performed client-side using the Web Crypto API.
+> Client apps encrypt direct-message content before transmission. The server primarily handles ciphertext payloads, while still processing operational metadata (membership, timestamps, audit/security events).
 
 ---
 
@@ -46,6 +46,10 @@
 - [Configuration](#configuration)
 - [Docker Deployment](#docker-deployment)
 - [Security](#security)
+- [Capability Maturity](#capability-maturity)
+- [Crypto Status](#crypto-status)
+- [Runtime Topology](#runtime-topology)
+- [Threat Model](#threat-model)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -55,7 +59,7 @@
 
 | Category | Capabilities |
 |---|---|
-| 🔐 **Encryption** | Browser-side E2EE (ECDH-P256, HKDF-SHA256, AES-256-GCM), forward-secrecy ratchet |
+| 🔐 **Encryption** | Browser-side E2EE for direct messages (ECDH-P256, HKDF-SHA256, AES-256-GCM); advanced ratcheting remains transitional |
 | 💬 **Messaging** | Real-time DMs, group chats, channels, message reactions, edits, drafts |
 | 👥 **Social** | Contact management, community groups, invite links, member roles |
 | 🛡️ **Security** | TOTP/2FA, session binding, rate limiting, local math captcha, audit logs |
@@ -428,10 +432,11 @@ Health endpoints:
 
 ## Security
 
-Elahe Messenger is designed with a **privacy-first, zero-trust** philosophy:
+Elahe Messenger is designed with a privacy-first model and explicit trust boundaries:
 
-- **End-to-End Encryption**: Messages are encrypted in the browser before transmission using `ECDH-P256` key agreement, `HKDF-SHA256` key derivation, and `AES-256-GCM` authenticated encryption.
-- **Server Blindness**: The server stores only ciphertext. It cannot read message content.
+- **Implemented now**: Direct-message E2EE uses browser-side `ECDH-P256` + `HKDF-SHA256` + `AES-256-GCM`.
+- **Not yet shipped**: Do not assume full X3DH/Double Ratchet parity for all paths; group/channel E2EE and advanced ratcheting remain transitional.
+- **Server visibility**: Operators can access service metadata (accounts, membership, delivery/audit timestamps, network/session security signals) even when message bodies are ciphertext.
 - **Session Security**: Session tokens are HMAC-signed, HttpOnly, SameSite=Strict cookies with optional IP and User-Agent binding; cookie `Secure` is derived from `APP_URL` scheme (or explicit `COOKIE_SECURE` override).
 - **2FA/TOTP**: Password step now creates a short-lived pending-login challenge; TOTP verification requires that one-time challenge.
 - **Rate Limiting**: Per-IP limits enforced at both the HTTP and WebSocket layers, backed by Redis when available.
@@ -439,7 +444,40 @@ Elahe Messenger is designed with a **privacy-first, zero-trust** philosophy:
 - **File Upload Policy**: Secure uploads enforce server allowlist checks by extension + MIME (case-insensitive) and reject MIME mismatches.
 - **Audit Logging**: Admin actions are recorded with IP, timestamp, and actor for forensic traceability.
 
+See detailed docs:
+- [`docs/crypto-status.md`](./docs/crypto-status.md)
+- [`docs/threat-model.md`](./docs/threat-model.md)
+- [`docs/runtime-topology.md`](./docs/runtime-topology.md)
+
 For vulnerability disclosures, see [SECURITY.md](./SECURITY.md).
+
+---
+
+## Capability Maturity
+
+| Capability | Status | Notes |
+|---|---|---|
+| Direct messaging | **Stable** | Core 1:1 messaging path is operational and covered by existing authz checks. |
+| Group messaging | **Beta** | Functional, but not E2EE-complete yet. |
+| Encrypted attachments | **Beta** | Secure attachment route exists; keep using protected upload/download flows only. |
+| Admin tooling | **Stable** | Includes moderation and audit workflows. |
+| Push notifications | **Beta** | Production-capable with environment/provider dependencies. |
+| Multi-device support | **Experimental** | Device bundle/session model is present but still evolving. |
+| Ratcheting / advanced E2EE | **Experimental** | Transitional runtime support exists; do not market as fully completed protocol guarantees. |
+| Crypto verification UX | **Planned** | Operator/user-facing verification flows need stronger UX and guidance. |
+| Offline reliability | **Beta** | PWA shell and draft/offline queue support exist with network-dependent sync behavior. |
+
+## Crypto Status
+
+See [`docs/crypto-status.md`](./docs/crypto-status.md) for implementation-accurate cryptographic guarantees and known gaps.
+
+## Runtime Topology
+
+See [`docs/runtime-topology.md`](./docs/runtime-topology.md) for runtime separation, startup flow, and future split points.
+
+## Threat Model
+
+See [`docs/threat-model.md`](./docs/threat-model.md) for trust assumptions, metadata visibility, and hardening opportunities.
 
 ---
 

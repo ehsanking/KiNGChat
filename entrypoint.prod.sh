@@ -24,11 +24,9 @@ MIGRATE_DATABASE_URL="${MIGRATION_DATABASE_URL:-${DATABASE_URL:-}}"
 [ -z "$MIGRATE_DATABASE_URL" ] && fail "DATABASE_URL (or MIGRATION_DATABASE_URL) is required."
 DATABASE_URL="$MIGRATE_DATABASE_URL" $PRISMA_BIN migrate deploy --schema=./prisma/schema.prisma || fail "Prisma migrations failed."
 
-if [ -f server.ts ]; then
-  if [ -x node_modules/.bin/tsx ]; then
-    exec node_modules/.bin/tsx server.ts
-  fi
-  exec npx tsx server.ts
+if [ -f server.ts ] && [ -x node_modules/.bin/tsx ]; then
+  # Keep runtime deterministic by using the project-pinned tsx binary only.
+  exec node_modules/.bin/tsx server.ts
 fi
 
-fail "No server entry point found."
+fail "No supported server entry point found (expected server.ts + node_modules/.bin/tsx)."
