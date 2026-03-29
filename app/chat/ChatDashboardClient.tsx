@@ -49,6 +49,14 @@ import { parseSecureAttachmentFromLegacyMessage } from '@/lib/e2ee-legacy-bridge
 import { createSecureAttachmentMessage } from '@/lib/e2ee-chat-runtime';
 import { E2EE_UNAVAILABLE_WARNING, prepareDirectMessagePayload } from '@/app/chat/message-send-security';
 import { fetchWithCsrf, HttpAuthError } from '@/lib/http/fetchWithCsrf';
+import {
+  buildConversationId,
+  buildDraftStorageKey,
+  buildPendingQueueStorageKey,
+  renderDeliveryLabel,
+  type PendingQueueItem,
+} from '@/app/chat/chat-state';
+import { usePendingQueue } from '@/app/chat/hooks/usePendingQueue';
 
 // Import shared type definitions to replace use of `any`.
 import type { ChatUser, Report, AdminSettings, AuditLog, SocketMessagePayload, DeliveryState } from '@/lib/types';
@@ -102,52 +110,9 @@ type MobileTab = 'chats' | 'groups' | 'channels' | 'settings';
 
 type DraftState = 'saved' | 'saving' | 'error' | 'idle';
 
-type PendingQueueItem = {
-  tempId: string;
-  recipientId?: string;
-  groupId?: string;
-  ciphertext: string;
-  nonce: string;
-  plaintext: string;
-  type: number;
-  fileUrl?: string;
-  fileName?: string;
-  fileSize?: number;
-};
-
-const buildConversationId = (currentUserId?: string, recipientId?: string | null, groupId?: string | null) => {
-  if (groupId) return groupId;
-  if (currentUserId && recipientId) return `dm:${currentUserId}:${recipientId}`;
-  return '';
-};
-
-const buildDraftStorageKey = (currentUserId?: string, recipientId?: string | null, groupId?: string | null) => {
-  const conversationId = buildConversationId(currentUserId, recipientId, groupId);
-  return conversationId ? `elahe:draft:${currentUserId}:${conversationId}` : '';
-};
-
-const buildPendingQueueStorageKey = (currentUserId?: string) => currentUserId ? `elahe:pending:${currentUserId}` : '';
-
 const adminSettingToggles: Array<{ label: string; key: keyof Pick<AdminSettings, 'isRegistrationEnabled'>; desc: string }> = [
   { label: 'User Registration', key: 'isRegistrationEnabled', desc: 'Allow new users' },
 ];
-
-const renderDeliveryLabel = (status?: DeliveryState) => {
-  switch (status) {
-    case 'QUEUED':
-      return 'Queued';
-    case 'SENT':
-      return 'Sent';
-    case 'DELIVERED':
-      return 'Delivered';
-    case 'READ':
-      return 'Read';
-    case 'FAILED':
-      return 'Failed';
-    default:
-      return '';
-  }
-};
 
 function ChatDashboardContent() {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -193,53 +158,25 @@ function ChatDashboardContent() {
   const searchParams = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pendingQueueRef = useRef<PendingQueueItem[]>([]);
   const attachmentTokensRef = useRef<Record<string, string>>({});
   const pendingQueueStorageKey = buildPendingQueueStorageKey(currentUser?.id);
   const currentConversationId = buildConversationId(currentUser?.id, selectedRecipient?.id, selectedGroup?.id);
-
-  const persistPendingQueue = useCallback((queue: PendingQueueItem[]) => {
-    pendingQueueRef.current = queue;
-    if (!pendingQueueStorageKey) return;
-    try {
-      localStorage.setItem(pendingQueueStorageKey, JSON.stringify(queue));
-    } catch {
-      // Silently ignore localStorage write failures (e.g. private browsing quota exceeded)
-    }
-  }, [pendingQueueStorageKey]);
 
   const updateLocalMessageStatus = useCallback((tempId: string, status: DeliveryState, patch?: Partial<ChatMessage>) => {
     setMessages((prev) => prev.map((msg) => (msg.id === tempId || msg.tempId === tempId) ? { ...msg, status, ...patch } : msg));
   }, []);
 
-  const emitQueuedMessage = useCallback((queued: PendingQueueItem, activeSocket?: Socket | null) => {
-    const targetSocket = activeSocket || socket;
-    if (!targetSocket) return false;
-    targetSocket.emit('sendMessage', {
-      recipientId: queued.recipientId,
-      groupId: queued.groupId,
-      ciphertext: queued.ciphertext,
-      nonce: queued.nonce,
-      messagePayload: queued.ciphertext,
-      type: queued.type,
-      tempId: queued.tempId,
-      fileUrl: queued.fileUrl,
-      fileName: queued.fileName,
-      fileSize: queued.fileSize,
-    });
-    updateLocalMessageStatus(queued.tempId, 'SENT');
-    return true;
-  }, [socket, updateLocalMessageStatus]);
-
-  const flushPendingQueue = useCallback((activeSocket?: Socket | null) => {
-    if (!navigator.onLine || !(activeSocket || socket)) return;
-    const remaining: PendingQueueItem[] = [];
-    for (const item of pendingQueueRef.current) {
-      const sent = emitQueuedMessage(item, activeSocket);
-      if (!sent) remaining.push(item);
-    }
-    persistPendingQueue(remaining);
-  }, [emitQueuedMessage, persistPendingQueue, socket]);
+  const {
+    queueRef: pendingQueueRef,
+    persistQueue: persistPendingQueue,
+    loadQueue: loadPendingQueue,
+    emitQueuedMessage,
+    flushQueue: flushPendingQueue,
+  } = usePendingQueue({
+    storageKey: pendingQueueStorageKey,
+    socket,
+    updateLocalMessageStatus,
+  });
 
   usePushNotifications(currentUser?.id);
 
@@ -281,12 +218,7 @@ function ChatDashboardContent() {
         setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
         const queueKey = buildPendingQueueStorageKey(user.id);
-        try {
-          const rawQueue = localStorage.getItem(queueKey);
-          pendingQueueRef.current = rawQueue ? JSON.parse(rawQueue) : [];
-        } catch {
-          pendingQueueRef.current = [];
-        }
+        loadPendingQueue(queueKey);
 
         activeSocket = io();
         activeSocket.on('connect', () => {
@@ -374,7 +306,7 @@ function ChatDashboardContent() {
       window.removeEventListener('offline', handleOffline);
       activeSocket?.disconnect();
     };
-  }, [flushPendingQueue, persistPendingQueue, router]);
+  }, [flushPendingQueue, loadPendingQueue, pendingQueueRef, persistPendingQueue, router]);
 
   // Load contacts & communities when the session user is available.
   // loadContacts and loadCommunities are stable functions defined in the same
