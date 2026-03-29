@@ -962,29 +962,33 @@ provision_runtime_db_role() {
     app_db_password="$(env_get APP_DB_PASSWORD)"
 
     sql_file="$(mktemp)"
-    cat > "$sql_file" <<EOSQL
+    cat > "$sql_file" <<'EOSQL'
 DO \$\$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${app_db_user}') THEN
-    CREATE ROLE "${app_db_user}" LOGIN PASSWORD '${app_db_password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_db_user') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT', :'app_db_user', :'app_db_password');
   ELSE
-    ALTER ROLE "${app_db_user}" WITH LOGIN PASSWORD '${app_db_password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+    EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT', :'app_db_user', :'app_db_password');
   END IF;
 END
 \$\$;
-GRANT CONNECT, TEMP ON DATABASE "${db_name}" TO "${app_db_user}";
-\c "${db_name}"
-GRANT USAGE ON SCHEMA public TO "${app_db_user}";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "${app_db_user}";
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO "${app_db_user}";
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO "${app_db_user}";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "${app_db_user}";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO "${app_db_user}";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO "${app_db_user}";
+SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', :'db_name', :'app_db_user') AS sql \gexec
+\c :db_name
+SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'app_db_user') AS sql \gexec
+SELECT format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO %I', :'app_db_user') AS sql \gexec
+SELECT format('GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO %I', :'app_db_user') AS sql \gexec
+SELECT format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %I', :'app_db_user') AS sql \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', :'app_db_user') AS sql \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO %I', :'app_db_user') AS sql \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO %I', :'app_db_user') AS sql \gexec
 EOSQL
 
     docker exec -e PGPASSWORD="$db_password" -i "$db_cid" \
-      psql -v ON_ERROR_STOP=1 -U "$db_user" -d postgres -f - < "$sql_file"
+      psql -v ON_ERROR_STOP=1 \
+      -v app_db_user="$app_db_user" \
+      -v app_db_password="$app_db_password" \
+      -v db_name="$db_name" \
+      -U "$db_user" -d postgres -f - < "$sql_file"
     rm -f "$sql_file"
   )
   log_success "Runtime DB role provisioning complete."

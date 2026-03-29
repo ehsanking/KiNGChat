@@ -88,7 +88,7 @@
 
 **Key design principles:**
 - **Zero-trust server**: private keys never leave the browser
-- **Stateless auth**: signed session cookies, no server-side session store required
+- **Stateless auth + revocation checks**: signed session cookies validated against live user state (`sessionVersion`, role, ban/approval)
 - **Horizontal scaling**: Redis adapter for Socket.IO cluster mode
 - **Graceful degradation**: SQLite fallback for development; Redis is optional
 
@@ -371,9 +371,11 @@ Elahe Messenger is designed with a **privacy-first, zero-trust** philosophy:
 
 - **End-to-End Encryption**: Messages are encrypted in the browser before transmission using `ECDH-P256` key agreement, `HKDF-SHA256` key derivation, and `AES-256-GCM` authenticated encryption.
 - **Server Blindness**: The server stores only ciphertext. It cannot read message content.
-- **Session Security**: Session tokens are HMAC-signed, HttpOnly, SameSite=Strict cookies with optional IP and User-Agent binding.
-- **2FA/TOTP**: RFC 6238 compliant one-time passwords via any standard authenticator app.
+- **Session Security**: Session tokens are HMAC-signed, HttpOnly, SameSite=Strict cookies with optional IP and User-Agent binding; cookie `Secure` is derived from `APP_URL` scheme (or explicit `COOKIE_SECURE` override).
+- **2FA/TOTP**: Password step now creates a short-lived pending-login challenge; TOTP verification requires that one-time challenge.
 - **Rate Limiting**: Per-IP limits enforced at both the HTTP and WebSocket layers, backed by Redis when available.
+- **Draft Privacy**: Server-side draft persistence stores encrypted draft fields only; plaintext `clientDraft` content is not persisted.
+- **File Upload Policy**: Secure uploads enforce server allowlist checks by extension + MIME (case-insensitive) and reject MIME mismatches.
 - **Audit Logging**: Admin actions are recorded with IP, timestamp, and actor for forensic traceability.
 
 For vulnerability disclosures, see [SECURITY.md](./SECURITY.md).

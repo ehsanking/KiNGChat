@@ -125,8 +125,8 @@ export const saveDraft = async (userId: string, args: { recipientId?: string | n
   if (!access.allowed) return { error: 'Access denied.' };
   const draft = await prisma.messageDraft.upsert({
     where: { userId_conversationKey: { userId, conversationKey } },
-    create: { userId, conversationKey, recipientId: args.recipientId || null, groupId: args.groupId || null, ciphertext: args.ciphertext || null, nonce: args.nonce || null, clientDraft: args.clientDraft || null },
-    update: { ciphertext: args.ciphertext || null, nonce: args.nonce || null, clientDraft: args.clientDraft || null },
+    create: { userId, conversationKey, recipientId: args.recipientId || null, groupId: args.groupId || null, ciphertext: args.ciphertext || null, nonce: args.nonce || null, clientDraft: null },
+    update: { ciphertext: args.ciphertext || null, nonce: args.nonce || null, clientDraft: null },
   });
   incrementMetric('drafts_saved');
   return { success: true, draft };

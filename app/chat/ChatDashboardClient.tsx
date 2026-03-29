@@ -582,14 +582,14 @@ function ChatDashboardContent() {
     if (!currentUser) return;
     const res = await toggleBanUser(userId);
     if ('success' in res && res.success) fetchAdminData();
-    else alert(res.error);
+    else alert('error' in res ? res.error : 'Request failed.');
   };
 
   const handleUpdateUserBadges = async (userId: string, badge: string | null | undefined, isVerified: boolean) => {
     if (!currentUser) return;
     const res = await updateUserBadges(userId, badge ?? null, isVerified);
     if ('success' in res && res.success) fetchAdminData();
-    else alert(res.error);
+    else alert('error' in res ? res.error : 'Request failed.');
   };
 
   const renderBadgeIcon = (badge: string | null | undefined) => {
@@ -612,7 +612,7 @@ function ChatDashboardContent() {
     if (!currentUser || !adminSettings) return;
     const res = await updateAdminSettings(adminSettings);
     if ('success' in res && res.success) alert('Settings updated successfully');
-    else alert(res.error);
+    else alert('error' in res ? res.error : 'Request failed.');
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -626,7 +626,7 @@ function ChatDashboardContent() {
       a.href = url;
       a.download = `elahe_export_${new Date().toISOString()}.json`;
       a.click();
-    } else alert(res.error);
+    } else alert('error' in res ? res.error : 'Failed to create community.');
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -634,7 +634,7 @@ function ChatDashboardContent() {
     if (!currentUser) return;
     const res = await resolveReport(reportId, status);
     if ('success' in res && res.success) fetchAdminData();
-    else alert(res.error);
+    else alert('error' in res ? res.error : 'Request failed.');
   };
 
   const openRecipientProfileModal = async () => {
@@ -864,7 +864,7 @@ function ChatDashboardContent() {
       setNewGroupName('');
       setNewGroupDesc('');
       loadCommunities();
-    } else alert(res.error);
+    } else alert('error' in res ? res.error : 'Request failed.');
   };
 
   const copyToClipboard = (text: string) => {

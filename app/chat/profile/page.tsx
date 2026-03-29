@@ -53,7 +53,7 @@ export default function UserProfile() {
         setCurrentUser(user);
 
         const result = await getUserProfile();
-        if (result.success && result.user) {
+        if ('success' in result && result.success && result.user) {
           setDisplayName(result.user.displayName || result.user.username || '');
           setBio(result.user.bio || '');
           setProfilePhoto(result.user.profilePhoto || null);
@@ -116,7 +116,7 @@ export default function UserProfile() {
       return;
     }
 
-    if (result.success && result.user) {
+    if ('success' in result && result.success && result.user) {
       const mergedUser = { ...currentUser, ...result.user };
       setCurrentUser(mergedUser);
       setStatusMessage({ type: 'success', text: 'Profile updated successfully.' });
@@ -295,13 +295,13 @@ export default function UserProfile() {
                           setIs2FALoading(true);
                           setTwoFAMessage(null);
                           const res = await disable2FA(totpDisableCode);
-                          if (res.success) {
+                          if ('success' in res && res.success) {
                             setIs2FAEnabled(false);
                             setShow2FADisable(false);
                             setTotpDisableCode('');
                             setTwoFAMessage({ type: 'success', text: '2FA has been disabled.' });
                           } else {
-                            setTwoFAMessage({ type: 'error', text: res.error || 'Failed to disable 2FA.' });
+                            setTwoFAMessage({ type: 'error', text: 'error' in res ? res.error : 'Failed to disable 2FA.' });
                           }
                           setIs2FALoading(false);
                         }}
@@ -364,7 +364,7 @@ export default function UserProfile() {
                       setIs2FALoading(true);
                       setTwoFAMessage(null);
                       const res = await verify2FA(totpVerifyCode);
-                      if (res.success) {
+                      if ('success' in res && res.success) {
                         setIs2FAEnabled(true);
                         setShow2FASetup(false);
                         setTotpVerifyCode('');
@@ -372,7 +372,7 @@ export default function UserProfile() {
                         setTotpSecret('');
                         setTwoFAMessage({ type: 'success', text: '2FA is now enabled! You will need your authenticator app for future logins.' });
                       } else {
-                        setTwoFAMessage({ type: 'error', text: res.error || 'Verification failed.' });
+                        setTwoFAMessage({ type: 'error', text: 'error' in res ? res.error : 'Verification failed.' });
                       }
                       setIs2FALoading(false);
                     }}
@@ -398,12 +398,12 @@ export default function UserProfile() {
                   setIs2FALoading(true);
                   setTwoFAMessage(null);
                   const res = await setup2FA();
-                  if (res.success) {
-                    setQrCode(res.qrCode!);
-                    setTotpSecret(res.secret!);
+                  if ('success' in res && res.success) {
+                    setQrCode(res.qrCode);
+                    setTotpSecret(res.secret);
                     setShow2FASetup(true);
                   } else {
-                    setTwoFAMessage({ type: 'error', text: res.error || 'Failed to start 2FA setup.' });
+                    setTwoFAMessage({ type: 'error', text: 'error' in res ? res.error : 'Failed to start 2FA setup.' });
                   }
                   setIs2FALoading(false);
                 }}

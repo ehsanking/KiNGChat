@@ -32,6 +32,8 @@ import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
 import { verifyRecaptchaToken } from '@/lib/google-recaptcha';
 import { createRequestId } from '@/lib/observability';
 import { decryptSecret, encryptSecret, isEncryptedSecret } from '@/lib/secret-encryption';
+import { isPasswordPolicyCompliant, PASSWORD_POLICY_MESSAGE } from '@/lib/password-policy';
+import { createPreAuthChallenge, consumePreAuthChallenge } from '@/lib/preauth-challenge';
 
 /**
  * Reads the session token from the request cookies and verifies it.  If the cookie is
@@ -145,7 +147,14 @@ type AdminSettingsUpdate = {
 
 const asTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 const usernameRegex = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+const isPasswordRecoveryEnabled = () => process.env.PASSWORD_RECOVERY_ENABLED === 'true';
+const normalizeReservedUsernames = (raw: string) =>
+  new Set(
+    raw
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
 
 const getClientIp = async () => {
   const headersList = await headers();
@@ -234,7 +243,7 @@ export async function registerUser(formData: RegisterUserInput) {
   const recoveryAnswer = typeof formData.recoveryAnswer === 'string' ? formData.recoveryAnswer : '';
   const captchaToken = asTrimmedString(formData.captchaToken);
 
-  if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig || !recoveryQuestion || recoveryAnswer.length === 0) {
+  if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig) {
     return { error: 'Missing required registration fields.' };
   }
 
@@ -257,8 +266,11 @@ export async function registerUser(formData: RegisterUserInput) {
     const recaptchaSiteKey = typeof (settings as Record<string, unknown>).recaptchaSiteKey === 'string'
       ? ((settings as Record<string, unknown>).recaptchaSiteKey as string).trim()
       : '';
-    const recaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
+    const storedRecaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
       ? ((settings as Record<string, unknown>).recaptchaSecretKey as string).trim()
+      : '';
+    const recaptchaSecretKey = storedRecaptchaSecretKey
+      ? (isEncryptedSecret(storedRecaptchaSecretKey) ? decryptSecret(storedRecaptchaSecretKey) : storedRecaptchaSecretKey)
       : '';
     if (!recaptchaSiteKey || !recaptchaSecretKey) {
       return { error: 'Captcha is enabled but not configured by administrator.' };
@@ -292,7 +304,8 @@ export async function registerUser(formData: RegisterUserInput) {
   // - 3 to 20 characters
   // - Alphanumeric and underscores only
   // - Must start with a letter
-  if (!usernameRegex.test(username) || username.toLowerCase() === 'admin') {
+  const reservedUsernames = normalizeReservedUsernames(settings.reservedUsernames ?? 'admin');
+  if (!usernameRegex.test(username) || reservedUsernames.has(username.toLowerCase())) {
     return { error: 'Invalid username or username is reserved.' };
   }
 
@@ -302,8 +315,8 @@ export async function registerUser(formData: RegisterUserInput) {
   // - At least one lowercase letter
   // - At least one number
   // - At least one special character
-  if (!passwordRegex.test(password)) {
-    return { error: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and a special character.' };
+  if (!isPasswordPolicyCompliant(password)) {
+    return { error: PASSWORD_POLICY_MESSAGE };
   }
 
   // 3. Password Confirmation
@@ -311,11 +324,11 @@ export async function registerUser(formData: RegisterUserInput) {
     return { error: 'Passwords do not match.' };
   }
 
-  if (recoveryQuestion.length < 5 || recoveryQuestion.length > 200) {
+  if (recoveryQuestion && (recoveryQuestion.length < 5 || recoveryQuestion.length > 200)) {
     return { error: 'Recovery question must be between 5 and 200 characters.' };
   }
 
-  if (recoveryAnswer.length < 1 || recoveryAnswer.length > 200) {
+  if (recoveryAnswer && (recoveryAnswer.length < 1 || recoveryAnswer.length > 200)) {
     return { error: 'Recovery answer must be between 1 and 200 characters.' };
   }
 
@@ -329,7 +342,7 @@ export async function registerUser(formData: RegisterUserInput) {
     }
 
     const passwordHash = await argon2.hash(password);
-    const recoveryAnswerHash = await argon2.hash(recoveryAnswer);
+    const recoveryAnswerHash = recoveryAnswer ? await argon2.hash(recoveryAnswer) : null;
 
     // Generate a unique numeric ID
     let numericId = generateNumericId();
@@ -356,7 +369,7 @@ export async function registerUser(formData: RegisterUserInput) {
         signedPreKeySig,
         signingPublicKey: signingPublicKey || null,
         e2eeVersion: signingPublicKey ? 'v2' : 'legacy',
-        recoveryQuestion,
+        recoveryQuestion: recoveryQuestion || null,
         recoveryAnswerHash,
       },
     });
@@ -405,8 +418,11 @@ export async function loginUser(formData: LoginUserInput) {
     const recaptchaSiteKey = typeof (settings as Record<string, unknown>).recaptchaSiteKey === 'string'
       ? ((settings as Record<string, unknown>).recaptchaSiteKey as string).trim()
       : '';
-    const recaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
+    const storedRecaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
       ? ((settings as Record<string, unknown>).recaptchaSecretKey as string).trim()
+      : '';
+    const recaptchaSecretKey = storedRecaptchaSecretKey
+      ? (isEncryptedSecret(storedRecaptchaSecretKey) ? decryptSecret(storedRecaptchaSecretKey) : storedRecaptchaSecretKey)
       : '';
     if (!recaptchaSiteKey || !recaptchaSecretKey) {
       return { error: 'Captcha is enabled but not configured by administrator.' };
@@ -466,6 +482,12 @@ export async function loginUser(formData: LoginUserInput) {
       return { error: 'Invalid username or password' };
     }
 
+    if (user.isBanned) {
+      await createLoginAttempt(ip, username, false);
+      await logAuditAction('LOGIN_BLOCKED_BANNED', undefined, user.id, { username });
+      return { error: 'Your account is banned.' };
+    }
+
     if (!user.isApproved) {
       await createLoginAttempt(ip, username, false);
       await logAuditAction('LOGIN_BLOCKED_UNAPPROVED', undefined, user.id, { username });
@@ -505,6 +527,11 @@ export async function loginUser(formData: LoginUserInput) {
         success: true,
         requires2FA: true,
         userId: user.id,
+        challengeId: createPreAuthChallenge({
+          userId: user.id,
+          userAgent: (await headers()).get('user-agent'),
+          ip,
+        }),
       };
     }
 
@@ -515,6 +542,7 @@ export async function loginUser(formData: LoginUserInput) {
         numericId: user.numericId,
         username: user.username,
         role: user.role,
+        sessionVersion: user.sessionVersion,
         badge: user.badge,
         isVerified: user.isVerified,
         needsPasswordChange: user.needsPasswordChange,
@@ -534,11 +562,12 @@ export async function loginUser(formData: LoginUserInput) {
 }
 
 export async function getRecoveryQuestion(formData: GetRecoveryQuestionInput) {
+  if (!isPasswordRecoveryEnabled()) return { error: 'Password recovery is disabled.' };
   const username = asTrimmedString(formData.username);
   if (!username) return { error: 'Username is required.' };
 
   const ip = await getClientIp();
-  const rateResult = await rateLimit(`recovery-question:${ip}:${username}`);
+  const rateResult = await rateLimit(`recovery-question:${ip}:${username}`, { windowMs: 10 * 60_000, max: 3 });
   if (!rateResult.allowed) {
     return { error: 'Too many attempts. Please try again later.' };
   }
@@ -558,7 +587,7 @@ export async function getRecoveryQuestion(formData: GetRecoveryQuestionInput) {
         return { error: 'Recovery is not available for this account.' };
       }
 
-      return { success: true, recoveryQuestion: user.recoveryQuestion };
+      return { success: true, recoveryQuestion: 'Security answer required.' };
     };
 
     return executeGetRecoveryQuestion();
@@ -571,6 +600,7 @@ export async function getRecoveryQuestion(formData: GetRecoveryQuestionInput) {
 }
 
 export async function recoverPassword(formData: RecoverPasswordInput) {
+  if (!isPasswordRecoveryEnabled()) return { error: 'Password recovery is disabled.' };
   const username = asTrimmedString(formData.username);
   const recoveryAnswer = typeof formData.recoveryAnswer === 'string' ? formData.recoveryAnswer : '';
   const newPassword = asTrimmedString(formData.newPassword);
@@ -584,12 +614,12 @@ export async function recoverPassword(formData: RecoverPasswordInput) {
     return { error: 'Passwords do not match.' };
   }
 
-  if (!passwordRegex.test(newPassword)) {
-    return { error: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and a special character.' };
+  if (!isPasswordPolicyCompliant(newPassword)) {
+    return { error: PASSWORD_POLICY_MESSAGE };
   }
 
   const ip = await getClientIp();
-  const rateResult = await rateLimit(`recover-password:${ip}:${username}`);
+  const rateResult = await rateLimit(`recover-password:${ip}:${username}`, { windowMs: 15 * 60_000, max: 5 });
   if (!rateResult.allowed) {
     return { error: 'Too many recovery attempts. Please try again later.' };
   }
@@ -627,6 +657,7 @@ export async function recoverPassword(formData: RecoverPasswordInput) {
         where: { id: user.id },
         data: {
           passwordHash,
+          sessionVersion: { increment: 1 },
           failedLoginAttempts: 0,
           lockoutUntil: null,
           needsPasswordChange: false,
@@ -671,8 +702,8 @@ export async function updateAdminCredentials(formData: UpdateAdminCredentialsInp
     return { error: 'Username must be 3-20 characters, start with a letter, and contain only letters, numbers, or underscores.' };
   }
 
-  if (!passwordRegex.test(newPassword)) {
-    return { error: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and a special character.' };
+  if (!isPasswordPolicyCompliant(newPassword)) {
+    return { error: PASSWORD_POLICY_MESSAGE };
   }
 
   try {
@@ -688,6 +719,7 @@ export async function updateAdminCredentials(formData: UpdateAdminCredentialsInp
       data: {
         username: newUsername,
         passwordHash,
+        sessionVersion: { increment: 1 },
         needsPasswordChange: false,
       },
     });
@@ -1603,14 +1635,22 @@ export async function disable2FA(_userId: string, token: string) {
   }
 }
 
-export async function validate2FALogin(userId: string, token: string) {
+export async function validate2FALogin(userId: string, token: string, challengeId?: string) {
   const sanitizedUserId = asTrimmedString(userId);
   const sanitizedToken = asTrimmedString(token);
 
-  if (!sanitizedUserId || !sanitizedToken) return { error: 'Missing parameters.' };
+  if (!sanitizedUserId || !sanitizedToken || !asTrimmedString(challengeId)) return { error: 'Missing parameters.' };
 
   try {
+    const headerStore = await headers();
     const ip = await getClientIp();
+    const challengeValid = consumePreAuthChallenge({
+      challengeId: asTrimmedString(challengeId),
+      userId: sanitizedUserId,
+      userAgent: headerStore.get('user-agent'),
+      ip,
+    });
+    if (!challengeValid) return { error: 'Verification failed.' };
     const attempt = await rateLimit(`2fa:login:${sanitizedUserId}:${ip}`, { windowMs: 5 * 60_000, max: 8 });
     if (!attempt.allowed) {
       await logAuditAction('TOTP_LOGIN_LOCKED', undefined, sanitizedUserId, { resetAt: attempt.resetAt });
@@ -1643,6 +1683,7 @@ export async function validate2FALogin(userId: string, token: string) {
       numericId: user.numericId,
       username: user.username,
       role: user.role,
+      sessionVersion: user.sessionVersion,
       badge: user.badge,
       isVerified: user.isVerified,
       needsPasswordChange: user.needsPasswordChange,

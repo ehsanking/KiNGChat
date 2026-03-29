@@ -38,6 +38,7 @@ export async function POST(request: Request) {
         success: true,
         requires2FA: true,
         userId: result.userId,
+        challengeId: result.challengeId,
       });
     }
 
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
       userId: result.userId!,
       role: result.role!,
       needsPasswordChange: Boolean(result.needsPasswordChange),
+      sessionVersion: result.sessionVersion!,
     }, {
       userAgent: request.headers.get('user-agent'),
       ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip'),

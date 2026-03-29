@@ -7,6 +7,8 @@ import { getOrSetCache, invalidateCache } from '@/lib/cache';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { getSessionFromCookieHeader } from '@/lib/session';
+import { getFreshSessionUser, isSessionFreshForUser } from '@/lib/session-auth';
+import { encryptSecret, isEncryptedSecret } from '@/lib/secret-encryption';
 import os from 'os';
 import fs from 'fs';
 import { getOnlineUsersCount } from '@/lib/presence';
@@ -21,6 +23,10 @@ async function requireAdminSession() {
   const cookieHeader = (await cookies()).toString();
   const session = getSessionFromCookieHeader(cookieHeader);
   if (!session || session.role !== 'ADMIN') {
+    throw new Error('Unauthorized');
+  }
+  const freshUser = await getFreshSessionUser(session);
+  if (!freshUser || !isSessionFreshForUser(session, freshUser) || freshUser.role !== 'ADMIN') {
     throw new Error('Unauthorized');
   }
   return session;
@@ -145,7 +151,7 @@ export async function updateUserRole(userId: string, role: string) {
   try {
     await prisma.user.update({
       where: { id: userId },
-      data: { role }
+      data: { role, sessionVersion: { increment: 1 } }
     });
     revalidatePath('/admin/users');
     return { success: true };
@@ -227,7 +233,7 @@ export async function toggleUserApproval(userId: string, isApproved: boolean) {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { isApproved },
+      data: { isApproved, sessionVersion: { increment: 1 } },
     });
 
     await logAdminAudit(isApproved ? 'USER_APPROVED' : 'USER_APPROVAL_REVOKED', adminId, userId, {
@@ -322,7 +328,7 @@ export async function toggleBanUser(targetUserId: string) {
 
     await prisma.user.update({
       where: { id: targetUserId },
-      data: { isBanned: !targetUser.isBanned },
+      data: { isBanned: !targetUser.isBanned, sessionVersion: { increment: 1 } },
     });
 
     await logAdminAudit(
@@ -409,8 +415,14 @@ export async function updateAdminSettings(settingsData: Record<string, unknown>)
     if (typeof settingsData.isCaptchaEnabled === 'boolean') update.isCaptchaEnabled = settingsData.isCaptchaEnabled;
     if (typeof settingsData.recaptchaSiteKey === 'string' || settingsData.recaptchaSiteKey === null)
       update.recaptchaSiteKey = settingsData.recaptchaSiteKey;
-    if (typeof settingsData.recaptchaSecretKey === 'string' || settingsData.recaptchaSecretKey === null)
-      update.recaptchaSecretKey = settingsData.recaptchaSecretKey;
+    if (typeof settingsData.recaptchaSecretKey === 'string' || settingsData.recaptchaSecretKey === null) {
+      if (typeof settingsData.recaptchaSecretKey === 'string') {
+        const trimmed = settingsData.recaptchaSecretKey.trim();
+        update.recaptchaSecretKey = trimmed ? (isEncryptedSecret(trimmed) ? trimmed : encryptSecret(trimmed)) : null;
+      } else {
+        update.recaptchaSecretKey = null;
+      }
+    }
     if (typeof settingsData.maxAttachmentSize === 'number') update.maxAttachmentSize = settingsData.maxAttachmentSize;
     if (typeof settingsData.allowedFileFormats === 'string') update.allowedFileFormats = settingsData.allowedFileFormats;
     if (typeof settingsData.reservedUsernames === 'string') update.reservedUsernames = settingsData.reservedUsernames;
@@ -520,7 +532,21 @@ export async function exportSystemData() {
       prisma.report.findMany(),
     ]);
     const data = {
-      users,
+      users: users.map((user) => ({
+        id: user.id,
+        numericId: user.numericId,
+        username: user.username,
+        displayName: user.displayName,
+        bio: user.bio,
+        profilePhoto: user.profilePhoto,
+        role: user.role,
+        badge: user.badge,
+        isVerified: user.isVerified,
+        isApproved: user.isApproved,
+        isBanned: user.isBanned,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      })),
       settings,
       reports,
       exportedAt: new Date().toISOString(),

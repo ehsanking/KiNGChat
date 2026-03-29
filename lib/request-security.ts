@@ -1,4 +1,5 @@
 import { getSessionFromRequest, type SessionData } from '@/lib/session';
+import { getFreshSessionUser, isSessionFreshForUser } from '@/lib/session-auth';
 
 const getConfiguredOrigins = () => {
   const configured = new Set<string>();
@@ -40,8 +41,25 @@ export const requireAuthenticatedSession = (request: Request): SessionData => {
   return session;
 };
 
+export const requireAuthenticatedSessionFresh = async (request: Request): Promise<SessionData> => {
+  const session = requireAuthenticatedSession(request);
+  const user = await getFreshSessionUser(session);
+  if (!user || !isSessionFreshForUser(session, user)) {
+    throw new Error('Authentication required.');
+  }
+  return session;
+};
+
 export const requireAdminSession = (request: Request): SessionData => {
   const session = requireAuthenticatedSession(request);
+  if (session.role !== 'ADMIN') {
+    throw new Error('Administrator privileges are required.');
+  }
+  return session;
+};
+
+export const requireAdminSessionFresh = async (request: Request): Promise<SessionData> => {
+  const session = await requireAuthenticatedSessionFresh(request);
   if (session.role !== 'ADMIN') {
     throw new Error('Administrator privileges are required.');
   }

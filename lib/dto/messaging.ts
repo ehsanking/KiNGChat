@@ -7,6 +7,9 @@ export type SendMessageDto = {
   fileUrl?: string | null;
   fileName?: string | null;
   fileSize?: number | null;
+  wrappedFileKey?: string | null;
+  wrappedFileKeyNonce?: string | null;
+  fileNonce?: string | null;
   tempId?: string | null;
   idempotencyKey?: string | null;
   replyToId?: string | null;
@@ -33,6 +36,9 @@ export const parseSendMessageDto = (value: unknown): SendMessageDto | null => {
   const tempId = typeof data.tempId === 'string' ? data.tempId.trim() : null;
   const idempotencyKey = typeof data.idempotencyKey === 'string' ? data.idempotencyKey.trim() : tempId;
   const replyToId = typeof data.replyToId === 'string' ? data.replyToId.trim() : null;
+  const wrappedFileKey = typeof data.wrappedFileKey === 'string' ? data.wrappedFileKey.trim() : null;
+  const wrappedFileKeyNonce = typeof data.wrappedFileKeyNonce === 'string' ? data.wrappedFileKeyNonce.trim() : null;
+  const fileNonce = typeof data.fileNonce === 'string' ? data.fileNonce.trim() : null;
 
   if ((!recipientId && !groupId) || !ciphertext) return null;
   if (ciphertext.length > 64_000) return null;
@@ -46,6 +52,9 @@ export const parseSendMessageDto = (value: unknown): SendMessageDto | null => {
     fileUrl,
     fileName,
     fileSize,
+    wrappedFileKey,
+    wrappedFileKeyNonce,
+    fileNonce,
     tempId,
     idempotencyKey,
     replyToId,

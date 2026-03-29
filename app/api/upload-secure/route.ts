@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       file,
       ip: clientIp,
       metadata: { wrappedFileKey, wrappedFileKeyNonce, fileNonce },
+      allowedFileFormats: settings.allowedFileFormats,
     });
 
     if (!stored.ok) {

@@ -11,6 +11,9 @@ export type SocketMessagePayload = {
   fileUrl?: string | null;
   fileName?: string | null;
   fileSize?: number | null;
+  wrappedFileKey?: string | null;
+  wrappedFileKeyNonce?: string | null;
+  fileNonce?: string | null;
   createdAt: string;
   deliveryStatus: DeliveryState;
   readAt?: string | null;

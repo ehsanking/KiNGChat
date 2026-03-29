@@ -16,6 +16,7 @@ describe('session hardening', () => {
         userId: 'u1',
         role: 'USER',
         needsPasswordChange: false,
+        sessionVersion: 1,
       },
       { userAgent: 'agent-a' },
     );

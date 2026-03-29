@@ -5,6 +5,7 @@ import { appendAuditLog } from '@/lib/audit';
 import { authorizeConversationAccess } from '@/lib/conversation-access';
 import { incrementMetric } from '@/lib/observability';
 import { getPrivateObject, getPrivateObjectPath, putPrivateObject } from '@/lib/object-storage';
+import { isSecureUploadAllowed } from '@/lib/file-upload-policy';
 
 const getSigningSecret = () => {
   const secret = process.env.DOWNLOAD_TOKEN_SECRET;
@@ -76,6 +77,7 @@ export const storeSecureAttachment = async (params: {
   file: File;
   ip?: string | null;
   metadata?: Record<string, unknown>;
+  allowedFileFormats?: string;
 }) => {
   const access = await verifyAttachmentWriteAccess(params.conversationId, params.userId);
   if (!access.allowed) {
@@ -89,6 +91,18 @@ export const storeSecureAttachment = async (params: {
     incrementMetric('secure_uploads_blocked', 1, { reason: scan.reason ?? 'scan_failed' });
     await appendAuditLog({ action: 'SECURE_UPLOAD_BLOCKED', actorUserId: params.userId, targetId: params.conversationId, conversationId: params.conversationId, ip: params.ip, outcome: 'blocked', details: { fileName: params.file.name, fileSize: params.file.size, reason: scan.reason, detectedMime: scan.detectedMime } });
     return { ok: false as const, status: 400, error: scan.reason ?? 'Malware scan failed.' };
+  }
+
+  if (
+    params.allowedFileFormats &&
+    !isSecureUploadAllowed({
+      fileName: params.file.name,
+      declaredMime: params.file.type || 'application/octet-stream',
+      detectedMime: scan.detectedMime,
+      allowedFileFormats: params.allowedFileFormats,
+    })
+  ) {
+    return { ok: false as const, status: 400, error: 'File type is not allowed by server policy.' };
   }
 
   const fileId = crypto.randomUUID();

@@ -28,6 +28,7 @@ model User {
   isVerified   Boolean  @default(false)
   isApproved   Boolean  @default(false)
   isBanned     Boolean  @default(false)
+  sessionVersion Int @default(1)
   needsPasswordChange Boolean @default(false)
   failedLoginAttempts Int @default(0)
   lockoutUntil DateTime?

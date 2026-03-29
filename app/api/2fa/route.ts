@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     const result = await validate2FALogin(
       typeof body?.userId === 'string' ? body.userId : '',
       typeof body?.token === 'string' ? body.token : '',
+      typeof body?.challengeId === 'string' ? body.challengeId : '',
     );
 
     if (result.error) {
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       userId: result.userId!,
       role: result.role!,
       needsPasswordChange: Boolean(result.needsPasswordChange),
+      sessionVersion: result.sessionVersion!,
     }, {
       userAgent: request.headers.get('user-agent'),
       ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip'),

@@ -16,7 +16,7 @@ export type SessionData = {
   expiresAt: number;
 };
 
-export type SessionUserLike = Pick<SessionData, 'userId' | 'role' | 'needsPasswordChange'>;
+export type SessionUserLike = Pick<SessionData, 'userId' | 'role' | 'needsPasswordChange' | 'sessionVersion'>;
 
 const getSessionSecret = () => {
   const secret = process.env.SESSION_SECRET;
@@ -50,7 +50,7 @@ export const createSessionToken = (user: SessionUserLike, requestContext?: { use
     ...user,
     csrfToken: crypto.randomBytes(24).toString('hex'),
     issuedAt: Date.now(),
-    sessionVersion: 2,
+    sessionVersion: user.sessionVersion,
     userAgentHash: hashOptionalValue(requestContext?.userAgent),
     ipHash: process.env.SESSION_BIND_IP === 'true' ? hashOptionalValue(requestContext?.ip) : null,
     expiresAt: Date.now() + SESSION_TTL_MS,
@@ -95,9 +95,23 @@ export const verifySessionToken = (token: string | undefined | null, requestCont
   }
 };
 
+export const getSessionCookieSecureFlag = () => {
+  if (process.env.COOKIE_SECURE === 'true') return true;
+  if (process.env.COOKIE_SECURE === 'false') return false;
+  const appUrl = process.env.APP_URL?.trim();
+  if (appUrl) {
+    try {
+      return new URL(appUrl).protocol === 'https:';
+    } catch {
+      return process.env.NODE_ENV === 'production';
+    }
+  }
+  return process.env.NODE_ENV === 'production';
+};
+
 const getCookieOptions = (expiresAt: number) => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: getSessionCookieSecureFlag(),
   sameSite: 'strict' as const,
   path: '/',
   expires: new Date(expiresAt),
@@ -114,7 +128,7 @@ export const issueSession = (response: NextResponse, user: SessionUserLike, requ
 export const clearSession = (response: NextResponse) => {
   response.cookies.set(SESSION_COOKIE_NAME, '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: getSessionCookieSecureFlag(),
     sameSite: 'strict',
     path: '/',
     expires: new Date(0),
