@@ -139,9 +139,21 @@ export default function UserProfile() {
           </h1>
         </div>
         {currentUser?.role === 'ADMIN' && (
-          <Link href="/chat?view=admin&tab=settings" className="flex items-center gap-2 p-2 px-4 bg-brand-gold/10 text-brand-gold hover:bg-brand-gold/20 rounded-lg transition-colors text-sm font-medium">
-            <Server className="w-4 h-4" />
-            <span className="hidden sm:inline">System Settings</span>
+          <div className="flex items-center gap-2">
+            <Link href="/chat/security-center" className="flex items-center gap-2 p-2 px-4 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-colors text-sm font-medium">
+              <ShieldCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Security Center</span>
+            </Link>
+            <Link href="/chat?view=admin&tab=settings" className="flex items-center gap-2 p-2 px-4 bg-brand-gold/10 text-brand-gold hover:bg-brand-gold/20 rounded-lg transition-colors text-sm font-medium">
+              <Server className="w-4 h-4" />
+              <span className="hidden sm:inline">System Settings</span>
+            </Link>
+          </div>
+        )}
+        {currentUser?.role !== 'ADMIN' && (
+          <Link href="/chat/security-center" className="flex items-center gap-2 p-2 px-4 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-colors text-sm font-medium">
+            <ShieldCheck className="w-4 h-4" />
+            <span className="hidden sm:inline">Security Center</span>
           </Link>
         )}
       </header>

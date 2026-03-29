@@ -9,6 +9,10 @@ export {
   getAuditLogs,
   exportSystemData,
   getAllReports,
+  getReportActionHistory,
   resolveReport,
+  addReportModeratorNote,
+  applyModerationAction,
+  getManagerKpis,
   getSystemOverview,
 } from './admin';

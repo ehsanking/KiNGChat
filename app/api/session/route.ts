@@ -18,6 +18,7 @@ export async function GET(request: Request) {
       role: true,
       badge: true,
       isVerified: true,
+      totpEnabled: true,
       needsPasswordChange: true,
     },
   });

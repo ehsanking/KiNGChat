@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getUsers, updateUserRole, updateUserBadge, toggleUserVerification, toggleUserApproval } from '@/app/actions/admin';
 import { Shield, BadgeCheck, Search, ShieldAlert, Loader2, UserCheck } from 'lucide-react';
+import Link from 'next/link';
 
 type AdminUserRow = {
   id: string;
@@ -69,6 +70,7 @@ export default function AdminUsersPage() {
             </div>
           </div>
           <div className="relative">
+            <Link href="/admin/reports" className="mr-3 inline-block text-xs text-brand-gold hover:underline">Open Reports Inbox</Link>
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"

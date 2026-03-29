@@ -51,8 +51,8 @@ export default function LandingPage() {
           Elahe Messenger
         </h1>
         <p className="text-xl text-zinc-400 max-w-xl">
-          The most resilient, privacy-first messenger. 
-          Built for those who demand absolute control over their communication.
+          A privacy-first messenger with transparent security status.
+          Built for operators and teams that want clear trust boundaries.
         </p>
         <div className="flex flex-wrap justify-center gap-4 pt-8">
           <Link
@@ -74,13 +74,13 @@ export default function LandingPage() {
       <div id="features" className="mt-32 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full relative z-10">
         <FeatureCard 
           icon={<Lock className="w-6 h-6 text-brand-gold" />}
-          title="E2E Encrypted"
-          description="Your messages are encrypted before they even leave your device. Only the recipient can read them."
+          title="Direct-message E2EE"
+          description="1:1 chats use client-side encryption. Group and channel E2EE remains in rollout and is clearly marked in-product."
         />
         <FeatureCard 
           icon={<EyeOff className="w-6 h-6 text-brand-gold" />}
-          title="Zero Metadata"
-          description="We don't log who you talk to, when you talk, or your IP address. Your business is yours."
+          title="Honest Metadata Model"
+          description="The server still stores operational metadata for delivery, abuse handling, and audits. See Security Center for details."
         />
         <FeatureCard 
           icon={<UserPlus className="w-6 h-6 text-brand-gold" />}

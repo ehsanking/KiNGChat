@@ -32,6 +32,7 @@ export default function RegisterPageClient() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsLoadFailed, setSettingsLoadFailed] = useState(false);
   const [error, setError] = useState('');
+  const [showRecovery, setShowRecovery] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState('Ready to create your account.');
   const passwordHint = useMemo(() => 'Use 8+ characters with upper/lowercase letters, a number, and a symbol.', []);
@@ -95,7 +96,7 @@ export default function RegisterPageClient() {
       if (result?.error) {
         setError(result.error);
       } else {
-        router.replace(`/auth/login?next=${encodeURIComponent(nextPath || '/chat')}`);
+        router.replace(`/auth/login?next=${encodeURIComponent('/auth/onboarding?next=' + encodeURIComponent(nextPath || '/chat'))}`);
       }
     } catch {
       setError('Registration failed.');
@@ -115,7 +116,18 @@ export default function RegisterPageClient() {
         <form onSubmit={handleRegister} className="space-y-4">
           <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
           <div className="space-y-2"><input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /><p className="text-xs text-zinc-500">{passwordHint}</p></div>
-          <div className="space-y-2"><input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Your recovery question" value={recoveryQuestion} onChange={(e) => setRecoveryQuestion(e.target.value)} minLength={5} maxLength={200} required /><input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Answer to your question (exact text)" value={recoveryAnswer} onChange={(e) => setRecoveryAnswer(e.target.value)} minLength={1} maxLength={200} required /><p className="text-xs text-zinc-500">You can write in any language and format. During account recovery, you must enter the answer exactly as you typed it now.</p></div>
+          <div className="space-y-2">
+            <button type="button" onClick={() => setShowRecovery((prev) => !prev)} className="text-xs text-brand-gold hover:underline">
+              {showRecovery ? 'Hide recovery question (optional)' : 'Add a recovery question (optional)'}
+            </button>
+            {showRecovery && (
+              <>
+                <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Your recovery question" value={recoveryQuestion} onChange={(e) => setRecoveryQuestion(e.target.value)} minLength={5} maxLength={200} />
+                <input className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50" placeholder="Answer to your question (exact text)" value={recoveryAnswer} onChange={(e) => setRecoveryAnswer(e.target.value)} minLength={1} maxLength={200} />
+                <p className="text-xs text-zinc-500">This can also be configured later in account security settings.</p>
+              </>
+            )}
+          </div>
           {publicSettings.isCaptchaEnabled && publicSettings.recaptchaSiteKey && <GoogleRecaptcha siteKey={publicSettings.recaptchaSiteKey} onTokenChange={setCaptchaToken} disabled={isLoading} />}
           <button type="submit" disabled={isLoading || !settingsLoaded || settingsLoadFailed || !publicSettings.isRegistrationEnabled || (publicSettings.isCaptchaEnabled && !captchaToken)} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">{isLoading ? <><Loader2 className="w-5 h-5 animate-spin" />Creating account...</> : 'Create secure account'}</button>
         </form>

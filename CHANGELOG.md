@@ -20,3 +20,14 @@
 - Split health endpoints into liveness (`/api/health/live`) and readiness (`/api/health/ready`), and kept `/api/health` as readiness compatibility route.
 - Updated Docker and Compose health checks to use liveness endpoint.
 - Replaced Unix-only npm start/dev env assignment with cross-platform launcher scripts and replaced `next clean` with a reliable cleanup script.
+
+### Product trust, onboarding, moderation, and management UX
+- Softened landing-page security claims to avoid overstatements (removed “zero metadata” and broad E2EE language in favor of implementation-accurate copy).
+- Added authenticated post-signup onboarding flow at `/auth/onboarding` and routed new signups through it before chat.
+- Reduced signup friction by making recovery questions optional at registration (still supported for account recovery).
+- Added in-app Security Center at `/chat/security-center` with current crypto scope, transitional areas, device/session status, 2FA status, and peer safety-number fingerprint workflow for direct messages.
+- Extended session API response with `totpEnabled` for security UX status rendering.
+- Added admin Reports Inbox at `/admin/reports` with filtering, detail panel, moderator notes, linked user summary, action history, and resolution controls.
+- Added auditable moderation actions (warn, temporary restrict, ban/unban, approve/revoke approval, verify/unverify) with `AuditLog` entries and session version bump on access-changing actions.
+- Extended admin observability page with manager-readable KPI cards (registrations, login failure rate, 2FA adoption, DAU/WAU proxy, message failure rate, reports, moderation actions, attachment usage).
+- Added regression tests covering onboarding route integration, security-center honesty/fingerprint UX, and admin reports/KPI authorization surface.

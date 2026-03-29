@@ -572,8 +572,8 @@ export async function getAllReports() {
   try {
     const reports = await prisma.report.findMany({
       include: {
-        reporter: { select: { username: true } },
-        reportedUser: { select: { username: true } },
+        reporter: { select: { id: true, username: true, numericId: true } },
+        reportedUser: { select: { id: true, username: true, numericId: true, isBanned: true, isVerified: true, isApproved: true, createdAt: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -607,6 +607,165 @@ export async function resolveReport(reportId: string, status: 'RESOLVED' | 'DISM
       error: error instanceof Error ? error.message : String(error),
     });
     return { error: 'Failed to update report status' };
+  }
+}
+
+export async function getReportActionHistory(reportId: string) {
+  try {
+    await requireAdminSession();
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        OR: [
+          { targetId: reportId },
+          { details: { contains: reportId } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return { success: true, logs };
+  } catch (error) {
+    logger.error('Failed to fetch report history.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { error: 'Failed to fetch report history' };
+  }
+}
+
+export async function addReportModeratorNote(reportId: string, note: string) {
+  try {
+    const session = await requireAdminSession();
+    const sanitized = note.trim().slice(0, 2000);
+    if (!sanitized) return { error: 'Note is required.' };
+    await logAdminAudit('REPORT_MODERATOR_NOTE', session.userId, reportId, { reportId, note: sanitized });
+    return { success: true };
+  } catch (error) {
+    logger.error('Failed to add moderator note.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { error: 'Failed to add moderator note' };
+  }
+}
+
+export async function applyModerationAction(input: {
+  targetUserId: string;
+  action: 'WARN' | 'RESTRICT_24H' | 'BAN' | 'UNBAN' | 'APPROVE' | 'REVOKE_APPROVAL' | 'VERIFY' | 'UNVERIFY';
+  note?: string;
+}) {
+  try {
+    const session = await requireAdminSession();
+    const actorId = session.userId;
+    const user = await prisma.user.findUnique({ where: { id: input.targetUserId } });
+    if (!user) return { error: 'Target user not found.' };
+    if (user.role === 'ADMIN' && ['BAN', 'RESTRICT_24H'].includes(input.action)) {
+      return { error: 'Cannot apply this moderation action to an admin user.' };
+    }
+
+    switch (input.action) {
+      case 'WARN':
+        await logAdminAudit('USER_WARNED', actorId, user.id, { note: input.note?.slice(0, 500) ?? null });
+        break;
+      case 'RESTRICT_24H':
+        await prisma.user.update({ where: { id: user.id }, data: { lockoutUntil: new Date(Date.now() + 24 * 60 * 60 * 1000), sessionVersion: { increment: 1 } } });
+        await logAdminAudit('USER_RESTRICTED_24H', actorId, user.id, { note: input.note?.slice(0, 500) ?? null });
+        break;
+      case 'BAN':
+        await prisma.user.update({ where: { id: user.id }, data: { isBanned: true, sessionVersion: { increment: 1 } } });
+        await logAdminAudit('USER_BANNED', actorId, user.id, { note: input.note?.slice(0, 500) ?? null });
+        break;
+      case 'UNBAN':
+        await prisma.user.update({ where: { id: user.id }, data: { isBanned: false, sessionVersion: { increment: 1 } } });
+        await logAdminAudit('USER_UNBANNED', actorId, user.id, { note: input.note?.slice(0, 500) ?? null });
+        break;
+      case 'APPROVE':
+        await prisma.user.update({ where: { id: user.id }, data: { isApproved: true, sessionVersion: { increment: 1 } } });
+        await logAdminAudit('USER_APPROVED', actorId, user.id, { note: input.note?.slice(0, 500) ?? null });
+        break;
+      case 'REVOKE_APPROVAL':
+        await prisma.user.update({ where: { id: user.id }, data: { isApproved: false, sessionVersion: { increment: 1 } } });
+        await logAdminAudit('USER_APPROVAL_REVOKED', actorId, user.id, { note: input.note?.slice(0, 500) ?? null });
+        break;
+      case 'VERIFY':
+        await prisma.user.update({ where: { id: user.id }, data: { isVerified: true } });
+        await logAdminAudit('USER_VERIFIED', actorId, user.id, { note: input.note?.slice(0, 500) ?? null });
+        break;
+      case 'UNVERIFY':
+        await prisma.user.update({ where: { id: user.id }, data: { isVerified: false } });
+        await logAdminAudit('USER_UNVERIFIED', actorId, user.id, { note: input.note?.slice(0, 500) ?? null });
+        break;
+      default:
+        return { error: 'Unsupported moderation action.' };
+    }
+
+    revalidatePath('/admin/reports');
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error) {
+    logger.error('Failed to apply moderation action.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { error: 'Failed to apply moderation action' };
+  }
+}
+
+export async function getManagerKpis() {
+  try {
+    await requireAdminSession();
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const [
+      registrations7d,
+      registrations24h,
+      loginAttempts7d,
+      loginFailures7d,
+      usersCount,
+      usersWith2FA,
+      dau,
+      wau,
+      sent7d,
+      failed7d,
+      reports7d,
+      bans7d,
+      attachment7d,
+    ] = await Promise.all([
+      prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
+      prisma.user.count({ where: { createdAt: { gte: dayAgo } } }),
+      prisma.loginAttempt.count({ where: { createdAt: { gte: weekAgo } } }),
+      prisma.loginAttempt.count({ where: { createdAt: { gte: weekAgo }, success: false } }),
+      prisma.user.count(),
+      prisma.user.count({ where: { totpEnabled: true } }),
+      prisma.message.count({ where: { createdAt: { gte: dayAgo } } }),
+      prisma.message.count({ where: { createdAt: { gte: weekAgo } } }),
+      prisma.message.count({ where: { createdAt: { gte: weekAgo } } }),
+      prisma.message.count({ where: { createdAt: { gte: weekAgo }, deliveryStatus: 'FAILED' } }),
+      prisma.report.count({ where: { createdAt: { gte: weekAgo } } }),
+      prisma.auditLog.count({ where: { createdAt: { gte: weekAgo }, action: { in: ['USER_BANNED', 'USER_RESTRICTED_24H'] } } }),
+      prisma.message.count({ where: { createdAt: { gte: weekAgo }, fileUrl: { not: null } } }),
+    ]);
+
+    return {
+      success: true,
+      kpis: {
+        registrations24h,
+        registrations7d,
+        registrationCompletionRate: registrations7d > 0 ? 1 : 0,
+        loginFailureRate: loginAttempts7d ? loginFailures7d / loginAttempts7d : 0,
+        twoFaAdoptionRate: usersCount ? usersWith2FA / usersCount : 0,
+        dau,
+        wau,
+        messageFailureRate: sent7d ? failed7d / sent7d : 0,
+        reports7d,
+        moderationActions7d: bans7d,
+        attachmentMessages7d: attachment7d,
+      },
+    };
+  } catch (error) {
+    logger.error('Failed to fetch manager KPIs.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { error: 'Failed to fetch manager KPIs' };
   }
 }
 
