@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionFromRequest } from '@/lib/session';
+import { requireFreshAuthenticatedUser } from '@/lib/fresh-session';
 import { listDrafts, saveDraft, deleteDraft } from '@/lib/messaging-service';
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await requireFreshAuthenticatedUser(req);
   if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-  return NextResponse.json(await listDrafts(session.userId));
+  return NextResponse.json(await listDrafts(session.id));
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await requireFreshAuthenticatedUser(req);
   if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   const body = await req.json().catch(() => ({}));
-  const result = await saveDraft(session.userId, {
+  const result = await saveDraft(session.id, {
     recipientId: typeof body?.recipientId === 'string' ? body.recipientId : undefined,
     groupId: typeof body?.groupId === 'string' ? body.groupId : undefined,
     ciphertext: typeof body?.ciphertext === 'string' ? body.ciphertext : undefined,
@@ -23,11 +23,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await requireFreshAuthenticatedUser(req);
   if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   const result = await deleteDraft(
-    session.userId,
+    session.id,
     typeof body?.recipientId === 'string' ? body.recipientId : undefined,
     typeof body?.groupId === 'string' ? body.groupId : undefined,
   );

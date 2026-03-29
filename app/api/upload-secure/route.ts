@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateAdminSettings } from '@/lib/admin-settings';
-import { getSessionFromRequest } from '@/lib/session';
 import { assertSameOrigin } from '@/lib/request-security';
 import { storeSecureAttachment } from '@/lib/secure-attachments';
+import { requireFreshAuthenticatedUser } from '@/lib/fresh-session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,12 +11,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Origin is not allowed.' }, { status: 400 });
   }
 
-  const session = getSessionFromRequest(req);
-  if (!session) {
+  const user = await requireFreshAuthenticatedUser(req);
+  if (!user) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
-  const userId = session.userId;
+  const userId = user.id;
   const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip');
 
   try {

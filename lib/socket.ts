@@ -3,7 +3,6 @@ import { logger } from './logger';
 import { rateLimit } from './rate-limit';
 import { enqueueBackgroundJob } from './task-queue';
 import { markUserOnline, markUserOffline } from './presence';
-import { getSessionFromCookieHeader } from './session';
 import { prisma } from './prisma';
 import { parseSendMessageDto } from './dto/messaging';
 import type { DeliveryState, SocketMessagePayload } from './contracts/socket';
@@ -11,6 +10,8 @@ import { appendAuditLog } from './audit';
 import { authorizeConversationAccess, canSendToGroup } from './conversation-access';
 import { incrementMetric } from './observability';
 import { editMessage, syncConversation, toggleReaction, markMessagesDelivered } from './messaging-service';
+import { requireFreshSocketSession } from './fresh-session';
+import { normalizeConversationId } from './conversation-id';
 
 export type SocketOptions = {
   socketRateLimitWindowMs: number;
@@ -28,18 +29,20 @@ const emitDeliveryUpdate = (
 export function setupSocket(io: Server, options: SocketOptions) {
   const { socketRateLimitWindowMs, socketRateLimitMax } = options;
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     const cookieHeader = socket.handshake?.headers?.cookie as string | undefined;
-    const session = getSessionFromCookieHeader(cookieHeader, {
+    const fresh = await requireFreshSocketSession({
+      cookieHeader,
       userAgent: socket.handshake?.headers?.['user-agent'] as string | undefined,
       ip: socket.handshake.address,
     });
-    if (!session) {
+    if (!fresh) {
       logger.warn('Socket connection rejected due to missing or invalid session', { socketId: socket.id });
       incrementMetric('socket_connections_rejected', 1, { reason: 'invalid_session' });
       socket.disconnect();
       return;
     }
+    const { session } = fresh;
 
     socket.data.userId = session.userId;
     socket.join(session.userId);
@@ -302,7 +305,11 @@ export function setupSocket(io: Server, options: SocketOptions) {
 
       const message = await prisma.message.findUnique({ where: { id: messageId } }).catch(() => null);
       if (!message) return;
-      if (message.recipientId !== readerId && message.senderId !== readerId) return;
+      if (message.groupId) {
+        socket.emit('messageReadRejected', { reason: 'group_read_receipts_disabled' });
+        return;
+      }
+      if (message.recipientId !== readerId) return;
 
       const updated = await prisma.message.update({
         where: { id: messageId },
@@ -333,9 +340,19 @@ export function setupSocket(io: Server, options: SocketOptions) {
     socket.on('syncConversation', async (payload) => {
       const userId = socket.data.userId;
       if (typeof userId !== 'string') return;
+      const requestedGroupId = typeof payload?.groupId === 'string' ? payload.groupId : null;
+      const requestedRecipientId = typeof payload?.recipientId === 'string' ? payload.recipientId : null;
+      const conversationId = requestedGroupId || (requestedRecipientId ? (normalizeConversationId(requestedRecipientId, userId) ?? requestedRecipientId) : null);
+      if (conversationId) {
+        const access = await authorizeConversationAccess(conversationId, userId);
+        if (!access.allowed) {
+          socket.emit('conversationSync', { error: 'Access denied.' });
+          return;
+        }
+      }
       const result = await syncConversation(userId, {
-        recipientId: typeof payload?.recipientId === 'string' ? payload.recipientId : null,
-        groupId: typeof payload?.groupId === 'string' ? payload.groupId : null,
+        recipientId: requestedRecipientId,
+        groupId: requestedGroupId,
         since: typeof payload?.since === 'string' ? payload.since : null,
         limit: typeof payload?.limit === 'number' ? payload.limit : 200,
       });
@@ -375,10 +392,18 @@ export function setupSocket(io: Server, options: SocketOptions) {
       io.to(userId).emit('messageEdited', { id: msg.id, ciphertext: msg.ciphertext, nonce: msg.nonce, editedAt: msg.editedAt?.toISOString?.() || new Date(msg.editedAt).toISOString() });
     });
 
-    socket.on('typing', (data) => {
-      if (!data || !data.recipientId) return;
+    socket.on('typing', async (data) => {
       const senderId = socket.data.userId;
       if (typeof senderId !== 'string' || senderId.length === 0) return;
+      const requestedGroupId = typeof data?.groupId === 'string' ? data.groupId : null;
+      const requestedRecipientId = typeof data?.recipientId === 'string' ? data.recipientId : null;
+      const conversationId = requestedGroupId || (requestedRecipientId ? (normalizeConversationId(requestedRecipientId, senderId) ?? requestedRecipientId) : null);
+      if (!conversationId) return;
+      const access = await authorizeConversationAccess(conversationId, senderId);
+      if (!access.allowed) {
+        socket.emit('typingRejected', { reason: access.reason });
+        return;
+      }
       if (data.groupId) {
         socket.to(`group:${data.groupId}`).emit('userTyping', {
           senderId,

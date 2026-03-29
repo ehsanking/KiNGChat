@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       username: typeof body?.username === 'string' ? body.username : '',
       password: typeof body?.password === 'string' ? body.password : '',
       captchaToken: typeof body?.captchaToken === 'string' ? body.captchaToken : '',
+      captchaId: typeof body?.captchaId === 'string' ? body.captchaId : '',
     });
 
     if (result.error) {
