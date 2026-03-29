@@ -108,26 +108,37 @@
 
 ## Quick Start
 
-### Installer (Linux, safer flow)
+### Installer (Linux, production-safe flow)
 
 ```bash
-# 1) Download installer
-curl -fsSL -o install.sh https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh
+# 1) Download installer from a pinned tag (recommended for production)
+TAG="v1.0.0"
+curl -fsSLo install.sh "https://raw.githubusercontent.com/ehsanking/ElaheMessenger/${TAG}/install.sh"
 
-# 2) (Optional) Inspect installer before running
+# 2) Verify checksum (recommended)
+# Replace with the checksum published for the chosen release/tag.
+echo "<sha256>  install.sh" | sha256sum -c -
+
+# 3) Inspect installer before running
 less install.sh
 
-# 3) Run explicitly as root
+# 4) Run explicitly as root
 sudo bash install.sh
 ```
 
-The installer now supports explicit modes:
+Reproducible alternatives:
 
 ```bash
-# Optional: pin to a trusted release tag or commit for reproducible source trust
+# Pinned tag
 sudo INSTALL_REF=v1.0.0 bash install.sh
-# or
-sudo INSTALL_REF=<git-commit-sha> bash install.sh
+
+# Pinned commit
+sudo INSTALL_REF=<40-char-commit-sha> bash install.sh
+```
+Unsafe/dev-only (mutable branch head):
+```bash
+curl -fsSLo install.sh https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh
+sudo INSTALL_REF=main bash install.sh
 ```
 1. **Fresh install** (new deployment)
 2. **Upgrade** (safe in-place update, preserves `.env` secrets/data)
@@ -136,6 +147,7 @@ sudo INSTALL_REF=<git-commit-sha> bash install.sh
 Installer safety behavior:
 - Prompts for a **source ref strategy** (latest tag recommended, or explicit tag/commit); mutable `main` head is still available but warned.
 - Preserves operator-managed config by default on upgrade (`.env`, `Caddyfile`, compose overrides). Regeneration happens only when explicitly selected.
+- Preserves existing `.npmrc` and registry/mirror settings; creates a default `.npmrc` only when missing.
 - Upgrade now prompts for proxy behavior: **preserve existing proxy config** (default) or **regenerate proxy config** (for ingress/domain/IP changes).
 - Preserves existing production secrets on upgrade (`POSTGRES_*`, `APP_DB_*`, `DATABASE_URL`, auth/encryption/download secrets, admin credentials) unless you explicitly change values.
 - Enforces database role separation: bootstrap role (`POSTGRES_*`) for DB provisioning and least-privilege runtime role (`APP_DB_*`) for the app `DATABASE_URL`.
@@ -146,6 +158,7 @@ Installer safety behavior:
 - Verifies post-launch health in explicit phases: container health, local reverse-proxy routing, and external DNS/TLS readiness guidance.
 - Fails install when local reverse-proxy routing does not work, and only warns for external DNS/TLS propagation uncertainty.
 - Source trust defaults to a pinned tag when available; mutable branch-head installs are opt-in and explicitly warned during installer prompts.
+- Fresh/reinstall writes bootstrap admin password to a one-time file (`./runtime/admin-bootstrap-password`) and passes it via `ADMIN_BOOTSTRAP_PASSWORD_FILE`.
 - `ADMIN_USERNAME`/`ADMIN_PASSWORD` are create-only by default; if `ADMIN_BOOTSTRAP_RESET_EXISTING=true` is used, reset is consumed once per credential set (not repeated on every restart).
 - Does **not** auto-enable UFW; firewall changes remain operator-driven.
 
@@ -158,24 +171,35 @@ Installer safety behavior:
 git clone https://github.com/ehsanking/ElaheMessenger.git
 cd ElaheMessenger
 
-# 2. Copy environment template
+# 2. Choose environment template
 cp .env.example .env
 
-# 3. Edit .env — at minimum set:
-#    DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, APP_URL
+# For production, use:
+# cp production.env.example .env
+
+# 3. Edit .env and set all required production values.
+# Required for production:
+#   APP_ENV=production
+#   DATABASE_URL (PostgreSQL)
+#   APP_DB_USER / APP_DB_PASSWORD
+#   APP_URL / ALLOWED_ORIGINS
+#   JWT_SECRET / SESSION_SECRET / ENCRYPTION_KEY / DOWNLOAD_TOKEN_SECRET
+#   ADMIN_USERNAME and (ADMIN_PASSWORD or ADMIN_BOOTSTRAP_PASSWORD_FILE)
+#   LOCAL_CAPTCHA_SECRET when CAPTCHA_PROVIDER=local
 
 # 4. Install dependencies (generates Prisma client automatically)
 npm install
 
-# 5. Apply database migrations
-npx prisma migrate deploy
-# or for development:
-npx prisma db push
+# 5. Validate environment before first start
+npm run validate:env -- --mode=production
 
-# 6. Build for production
+# 6. Apply database migrations
+npm run db:migrate:prod
+
+# 7. Build for production
 npm run build
 
-# 7. Start
+# 8. Start
 npm start
 ```
 
@@ -206,7 +230,7 @@ Environment loading policy:
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_URL` | SQLite (dev only) | PostgreSQL connection string for production |
+| `DATABASE_URL` | SQLite in `.env.example` | PostgreSQL connection string for production |
 | `POSTGRES_USER` | *(none)* | Bootstrap/admin PostgreSQL role (provisioning only) |
 | `POSTGRES_PASSWORD` | *(none)* | Bootstrap/admin PostgreSQL password |
 | `POSTGRES_DB` | `elahe` | PostgreSQL database name |
@@ -226,8 +250,11 @@ Environment loading policy:
 | `ENCRYPTION_KEY` | AES encryption key for sensitive fields |
 | `DOWNLOAD_TOKEN_SECRET` | Attachment/token signing secret (independent from session secret) |
 | `LOCAL_CAPTCHA_SECRET` | HMAC key for local captcha challenge signing in production |
+| `CAPTCHA_PROVIDER` | `recaptcha` (default) or `local` |
 | `ADMIN_USERNAME` | Initial admin username (required; no default) |
-| `ADMIN_PASSWORD` | Initial admin password — **change immediately after first login** |
+| `ADMIN_PASSWORD` | Optional inline bootstrap password (legacy-compatible) |
+| `ADMIN_BOOTSTRAP_PASSWORD_FILE` | Optional bootstrap password file path (preferred in production) |
+| `ADMIN_BOOTSTRAP_STRICT` | Fail startup when bootstrap cannot complete (`true` on fresh installs) |
 
 ### Push Notifications *(optional)*
 

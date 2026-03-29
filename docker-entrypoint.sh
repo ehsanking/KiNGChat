@@ -69,6 +69,18 @@ warn() {
   echo "[entrypoint] WARNING: $1" >&2
 }
 
+resolve_admin_bootstrap_password() {
+  if [ -n "${ADMIN_PASSWORD:-}" ]; then
+    printf "%s" "$ADMIN_PASSWORD"
+    return 0
+  fi
+  if [ -n "${ADMIN_BOOTSTRAP_PASSWORD_FILE:-}" ] && [ -r "${ADMIN_BOOTSTRAP_PASSWORD_FILE:-}" ]; then
+    tr -d '\r\n' < "${ADMIN_BOOTSTRAP_PASSWORD_FILE}"
+    return 0
+  fi
+  printf ""
+}
+
 fail() {
   echo "[entrypoint] ERROR: $1" >&2
   exit 1
@@ -130,8 +142,14 @@ APP_ENV_EFFECTIVE="${APP_ENV:-${NODE_ENV:-development}}"
 if [ "$APP_ENV_EFFECTIVE" = "production" ]; then
   require_strong_value JWT_SECRET 32 "changeme changeme_jwt_secret_min32chars_xxx your-super-secret-jwt-key-change-this-in-production"
   require_strong_value ENCRYPTION_KEY 32 "changeme changeme_encryption_key_32chars! your-32-character-encryption-key"
-  require_strong_value ADMIN_PASSWORD 16 "admin changeme password change_this_admin_password"
+  _bootstrap_password="$(resolve_admin_bootstrap_password)"
+  if [ -n "$_bootstrap_password" ]; then
+    ADMIN_PASSWORD="$_bootstrap_password" require_strong_value ADMIN_PASSWORD 16 "admin changeme password change_this_admin_password"
+  fi
   require_strong_value APP_DB_PASSWORD 16 "postgres pass password"
+  if [ "${CAPTCHA_PROVIDER:-recaptcha}" = "local" ] && [ -z "${LOCAL_CAPTCHA_SECRET:-}" ]; then
+    fail "LOCAL_CAPTCHA_SECRET is required when CAPTCHA_PROVIDER=local in production."
+  fi
 fi
 
 # ── Wait for database to be ready ─────────────

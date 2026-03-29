@@ -74,8 +74,20 @@ registerBackgroundJob('push_notification', async (payload) => {
 
 app.prepare().then(async () => {
   logger.info('Preparing application server bootstrap.');
-  await initializeAdmin();
-  logger.info('Admin bootstrap finished.');
+  const adminBootstrap = await initializeAdmin();
+  const strictAdminBootstrap = (process.env.ADMIN_BOOTSTRAP_STRICT ?? 'false').toLowerCase() === 'true';
+  if (!adminBootstrap.ok || (strictAdminBootstrap && adminBootstrap.action === 'skipped')) {
+    logger.error('Admin bootstrap failed strict startup checks.', {
+      strictAdminBootstrap,
+      action: adminBootstrap.action,
+      reason: adminBootstrap.reason ?? null,
+    });
+    process.exit(1);
+  }
+  logger.info('Admin bootstrap finished.', {
+    action: adminBootstrap.action,
+    strictAdminBootstrap,
+  });
 
   const server = createServer((req, res) => {
     const parsedUrl = parse(req.url!, true);

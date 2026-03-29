@@ -29,13 +29,17 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      # Security — defaults provided so server starts even without .env
+      # Security — production secrets must be set explicitly via env/.env
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is required}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
       - DOWNLOAD_TOKEN_SECRET=${DOWNLOAD_TOKEN_SECRET:?DOWNLOAD_TOKEN_SECRET is required}
+      - LOCAL_CAPTCHA_SECRET=${LOCAL_CAPTCHA_SECRET:-}
+      - CAPTCHA_PROVIDER=${CAPTCHA_PROVIDER:-recaptcha}
       - ADMIN_USERNAME=${ADMIN_USERNAME:?ADMIN_USERNAME is required}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - ADMIN_BOOTSTRAP_PASSWORD_FILE=${ADMIN_BOOTSTRAP_PASSWORD_FILE:-}
+      - ADMIN_BOOTSTRAP_STRICT=${ADMIN_BOOTSTRAP_STRICT:-false}
       - ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE=${ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE:-false}
       - ADMIN_BOOTSTRAP_RESET_EXISTING=${ADMIN_BOOTSTRAP_RESET_EXISTING:-false}
       # VAPID (optional — push notifications disabled if not set)
@@ -60,6 +64,7 @@ services:
     volumes:
       - object_storage_data:/app/object_storage
       - runtime_state_data:/app/runtime_state
+      - ./runtime:/run/secrets:ro
     depends_on:
       db:
         condition: service_healthy

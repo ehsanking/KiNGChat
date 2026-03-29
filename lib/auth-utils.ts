@@ -4,6 +4,7 @@ import { logger } from './logger';
 import path from 'path';
 import { createHash } from 'crypto';
 import { mkdir, readFile, writeFile } from 'fs/promises';
+import fs from 'fs';
 
 const getAdminBootstrapStateFile = () => {
   const stateDir = process.env.ADMIN_BOOTSTRAP_STATE_DIR || '/app/runtime_state';
@@ -31,17 +32,41 @@ async function markAdminResetConsumed(fingerprint: string) {
 }
 
 export async function initializeAdmin() {
+  const result = {
+    ok: true,
+    action: 'noop' as 'created' | 'reset' | 'exists' | 'skipped' | 'noop' | 'failed',
+    reason: '' as string | undefined,
+  };
+
+  const resolveBootstrapPassword = () => {
+    const inlinePassword = process.env.ADMIN_PASSWORD?.trim();
+    if (inlinePassword) return inlinePassword;
+
+    const passwordFile = process.env.ADMIN_BOOTSTRAP_PASSWORD_FILE?.trim();
+    if (!passwordFile) return '';
+    try {
+      const fileContent = fs.readFileSync(passwordFile, 'utf8').trim();
+      return fileContent;
+    } catch (error) {
+      throw new Error(`Failed to read ADMIN_BOOTSTRAP_PASSWORD_FILE at ${passwordFile}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   try {
     const adminUsername = process.env.ADMIN_USERNAME;
     if (!adminUsername) {
       logger.warn('ADMIN_USERNAME is not configured. Skipping admin bootstrap.');
-      return;
+      result.action = 'skipped';
+      result.reason = 'ADMIN_USERNAME is not configured';
+      return result;
     }
-    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminPassword = resolveBootstrapPassword();
 
     if (!adminPassword) {
-      logger.warn('ADMIN_PASSWORD is not configured. Skipping admin bootstrap to avoid insecure defaults.', { adminUsername });
-      return;
+      logger.info('No bootstrap admin password source is configured. Skipping admin bootstrap.', { adminUsername });
+      result.action = 'skipped';
+      result.reason = 'No bootstrap password source configured';
+      return result;
     }
 
     const adminExists = await prisma.user.findFirst({
@@ -75,6 +100,7 @@ export async function initializeAdmin() {
         },
       });
       logger.info('Bootstrap admin created successfully.', { adminUsername, bootstrapForcePasswordChange });
+      result.action = 'created';
     } else if (allowResetExisting && !resetAlreadyConsumed) {
       const passwordHash = await argon2.hash(adminPassword);
       await prisma.user.update({
@@ -93,25 +119,34 @@ export async function initializeAdmin() {
         bootstrapForcePasswordChange,
       });
       await markAdminResetConsumed(resetStateFingerprint);
+      result.action = 'reset';
     } else if (allowResetExisting && resetAlreadyConsumed) {
       logger.info('Admin reset flag already consumed for current bootstrap credentials; skipping repeated reset.', {
         adminUsername,
       });
+      result.action = 'exists';
     } else {
       logger.info('Admin user already exists. Env bootstrap credentials are create-only and were not applied.', {
         adminUsername,
         existingAdminId: adminExists.id,
         allowResetExisting,
       });
+      result.action = 'exists';
     }
+    return result;
   } catch (error: unknown) {
     if (typeof error === 'object' && error && 'code' in error && error.code === 'P2002') {
       logger.info('Admin user already created by another process.');
+      result.action = 'exists';
+      return result;
     } else {
-      // Log but do NOT rethrow — a crash here would prevent the server from starting
       logger.error('Failed to initialize admin.', {
         error: error instanceof Error ? error.message : String(error),
       });
+      result.ok = false;
+      result.action = 'failed';
+      result.reason = error instanceof Error ? error.message : String(error);
+      return result;
     }
   }
 }

@@ -17,6 +17,7 @@
     "db:init:dev": "tsx scripts/db-setup.ts init-dev",
     "db:migrate:prod": "tsx scripts/db-setup.ts migrate-prod",
     "prisma:generate": "tsx scripts/prisma-generate.ts",
+    "validate:env": "tsx scripts/validate-env.ts",
     "postinstall": "npm run prisma:generate",
     "prebuild": "npm run prisma:generate",
     "typecheck": "tsc --noEmit",

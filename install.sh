@@ -879,6 +879,8 @@ configure_runtime_env() {
   env_set_if_missing "SESSION_SECRET" "$(random_hex 32)"
   env_set_if_missing "ENCRYPTION_KEY" "$(random_hex 32)"
   env_set_if_missing "DOWNLOAD_TOKEN_SECRET" "$(random_hex 32)"
+  env_set_if_missing "LOCAL_CAPTCHA_SECRET" "$(random_hex 32)"
+  env_set_if_missing "CAPTCHA_PROVIDER" "recaptcha"
 
   env_set_if_missing "RATE_LIMIT_WINDOW_MS" "900000"
   env_set_if_missing "RATE_LIMIT_MAX_REQUESTS" "100"
@@ -891,7 +893,14 @@ configure_runtime_env() {
 
   if [ "$INSTALL_MODE" = "fresh" ] || [ "$INSTALL_MODE" = "reinstall" ]; then
     env_set_if_missing "ADMIN_USERNAME" "$ADMIN_USERNAME_VALUE"
-    env_set_if_missing "ADMIN_PASSWORD" "$ADMIN_PASSWORD_VALUE"
+    local bootstrap_password_file_host="$TARGET_DIR/runtime/admin-bootstrap-password"
+    mkdir -p "$TARGET_DIR/runtime"
+    if [ ! -f "$bootstrap_password_file_host" ]; then
+      printf '%s\n' "$ADMIN_PASSWORD_VALUE" > "$bootstrap_password_file_host"
+      ensure_root_owned_600 "$bootstrap_password_file_host"
+    fi
+    env_set_if_missing "ADMIN_BOOTSTRAP_PASSWORD_FILE" "/run/secrets/admin-bootstrap-password"
+    env_set_if_missing "ADMIN_BOOTSTRAP_STRICT" "true"
     if [ "$ADMIN_FORCE_PASSWORD_CHANGE" = true ]; then
       env_set_if_missing "ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE" "true"
     else
@@ -899,6 +908,7 @@ configure_runtime_env() {
     fi
     env_set_if_missing "ADMIN_BOOTSTRAP_RESET_EXISTING" "false"
   else
+    env_set_if_missing "ADMIN_BOOTSTRAP_STRICT" "false"
     env_set_if_missing "ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE" "false"
     env_set_if_missing "ADMIN_BOOTSTRAP_RESET_EXISTING" "false"
   fi
@@ -912,14 +922,18 @@ configure_runtime_env() {
 
 configure_npmrc() {
   local npmrc="$TARGET_DIR/.npmrc"
+  if [ -f "$npmrc" ]; then
+    log_info "Existing .npmrc detected; preserving operator npm configuration."
+    return
+  fi
   cat > "$npmrc" <<'EON'
 registry=https://registry.npmjs.org
-legacy-peer-deps=true
 fetch-retry-maxtimeout=600000
 fetch-retry-mintimeout=100000
 fetch-retries=10
 maxsockets=10
 EON
+  log_success "Created default .npmrc (operator can override as needed)."
 }
 
 validate_caddy_config() {
@@ -1132,7 +1146,23 @@ verify_post_launch_health() {
     exit 1
   fi
 
-  log_info "Phase 3/3: external readiness checks"
+  log_info "Phase 3/4: bootstrap admin verification"
+  (
+    cd "$TARGET_DIR"
+    local admin_username admin_count
+    admin_username="$(env_get ADMIN_USERNAME)"
+    [ -n "$admin_username" ] || { log_error "ADMIN_USERNAME is not set; cannot verify bootstrap admin."; exit 1; }
+    admin_count="$(docker compose exec -T db sh -lc "PGPASSWORD=\"\$POSTGRES_PASSWORD\" psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tAc \"SELECT COUNT(*) FROM \\\"User\\\" WHERE username = '${admin_username}' AND role = 'ADMIN';\"" 2>/dev/null | tr -d '[:space:]')"
+    [ -n "$admin_count" ] || admin_count="0"
+    if [ "$admin_count" != "1" ]; then
+      log_error "Bootstrap admin verification failed. Expected one admin user '${admin_username}', found ${admin_count}."
+      print_failure_diagnostics
+      exit 1
+    fi
+  )
+  log_success "Bootstrap admin user verified."
+
+  log_info "Phase 4/4: external readiness checks"
   if [ "$USE_DOMAIN" = true ]; then
     log_warn "Container/proxy checks passed. External DNS/TLS issuance is NOT guaranteed yet."
     log_warn "Verify DNS A/AAAA records, then run: curl -Iv https://${DOMAIN_NAME}"

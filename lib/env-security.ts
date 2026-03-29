@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 const MIN_SECRET_LENGTH = 32;
 
 const requireEnv = (name: string) => {
@@ -6,6 +8,19 @@ const requireEnv = (name: string) => {
     throw new Error(`${name} is required.`);
   }
   return value;
+};
+
+const getBootstrapAdminPassword = () => {
+  const inline = process.env.ADMIN_PASSWORD?.trim();
+  if (inline) return inline;
+
+  const filePath = process.env.ADMIN_BOOTSTRAP_PASSWORD_FILE?.trim();
+  if (!filePath) return '';
+  try {
+    return fs.readFileSync(filePath, 'utf8').trim();
+  } catch (error) {
+    throw new Error(`ADMIN_BOOTSTRAP_PASSWORD_FILE could not be read: ${error instanceof Error ? error.message : String(error)}`);
+  }
 };
 
 const forbidWeakValue = (name: string, value: string, denied: string[]) => {
@@ -40,7 +55,7 @@ export const validateProductionEnvironment = () => {
   const jwtSecret = requireEnv('JWT_SECRET');
   const sessionSecret = requireEnv('SESSION_SECRET');
   const encryptionKey = requireEnv('ENCRYPTION_KEY');
-  const adminPassword = requireEnv('ADMIN_PASSWORD');
+  const adminPassword = getBootstrapAdminPassword();
   const downloadTokenSecret = requireEnv('DOWNLOAD_TOKEN_SECRET');
   const appDbPassword = requireEnv('APP_DB_PASSWORD');
   const databaseUrl = requireEnv('DATABASE_URL');
@@ -61,24 +76,39 @@ export const validateProductionEnvironment = () => {
   requireMinLength('JWT_SECRET', jwtSecret);
   requireMinLength('SESSION_SECRET', sessionSecret);
   requireMinLength('ENCRYPTION_KEY', encryptionKey);
-  requireMinLength('ADMIN_PASSWORD', adminPassword, 16);
   requireMinLength('APP_DB_PASSWORD', appDbPassword, 16);
   requireMinLength('DOWNLOAD_TOKEN_SECRET', downloadTokenSecret);
+  if (adminPassword) {
+    requireMinLength('ADMIN_PASSWORD', adminPassword, 16);
+  }
   if (minioEndpoint) {
     const minioSecret = process.env.MINIO_SECRET_KEY!;
     requireMinLength('MINIO_SECRET_KEY', minioSecret, 16);
   }
 
-  forbidWeakValue('ADMIN_PASSWORD', adminPassword, ['admin', 'changeme', 'password', 'change_this_admin_password']);
+  if (adminPassword) {
+    forbidWeakValue('ADMIN_PASSWORD', adminPassword, ['admin', 'changeme', 'password', 'change_this_admin_password']);
+  }
   forbidWeakValue('APP_DB_PASSWORD', appDbPassword, ['pass', 'postgres', 'password']);
 
   forbidPlaceholderPattern('JWT_SECRET', jwtSecret, [/^__change_me/i, /^your-super-secret-jwt-key-change-this-in-production$/i]);
   forbidPlaceholderPattern('ENCRYPTION_KEY', encryptionKey, [/^__change_me/i, /^your-32-character-encryption-key$/i]);
   forbidPlaceholderPattern('SESSION_SECRET', sessionSecret, [/^__change_me/i, /^replace-with-32-plus-char-secret$/i]);
   forbidPlaceholderPattern('DOWNLOAD_TOKEN_SECRET', downloadTokenSecret, [/^__change_me/i, /^replace-with-32-plus-char-secret$/i]);
-  forbidPlaceholderPattern('ADMIN_PASSWORD', adminPassword, [/^__change_me/i, /^replace-with-strong-admin-password$/i]);
+  if (adminPassword) {
+    forbidPlaceholderPattern('ADMIN_PASSWORD', adminPassword, [/^__change_me/i, /^replace-with-strong-admin-password$/i]);
+  }
   forbidPlaceholderPattern('DATABASE_URL', databaseUrl, [/__db_/i, /:\/\/[^:]+:__[^@]+__@/i, /__set_me/i]);
   forbidPlaceholderPattern('ADMIN_USERNAME', adminUsername, [/^admin$/i, /^__set_me/i]);
+  if (databaseUrl.startsWith('file:')) {
+    throw new Error('DATABASE_URL cannot use SQLite in production.');
+  }
+  const captchaProvider = (process.env.CAPTCHA_PROVIDER ?? 'recaptcha').trim().toLowerCase();
+  if (captchaProvider === 'local') {
+    const localCaptchaSecret = requireEnv('LOCAL_CAPTCHA_SECRET');
+    requireMinLength('LOCAL_CAPTCHA_SECRET', localCaptchaSecret, 32);
+    forbidPlaceholderPattern('LOCAL_CAPTCHA_SECRET', localCaptchaSecret, [/^replace-with/i, /^__change_me/i]);
+  }
   if (minioEndpoint) {
     const minioSecret = process.env.MINIO_SECRET_KEY!;
     forbidWeakValue('MINIO_SECRET_KEY', minioSecret, ['supersecret', 'minioadmin', 'password']);
