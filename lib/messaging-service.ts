@@ -3,12 +3,16 @@ import { authorizeConversationAccess, canSendToGroup } from '@/lib/conversation-
 import { appendAuditLog } from '@/lib/audit';
 import { incrementMetric } from '@/lib/observability';
 import { conversationCacheKey, getOrSetCache, invalidateCacheByPrefix } from '@/lib/cache';
+import { canonicalizeDirectConversationId } from '@/lib/conversation-id';
 
 const MAX_EDIT_WINDOW_MS = Number(process.env.MESSAGE_EDIT_WINDOW_MS || 15 * 60 * 1000);
 const MAX_SYNC_BATCH = Number(process.env.OFFLINE_SYNC_BATCH || 200);
 
-export const getConversationKey = (recipientId?: string | null, groupId?: string | null) =>
-  groupId ? `group:${groupId}` : recipientId ? `direct:${recipientId}` : 'unknown';
+export const getConversationKey = (userId: string, recipientId?: string | null, groupId?: string | null) => {
+  if (groupId) return `group:${groupId}`;
+  if (!recipientId) return 'unknown';
+  return canonicalizeDirectConversationId(userId, recipientId) ?? 'unknown';
+};
 
 const ensureConversationAccess = async (userId: string, recipientId?: string | null, groupId?: string | null) => {
   if (groupId) return canSendToGroup(groupId, userId);
@@ -17,13 +21,13 @@ const ensureConversationAccess = async (userId: string, recipientId?: string | n
 };
 
 export const invalidateConversationCaches = (userId: string, recipientId?: string | null, groupId?: string | null) => {
-  const key = getConversationKey(recipientId, groupId);
+  const key = getConversationKey(userId, recipientId, groupId);
   invalidateCacheByPrefix(`conversation:${userId}:${key}:`);
-  if (recipientId) invalidateCacheByPrefix(`conversation:${recipientId}:${getConversationKey(userId, null)}:`);
+  if (recipientId) invalidateCacheByPrefix(`conversation:${recipientId}:${getConversationKey(recipientId, userId, null)}:`);
 };
 
 export const getMessageHistoryExtended = async (userId: string, recipientId?: string, groupId?: string, cursor?: string, limit = 50) => {
-  const cacheKey = conversationCacheKey(userId, getConversationKey(recipientId, groupId), cursor || 'head');
+  const cacheKey = conversationCacheKey(userId, getConversationKey(userId, recipientId, groupId), cursor || 'head');
   return getOrSetCache(cacheKey, async () => {
     const access = await ensureConversationAccess(userId, recipientId, groupId);
     if (!access.allowed) return { error: 'Access denied.' };
@@ -119,7 +123,7 @@ export const editMessage = async (userId: string, messageId: string, ciphertext:
 };
 
 export const saveDraft = async (userId: string, args: { recipientId?: string | null; groupId?: string | null; ciphertext?: string | null; nonce?: string | null; clientDraft?: string | null }) => {
-  const conversationKey = getConversationKey(args.recipientId, args.groupId);
+  const conversationKey = getConversationKey(userId, args.recipientId, args.groupId);
   if (conversationKey === 'unknown') return { error: 'Conversation is required.' };
   const access = await ensureConversationAccess(userId, args.recipientId, args.groupId);
   if (!access.allowed) return { error: 'Access denied.' };
@@ -138,7 +142,7 @@ export const listDrafts = async (userId: string) => {
 };
 
 export const deleteDraft = async (userId: string, recipientId?: string | null, groupId?: string | null) => {
-  const conversationKey = getConversationKey(recipientId, groupId);
+  const conversationKey = getConversationKey(userId, recipientId, groupId);
   await prisma.messageDraft.deleteMany({ where: { userId, conversationKey } });
   incrementMetric('drafts_deleted');
   return { success: true };

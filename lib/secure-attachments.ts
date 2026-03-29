@@ -6,6 +6,7 @@ import { authorizeConversationAccess } from '@/lib/conversation-access';
 import { incrementMetric } from '@/lib/observability';
 import { getPrivateObject, getPrivateObjectPath, putPrivateObject } from '@/lib/object-storage';
 import { isSecureUploadAllowed } from '@/lib/file-upload-policy';
+import { normalizeConversationId } from '@/lib/conversation-id';
 
 const getSigningSecret = () => {
   const secret = process.env.DOWNLOAD_TOKEN_SECRET;
@@ -16,12 +17,14 @@ const getSigningSecret = () => {
 };
 
 export const buildSecureAttachmentKey = (conversationId: string, fileId: string) =>
-  path.posix.join('attachments', conversationId, `${fileId}.bin`);
+  path.posix.join('attachments', normalizeConversationId(conversationId) ?? conversationId, `${fileId}.bin`);
 
 const buildSecureAttachmentMetadataKey = (fileId: string) => path.posix.join('attachment-index', `${fileId}.json`);
 
 export const verifyAttachmentWriteAccess = async (conversationId: string, userId: string) => {
-  const access = await authorizeConversationAccess(conversationId, userId);
+  const normalizedConversationId = normalizeConversationId(conversationId, userId);
+  if (!normalizedConversationId) return { allowed: false as const, reason: 'missing_conversation_id', kind: 'unknown' as const };
+  const access = await authorizeConversationAccess(normalizedConversationId, userId);
   if (!access.allowed) return access;
   if (access.kind === 'group' && access.isMuted) {
     return { allowed: false as const, reason: 'member_muted', kind: 'group' as const };
@@ -79,6 +82,10 @@ export const storeSecureAttachment = async (params: {
   metadata?: Record<string, unknown>;
   allowedFileFormats?: string;
 }) => {
+  const normalizedConversationId = normalizeConversationId(params.conversationId, params.userId);
+  if (!normalizedConversationId) {
+    return { ok: false as const, status: 400, error: 'Invalid conversation identifier.' };
+  }
   const access = await verifyAttachmentWriteAccess(params.conversationId, params.userId);
   if (!access.allowed) {
     await appendAuditLog({ action: 'SECURE_UPLOAD_BLOCKED', actorUserId: params.userId, targetId: params.conversationId, conversationId: params.conversationId, ip: params.ip, outcome: 'blocked', details: { reason: access.reason } });
@@ -106,14 +113,14 @@ export const storeSecureAttachment = async (params: {
   }
 
   const fileId = crypto.randomUUID();
-  const objectKey = buildSecureAttachmentKey(params.conversationId, fileId);
+  const objectKey = buildSecureAttachmentKey(normalizedConversationId, fileId);
   const storage = await putPrivateObject(objectKey, buffer);
-  await persistAttachmentMetadata({ fileId, conversationId: params.conversationId, ownerUserId: params.userId, objectKey });
+  await persistAttachmentMetadata({ fileId, conversationId: normalizedConversationId, ownerUserId: params.userId, objectKey });
 
   const expiresAt = Date.now() + 60 * 60 * 1000;
-  const token = createSecureDownloadToken(fileId, expiresAt, params.userId, params.conversationId);
+  const token = createSecureDownloadToken(fileId, expiresAt, params.userId, normalizedConversationId);
   incrementMetric('secure_uploads_created', 1, { kind: access.kind });
-  await appendAuditLog({ action: 'SECURE_UPLOAD_CREATED', actorUserId: params.userId, targetId: fileId, conversationId: params.conversationId, ip: params.ip, outcome: 'success', details: { fileName: params.file.name, fileSize: params.file.size, sha256: scan.sha256, detectedMime: scan.detectedMime, conversationKind: access.kind, storageUrl: storage.storageUrl, ...params.metadata } });
+  await appendAuditLog({ action: 'SECURE_UPLOAD_CREATED', actorUserId: params.userId, targetId: fileId, conversationId: normalizedConversationId, ip: params.ip, outcome: 'success', details: { fileName: params.file.name, fileSize: params.file.size, sha256: scan.sha256, detectedMime: scan.detectedMime, conversationKind: access.kind, storageUrl: storage.storageUrl, ...params.metadata } });
 
   return {
     ok: true as const,
@@ -121,7 +128,7 @@ export const storeSecureAttachment = async (params: {
     token,
     access,
     storagePath: storage.storageUrl,
-    downloadUrl: `/api/upload-secure/${fileId}?token=${token}`,
+    downloadUrl: `/api/upload-secure/${fileId}`,
     headerDownloadUrl: `/api/upload-secure/${fileId}`,
   };
 };

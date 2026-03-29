@@ -30,10 +30,12 @@ import {
 // be performed on behalf of another user simply by passing a different userId.
 import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
 import { verifyRecaptchaToken } from '@/lib/google-recaptcha';
+import { verifyLocalCaptchaChallenge } from '@/lib/local-captcha';
 import { createRequestId } from '@/lib/observability';
 import { decryptSecret, encryptSecret, isEncryptedSecret } from '@/lib/secret-encryption';
 import { isPasswordPolicyCompliant, PASSWORD_POLICY_MESSAGE } from '@/lib/password-policy';
-import { createPreAuthChallenge, consumePreAuthChallenge } from '@/lib/preauth-challenge';
+import { createPreAuthChallenge, consumePreAuthChallengeStrict } from '@/lib/preauth-challenge';
+import { getFreshSessionUser } from '@/lib/session-auth';
 
 /**
  * Reads the session token from the request cookies and verifies it.  If the cookie is
@@ -59,6 +61,8 @@ const AUTH_REQUIRED_ERROR = { error: 'Authentication required.' };
 const requireAuthenticatedUser = async () => {
   const session = await getSessionFromCookies();
   if (!session?.userId) return null;
+  const user = await getFreshSessionUser(session);
+  if (!user || user.role !== session.role) return null;
   return session;
 };
 
@@ -96,6 +100,7 @@ type LoginUserInput = {
   username: string;
   password: string;
   captchaToken?: string;
+  captchaId?: string;
 };
 
 type UpdateAdminCredentialsInput = {
@@ -171,6 +176,43 @@ const internalActionError = (operation: string) => {
     errorCode: 'INTERNAL_ERROR' as const,
     requestId,
   };
+};
+
+const verifyCaptchaForAuthFlow = async (
+  settings: Awaited<ReturnType<typeof getOrCreateAdminSettings>>,
+  ip: string,
+  captchaToken: string,
+  captchaId?: string,
+) => {
+  if (!settings.isCaptchaEnabled) return { ok: true as const };
+  const captchaProvider = (process.env.CAPTCHA_PROVIDER ?? 'recaptcha').trim().toLowerCase();
+
+  if (captchaProvider === 'local') {
+    if (!captchaId || !captchaToken) return { ok: false as const, error: 'Captcha verification is required.' };
+    return verifyLocalCaptchaChallenge(captchaId, captchaToken)
+      ? { ok: true as const }
+      : { ok: false as const, error: 'Captcha verification failed.' };
+  }
+
+  const recaptchaSiteKey = typeof (settings as Record<string, unknown>).recaptchaSiteKey === 'string'
+    ? ((settings as Record<string, unknown>).recaptchaSiteKey as string).trim()
+    : '';
+  const storedRecaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
+    ? ((settings as Record<string, unknown>).recaptchaSecretKey as string).trim()
+    : '';
+  const recaptchaSecretKey = storedRecaptchaSecretKey
+    ? (isEncryptedSecret(storedRecaptchaSecretKey) ? decryptSecret(storedRecaptchaSecretKey) : storedRecaptchaSecretKey)
+    : '';
+  if (!recaptchaSiteKey || !recaptchaSecretKey) {
+    return { ok: false as const, error: 'Captcha is enabled but not configured by administrator.' };
+  }
+  if (!captchaToken) return { ok: false as const, error: 'Captcha verification is required.' };
+  const captchaVerified = await verifyRecaptchaToken({
+    token: captchaToken,
+    secret: recaptchaSecretKey,
+    remoteIp: ip === 'unknown' ? undefined : ip,
+  });
+  return captchaVerified ? { ok: true as const } : { ok: false as const, error: 'Captcha verification failed.' };
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -262,30 +304,9 @@ export async function registerUser(formData: RegisterUserInput) {
     return { error: 'Registration is currently disabled by administrator.' };
   }
 
-  if (settings.isCaptchaEnabled) {
-    const recaptchaSiteKey = typeof (settings as Record<string, unknown>).recaptchaSiteKey === 'string'
-      ? ((settings as Record<string, unknown>).recaptchaSiteKey as string).trim()
-      : '';
-    const storedRecaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
-      ? ((settings as Record<string, unknown>).recaptchaSecretKey as string).trim()
-      : '';
-    const recaptchaSecretKey = storedRecaptchaSecretKey
-      ? (isEncryptedSecret(storedRecaptchaSecretKey) ? decryptSecret(storedRecaptchaSecretKey) : storedRecaptchaSecretKey)
-      : '';
-    if (!recaptchaSiteKey || !recaptchaSecretKey) {
-      return { error: 'Captcha is enabled but not configured by administrator.' };
-    }
-    if (!captchaToken) {
-      return { error: 'Captcha verification is required.' };
-    }
-    const captchaVerified = await verifyRecaptchaToken({
-      token: captchaToken,
-      secret: recaptchaSecretKey,
-      remoteIp: ip === 'unknown' ? undefined : ip,
-    });
-    if (!captchaVerified) {
-      return { error: 'Captcha verification failed.' };
-    }
+  const captchaCheck = await verifyCaptchaForAuthFlow(settings, ip, captchaToken, asTrimmedString((formData as Record<string, unknown>).captchaId));
+  if (!captchaCheck.ok) {
+    return { error: captchaCheck.error };
   }
 
   if (settings.maxRegistrations !== null) {
@@ -414,30 +435,9 @@ export async function loginUser(formData: LoginUserInput) {
     return getOrCreateAdminSettings();
   });
 
-  if (settings.isCaptchaEnabled) {
-    const recaptchaSiteKey = typeof (settings as Record<string, unknown>).recaptchaSiteKey === 'string'
-      ? ((settings as Record<string, unknown>).recaptchaSiteKey as string).trim()
-      : '';
-    const storedRecaptchaSecretKey = typeof (settings as Record<string, unknown>).recaptchaSecretKey === 'string'
-      ? ((settings as Record<string, unknown>).recaptchaSecretKey as string).trim()
-      : '';
-    const recaptchaSecretKey = storedRecaptchaSecretKey
-      ? (isEncryptedSecret(storedRecaptchaSecretKey) ? decryptSecret(storedRecaptchaSecretKey) : storedRecaptchaSecretKey)
-      : '';
-    if (!recaptchaSiteKey || !recaptchaSecretKey) {
-      return { error: 'Captcha is enabled but not configured by administrator.' };
-    }
-    if (!captchaToken) {
-      return { error: 'Captcha verification is required.' };
-    }
-    const captchaVerified = await verifyRecaptchaToken({
-      token: captchaToken,
-      secret: recaptchaSecretKey,
-      remoteIp: ip === 'unknown' ? undefined : ip,
-    });
-    if (!captchaVerified) {
-      return { error: 'Captcha verification failed.' };
-    }
+  const captchaCheck = await verifyCaptchaForAuthFlow(settings, ip, captchaToken, asTrimmedString((formData as Record<string, unknown>).captchaId));
+  if (!captchaCheck.ok) {
+    return { error: captchaCheck.error };
   }
 
   try {
@@ -1644,13 +1644,16 @@ export async function validate2FALogin(userId: string, token: string, challengeI
   try {
     const headerStore = await headers();
     const ip = await getClientIp();
-    const challengeValid = consumePreAuthChallenge({
+    const challengeValidation = consumePreAuthChallengeStrict({
       challengeId: asTrimmedString(challengeId),
       userId: sanitizedUserId,
       userAgent: headerStore.get('user-agent'),
       ip,
     });
-    if (!challengeValid) return { error: 'Verification failed.' };
+    if (!challengeValidation.ok) {
+      if (challengeValidation.reason === 'expired') return { error: '2FA challenge expired. Please log in again.' };
+      return { error: '2FA challenge is invalid or already used. Please log in again.' };
+    }
     const attempt = await rateLimit(`2fa:login:${sanitizedUserId}:${ip}`, { windowMs: 5 * 60_000, max: 8 });
     if (!attempt.allowed) {
       await logAuditAction('TOTP_LOGIN_LOCKED', undefined, sanitizedUserId, { resetAt: attempt.resetAt });

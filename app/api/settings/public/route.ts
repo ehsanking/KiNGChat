@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getOrCreateAdminSettings } from '@/lib/admin-settings';
 import { logger } from '@/lib/logger';
+import { createLocalCaptchaChallenge } from '@/lib/local-captcha';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -17,13 +18,19 @@ export async function GET() {
     const recaptchaSiteKey = typeof (settings as Record<string, unknown>).recaptchaSiteKey === 'string'
       ? (settings as Record<string, unknown>).recaptchaSiteKey as string
       : null;
+    const captchaProvider = (process.env.CAPTCHA_PROVIDER ?? 'recaptcha').trim().toLowerCase();
+    const localCaptcha = captchaProvider === 'local' ? createLocalCaptchaChallenge() : null;
 
     return NextResponse.json({
       success: true,
       settings: {
         isRegistrationEnabled: settings.isRegistrationEnabled,
-        isCaptchaEnabled: settings.isCaptchaEnabled && Boolean(recaptchaSiteKey),
+        captchaProvider,
+        isCaptchaEnabled: settings.isCaptchaEnabled && (
+          captchaProvider === 'local' || Boolean(recaptchaSiteKey)
+        ),
         recaptchaSiteKey,
+        localCaptcha,
       },
     });
   } catch (error) {
@@ -34,8 +41,10 @@ export async function GET() {
       success: true,
       settings: {
         isRegistrationEnabled: true,
+        captchaProvider: 'recaptcha',
         isCaptchaEnabled: false,
         recaptchaSiteKey: null,
+        localCaptcha: null,
       },
       fallback: true,
     });

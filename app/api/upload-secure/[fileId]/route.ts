@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
-import { getSessionFromRequest } from '@/lib/session';
+import { requireFreshAuthenticatedUser } from '@/lib/fresh-session';
 import { appendAuditLog } from '@/lib/audit';
 import { authorizeConversationAccess } from '@/lib/conversation-access';
 import { resolveSecureAttachmentPath, verifySecureDownloadToken } from '@/lib/secure-attachments';
 import { incrementMetric } from '@/lib/observability';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ fileId: string }> }) {
-  const session = getSessionFromRequest(req);
-  if (!session) {
+  const user = await requireFreshAuthenticatedUser(req);
+  if (!user) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
@@ -20,18 +20,20 @@ export async function GET(req: NextRequest, context: { params: Promise<{ fileId:
   }
 
   const conversationId = resolved.conversationId;
-  const token = req.headers.get('x-download-token')?.trim() || req.nextUrl.searchParams.get('token') || '';
-  if (!fileId || !token || !verifySecureDownloadToken(token, fileId, session.userId, conversationId)) {
+  const headerToken = req.headers.get('x-download-token')?.trim() || '';
+  const queryToken = req.nextUrl.searchParams.get('token') || '';
+  const token = headerToken || (process.env.ALLOW_QUERY_DOWNLOAD_TOKEN === 'true' ? queryToken : '');
+  if (!fileId || !token || !verifySecureDownloadToken(token, fileId, user.id, conversationId)) {
     incrementMetric('secure_downloads_blocked', 1, { reason: 'invalid_token' });
     return NextResponse.json({ error: 'Invalid or expired download token.' }, { status: 403 });
   }
 
-  const access = await authorizeConversationAccess(conversationId, session.userId);
+  const access = await authorizeConversationAccess(conversationId, user.id);
   if (!access.allowed) {
     incrementMetric('secure_downloads_blocked', 1, { reason: access.reason });
     await appendAuditLog({
       action: 'SECURE_DOWNLOAD_BLOCKED',
-      actorUserId: session.userId,
+      actorUserId: user.id,
       targetId: fileId,
       conversationId,
       ip: clientIp,
@@ -43,7 +45,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ fileId:
 
   await appendAuditLog({
     action: 'SECURE_DOWNLOAD_GRANTED',
-    actorUserId: session.userId,
+    actorUserId: user.id,
     targetId: fileId,
     conversationId,
     ip: clientIp,
