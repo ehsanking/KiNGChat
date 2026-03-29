@@ -1,7 +1,7 @@
-import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import LandingPageClient from '@/components/landing/LandingPageClient';
-import { SESSION_COOKIE_NAME, verifySessionToken } from '@/lib/session';
+import { getServerSession } from '@/lib/server-session';
+import MarketingShell from '@/components/shells/MarketingShell';
 
 type HomePageProps = {
   searchParams?: Promise<{ source?: string }>;
@@ -9,13 +9,7 @@ type HomePageProps = {
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = (await searchParams) ?? {};
-  const cookieStore = await cookies();
-  const headerStore = await headers();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  const session = verifySessionToken(token, {
-    userAgent: headerStore.get('user-agent'),
-    ip: headerStore.get('x-forwarded-for')?.split(',')[0]?.trim() ?? headerStore.get('x-real-ip'),
-  });
+  const session = await getServerSession();
 
   if (session?.needsPasswordChange) {
     redirect('/auth/setup-admin');
@@ -29,5 +23,5 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     redirect('/auth/login?next=%2Fchat');
   }
 
-  return <LandingPageClient />;
+  return <MarketingShell><LandingPageClient /></MarketingShell>;
 }

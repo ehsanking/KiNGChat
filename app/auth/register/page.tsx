@@ -1,5 +1,23 @@
-// Re-export the v2 registration page.  This file is marked as a client component
-// to ensure that the imported component remains on the client side.
-'use client';
+import { redirect } from 'next/navigation';
+import RegisterPageClient from '@/components/auth/RegisterPageClient';
+import { getServerSession } from '@/lib/server-session';
+import { sanitizeNextPath } from '@/lib/auth-next-path';
 
-export { default } from '../register-v2/page';
+type RegisterPageProps = {
+  searchParams?: Promise<{ next?: string }>;
+};
+
+export default async function RegisterPage({ searchParams }: RegisterPageProps) {
+  const params = (await searchParams) ?? {};
+  const session = await getServerSession();
+
+  if (session?.needsPasswordChange) {
+    redirect('/auth/setup-admin');
+  }
+
+  if (session) {
+    redirect(sanitizeNextPath(params.next));
+  }
+
+  return <RegisterPageClient />;
+}

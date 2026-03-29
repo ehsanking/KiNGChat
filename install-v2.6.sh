@@ -213,7 +213,7 @@ EOF
 
 write_env() {
   local server_ip app_url allowed_origins
-  local jwt_secret session_secret encryption_key pg_user pg_password admin_password
+  local jwt_secret session_secret encryption_key pg_user pg_password app_db_user app_db_password admin_password
 
   server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
   [ -z "${server_ip:-}" ] && server_ip="127.0.0.1"
@@ -231,13 +231,18 @@ write_env() {
   encryption_key=$(openssl rand -hex 16)
   pg_user="elahe_$(openssl rand -hex 4)"
   pg_password=$(openssl rand -hex 24)
+  app_db_user="elahe_app_$(openssl rand -hex 4)"
+  app_db_password=$(openssl rand -hex 24)
   admin_password=$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AB' | cut -c1-24)
 
   cat > "${TARGET_DIR}/.env" <<EOF
 POSTGRES_USER=${pg_user}
 POSTGRES_PASSWORD=${pg_password}
 POSTGRES_DB=elahe
-DATABASE_URL=postgresql://${pg_user}:${pg_password}@db:5432/elahe
+APP_DB_USER=${app_db_user}
+APP_DB_PASSWORD=${app_db_password}
+APP_DB_SSLMODE=disable
+DATABASE_URL=postgresql://${app_db_user}:${app_db_password}@db:5432/elahe?schema=public&sslmode=disable
 PRISMA_CONNECTION_LIMIT=10
 APP_URL=${app_url}
 ALLOWED_ORIGINS=${allowed_origins}
@@ -259,6 +264,12 @@ EOF
   chmod 600 "${TARGET_DIR}/.env" 2>/dev/null || true
   ADMIN_PASSWORD_GENERATED="${admin_password}"
   RESOLVED_APP_URL="${app_url}"
+
+  cat > "${TARGET_DIR}/.admin_credentials" <<CRED
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=${admin_password}
+CRED
+  chmod 600 "${TARGET_DIR}/.admin_credentials" 2>/dev/null || true
 
   log_success "Secure runtime .env generated."
 }
@@ -333,7 +344,7 @@ print_summary() {
   echo -e "${CYAN}App URL:${NC} ${RESOLVED_APP_URL}"
   echo -e "${CYAN}Storage:${NC} Local filesystem (default)"
   echo -e "${CYAN}Admin User:${NC} admin"
-  echo -e "${CYAN}Admin Password:${NC} ${ADMIN_PASSWORD_GENERATED}"
+  echo -e "${CYAN}Admin Password:${NC} written to ${TARGET_DIR}/.admin_credentials (chmod 600)."
   echo
   echo "Useful commands:"
   echo "  cd ${TARGET_DIR} && docker compose ps"

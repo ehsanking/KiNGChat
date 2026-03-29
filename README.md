@@ -122,6 +122,13 @@ sudo bash install.sh
 ```
 
 The installer now supports explicit modes:
+
+```bash
+# Optional: pin to a trusted release tag or commit for reproducible source trust
+sudo INSTALL_REF=v1.0.0 bash install.sh
+# or
+sudo INSTALL_REF=<git-commit-sha> bash install.sh
+```
 1. **Fresh install** (new deployment)
 2. **Upgrade** (safe in-place update, preserves `.env` secrets/data)
 3. **Reinstall** (backs up existing directory first, then re-installs)
@@ -351,6 +358,7 @@ Health endpoints:
 - `/chat` is server-guarded: authenticated users see chat; unauthenticated users are redirected to `/auth/login?next=/chat`.
 - Login and 2FA completion honor the `next` parameter and return users directly to chat.
 - Registration redirects smoothly into login with `next=/chat` to avoid landing-page bounce loops.
+- Installed PWA sessions that are not authenticated are routed server-side to `/auth/login?next=/chat` (not the public landing page).
 
 ## Security
 
