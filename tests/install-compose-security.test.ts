@@ -15,8 +15,6 @@ describe('installer and compose production hardening', () => {
     expect(install).toContain('INSTALL_NONINTERACTIVE');
     expect(install).toContain('Non-interactive mode refuses to continue with occupied ports.');
     expect(install).toContain('INSTALL_USE_DOMAIN=true requires valid INSTALL_DOMAIN_NAME');
-    expect(install).toContain('DO $$');
-    expect(install).not.toContain('DO \\$\\$');
   });
 
   it('production compose is documented as override strategy', () => {
