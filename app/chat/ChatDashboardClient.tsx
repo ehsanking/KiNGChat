@@ -57,6 +57,7 @@ import {
   type PendingQueueItem,
 } from '@/app/chat/chat-state';
 import { usePendingQueue } from '@/app/chat/hooks/usePendingQueue';
+import { ChatEmptyState, ConversationSecurityBanner, ConversationStatus, DraftAndConnectionStatus } from '@/app/chat/components/ChatFeedback';
 
 // Import shared type definitions to replace use of `any`.
 import type { ChatUser, Report, AdminSettings, AuditLog, SocketMessagePayload, DeliveryState } from '@/lib/types';
@@ -384,7 +385,7 @@ function ChatDashboardContent() {
         setDraftState('saved');
       } catch (error) {
         if (error instanceof HttpAuthError && error.status === 403) {
-          setComposeWarning('Session expired or security token missing. Refresh and try again.');
+          setComposeWarning('Your session expired. Refresh the page and try again.');
         }
         setDraftState('error');
       }
@@ -687,7 +688,7 @@ function ChatDashboardContent() {
         body: JSON.stringify({ recipientId: selectedRecipient?.id, groupId: selectedGroup?.id }),
       }, csrfToken).catch((error) => {
         if (error instanceof HttpAuthError && error.status === 403) {
-          setComposeWarning('Session expired or security token missing. Refresh and try again.');
+          setComposeWarning('Your session expired. Refresh the page and try again.');
         }
       });
       setDraftState('idle');
@@ -696,22 +697,22 @@ function ChatDashboardContent() {
 
   const handleSecureAttachmentDownload = useCallback(async (message: ChatMessage) => {
     if (!message.text) {
-      setComposeWarning('Secure attachment metadata is unavailable.');
+      setComposeWarning('This file cannot be downloaded right now. Try again from the original message.');
       return;
     }
     const payload = parseSecureAttachmentFromLegacyMessage(message.text);
     if (!payload) {
-      setComposeWarning('Secure attachment metadata is unavailable.');
+      setComposeWarning('This file cannot be downloaded right now. Try again from the original message.');
       return;
     }
     const fileId = payload.downloadUrl.split('/').pop()?.split('?')[0];
     if (!fileId) {
-      setComposeWarning('Secure attachment metadata is unavailable.');
+      setComposeWarning('This file cannot be downloaded right now. Try again from the original message.');
       return;
     }
     const token = attachmentTokensRef.current[fileId];
     if (!token) {
-      setComposeWarning('Secure download token unavailable — retry from a new upload.');
+      setComposeWarning('This secure file token is no longer available. Ask for a new file upload.');
       return;
     }
     const response = await fetch(`/api/upload-secure/${fileId}`, {
@@ -720,7 +721,7 @@ function ChatDashboardContent() {
       headers: { 'x-download-token': token },
     });
     if (!response.ok) {
-      setComposeWarning('Secure download failed — refresh and try again.');
+      setComposeWarning('Could not download securely. Refresh the page and try again.');
       return;
     }
     const blob = await response.blob();
@@ -740,7 +741,7 @@ function ChatDashboardContent() {
     if (!file || !currentUser || (!selectedRecipient && !selectedGroup)) return;
 
     if (selectedGroup) {
-      setComposeWarning('Secure attachments are currently available only for direct messages.');
+      setComposeWarning('Secure file sending is available in direct chats only for now.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -757,7 +758,7 @@ function ChatDashboardContent() {
 
     try {
       if (!sessionKey) {
-        setComposeWarning('Secure attachment upload requires a direct-message E2EE session key.');
+        setComposeWarning('Secure file sending needs direct-chat protection to finish first.');
         return;
       }
       const composed = await createSecureAttachmentMessage({
@@ -767,7 +768,7 @@ function ChatDashboardContent() {
         originalMimeType: file.type || 'application/octet-stream',
       });
       if (!composed?.success || !composed?.message) {
-        setComposeWarning(typeof composed?.error === 'string' ? composed.error : 'Failed to upload file securely.');
+        setComposeWarning(typeof composed?.error === 'string' ? composed.error : 'Could not upload file securely. Please try again.');
         return;
       }
       const messagePayload = composed.message as {
@@ -778,7 +779,7 @@ function ChatDashboardContent() {
         fileSize?: number | null;
       };
       if (messagePayload.type !== 2) {
-        setComposeWarning('Secure attachment composition failed.');
+        setComposeWarning('Could not prepare this file securely. Please try another file.');
         return;
       }
 
@@ -818,7 +819,7 @@ function ChatDashboardContent() {
       setComposeWarning(null);
     } catch (error) {
       console.error('Upload error:', error);
-      setComposeWarning('Failed to upload file securely');
+      setComposeWarning('Could not upload file securely. Please try again.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -925,7 +926,7 @@ function ChatDashboardContent() {
         <Search className="w-4 h-4 absolute left-3 top-2.5 text-zinc-500" />
         <input
           type="text"
-          placeholder="Search username or ID..."
+          placeholder="Search by username or numeric ID"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-brand-gold transition-colors"
@@ -939,7 +940,7 @@ function ChatDashboardContent() {
       isSearching ? (
         <div className="p-4 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-zinc-500" /></div>
       ) : searchResults.length === 0 ? (
-        <div className="p-4 text-center text-xs text-zinc-500">No users found</div>
+        <div className="p-4 text-center text-xs text-zinc-500">No matching users yet</div>
       ) : (
         searchResults.map((user) => (
           <div key={user.id} className="p-3 flex items-center gap-3 hover:bg-zinc-800/50 cursor-pointer transition-colors border-b border-zinc-800/50">
@@ -975,7 +976,7 @@ function ChatDashboardContent() {
     contacts.length === 0 ? (
       <div className="p-8 text-center text-zinc-500">
         <UserPlus className="w-8 h-8 mx-auto mb-2 opacity-30" />
-        <p className="text-xs">Search for users to add contacts</p>
+        <p className="text-xs">Search to add your first contact</p>
       </div>
     ) : (
       contacts.map((contact) => (
@@ -1078,49 +1079,30 @@ function ChatDashboardContent() {
               {selectedRecipient?.isVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />}
               {renderBadgeIcon(selectedRecipient?.badge)}
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {isOtherUserTyping ? (
-                <p className="text-xs text-brand-gold">Typing...</p>
-              ) : sessionKey ? (
-                <p className="text-xs text-emerald-500 flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Verified E2E active
-                </p>
-              ) : selectedGroup ? (
-                <p className="text-xs text-zinc-500">{selectedGroup.memberCount} members</p>
-              ) : (
-                <p className="text-xs text-zinc-500">
-                  {selectedRecipient ? `ID: ${selectedRecipient.numericId}` : ''}
-                </p>
-              )}
-              <p className={`text-[10px] rounded-full px-2 py-0.5 border ${isOnline ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}`}>
-                {isOnline ? 'Online sync' : 'Offline queue'}
-              </p>
-            </div>
+            <ConversationStatus
+              isOnline={isOnline}
+              isTyping={isOtherUserTyping}
+              hasSessionKey={Boolean(sessionKey)}
+              recipientNumericId={selectedRecipient?.numericId}
+              memberCount={selectedGroup?.memberCount}
+              isGroup={Boolean(selectedGroup)}
+            />
           </div>
         </div>
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-400">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-zinc-200 font-medium">Conversation security</p>
-                <p className="mt-1">{selectedRecipient ? (sessionKey ? 'Messages are protected with end-to-end encryption for this direct chat.' : 'Direct chat is active, but a verified E2E session has not been established yet.') : 'Group membership is enforced before secure files can be uploaded or downloaded.'}</p>
-              </div>
-              <div className={`rounded-full px-2 py-1 text-[10px] border ${selectedRecipient && sessionKey ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}`}>
-                {selectedRecipient ? (sessionKey ? 'E2EE on' : 'Verify keys') : 'Access checked'}
-              </div>
-            </div>
-          </div>
+          <ConversationSecurityBanner
+            isDirect={Boolean(selectedRecipient)}
+            hasSessionKey={Boolean(sessionKey)}
+            memberCount={selectedGroup?.memberCount}
+          />
           {loadingMessages ? (
             <div className="h-full flex items-center justify-center">
               <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
-              <Shield className="w-12 h-12" />
-              <p className="text-sm max-w-xs">Messages are end-to-end encrypted. Start the conversation.</p>
-            </div>
+            <ChatEmptyState hasDirectSecurity={Boolean(selectedRecipient && sessionKey)} />
           ) : (
             messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
@@ -1171,7 +1153,7 @@ function ChatDashboardContent() {
           {isOtherUserTyping && (
             <div className="flex justify-start">
               <div className="bg-zinc-800 text-zinc-400 rounded-2xl px-4 py-2 rounded-bl-none flex gap-2 items-center">
-                <span className="text-xs">Typing...</span>
+                <span className="text-xs">Typing…</span>
                 <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                 <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                 <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></span>
@@ -1182,10 +1164,7 @@ function ChatDashboardContent() {
 
         {/* Message Input */}
         <div className="p-2 md:p-4 bg-zinc-900/50 border-t border-zinc-800">
-          <div className="mb-2 flex items-center justify-between text-[11px] text-zinc-500">
-            <span>{isOnline ? 'Messages send immediately when connected.' : 'New messages are queued locally until you reconnect.'}</span>
-            <span>{draftState === 'saving' ? 'Saving draft…' : draftState === 'saved' ? 'Draft saved' : draftState === 'error' ? 'Draft save failed' : ''}</span>
-          </div>
+          <DraftAndConnectionStatus isOnline={isOnline} draftState={draftState} />
           {composeWarning && (
             <div className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
               {composeWarning}
@@ -1209,7 +1188,7 @@ function ChatDashboardContent() {
                 if (composeWarning) setComposeWarning(null);
               }}
               dir={getTextDirection(input)}
-              placeholder={sessionKey ? 'Type an encrypted message…' : 'Type a message…'}
+              placeholder={sessionKey ? 'Write a protected message…' : 'Write a message…'}
               className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm focus:outline-none focus:border-brand-gold transition-colors"
             />
             <button type="submit" className="bg-brand-gold hover:bg-brand-gold/90 text-zinc-950 p-2.5 md:p-3 rounded-xl transition-colors flex items-center justify-center">
@@ -1225,17 +1204,17 @@ function ChatDashboardContent() {
           <Image src="/logo.png" alt="Logo" fill className="object-contain" unoptimized />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-zinc-400">Welcome to Elahe Messenger</h2>
-          <p className="text-zinc-500 max-w-sm">Search for a user to add to your contacts, or create a group/channel to start a conversation.</p>
+          <h2 className="text-2xl font-bold text-zinc-400">Welcome to your inbox</h2>
+          <p className="text-zinc-500 max-w-sm">Search and add a contact, or create a group/channel to begin chatting.</p>
         </div>
         <div className="flex gap-4">
           <div className="flex items-center gap-2 text-xs text-zinc-600">
             <Lock className="w-4 h-4" />
-            <span>E2E Encrypted</span>
+            <span>Direct chats protected</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-zinc-600">
             <Shield className="w-4 h-4" />
-            <span>Privacy First</span>
+            <span>Privacy-first design</span>
           </div>
         </div>
       </div>
@@ -1505,10 +1484,10 @@ function ChatDashboardContent() {
                   onClick={() => setShowCreateGroup(true)}
                   className="w-full py-2 bg-brand-gold/10 text-brand-gold rounded-xl text-xs font-medium hover:bg-brand-gold/20 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Plus className="w-4 h-4" /> Create Group or Channel
+                  <Plus className="w-4 h-4" /> Create group or channel
                 </button>
               </div>
-              {renderCommunityList(communities, <Users className="w-8 h-8 mx-auto opacity-30" />, 'No groups or channels yet')}
+              {renderCommunityList(communities, <Users className="w-8 h-8 mx-auto opacity-30" />, 'No groups or channels yet. Create one to get started.')}
             </>
           )}
         </div>
@@ -1596,7 +1575,7 @@ function ChatDashboardContent() {
                       <Plus className="w-4 h-4" /> Create Group
                     </button>
                   </div>
-                  {renderCommunityList(groups, <Users className="w-8 h-8 mx-auto opacity-30" />, 'No groups yet')}
+                  {renderCommunityList(groups, <Users className="w-8 h-8 mx-auto opacity-30" />, 'No groups yet. Create one for team chat.')}
                 </>
               ) : mobileTab === 'channels' ? (
                 <>
@@ -1608,7 +1587,7 @@ function ChatDashboardContent() {
                       <Plus className="w-4 h-4" /> Create Channel
                     </button>
                   </div>
-                  {renderCommunityList(channels, <Megaphone className="w-8 h-8 mx-auto opacity-30" />, 'No channels yet')}
+                  {renderCommunityList(channels, <Megaphone className="w-8 h-8 mx-auto opacity-30" />, 'No channels yet. Create one for announcements.')}
                 </>
               ) : mobileTab === 'settings' ? (
                 renderMobileSettings()
@@ -1699,7 +1678,7 @@ function ChatDashboardContent() {
                 {renderBadgeIcon(recipientProfile.badge)}
               </div>
               <p className="text-xs text-zinc-500">@{recipientProfile.username}</p>
-              <p className="text-sm text-zinc-300 min-h-10">{recipientProfile.bio?.trim() || 'No bio yet.'}</p>
+              <p className="text-sm text-zinc-300 min-h-10">{recipientProfile.bio?.trim() || 'No bio yet'}</p>
             </div>
             {/* Safe area padding for mobile */}
             <div className="h-safe-area-b md:h-0" />
@@ -1712,12 +1691,9 @@ function ChatDashboardContent() {
 
 export default function ChatDashboard() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Loading chat…</div>}>
       <ChatDashboardContent />
     </Suspense>
   );
 }
 
-// Export the chat dashboard content under a distinct name so that it can be
-// imported from other modules.  This makes it possible to break the monolithic
-// chat page down into smaller components without duplicating the entire file.

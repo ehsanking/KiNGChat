@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CheckCircle2, Shield, Smartphone, KeyRound, UserPlus, MessageSquare } from 'lucide-react';
+import { CheckCircle2, Shield, Smartphone, KeyRound, UserPlus, MessageSquare, ArrowRight } from 'lucide-react';
 import { getServerSession } from '@/lib/server-session';
 
 export default async function OnboardingPage({ searchParams }: { searchParams?: Promise<{ next?: string }> }) {
@@ -14,30 +14,38 @@ export default async function OnboardingPage({ searchParams }: { searchParams?: 
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-50 p-4 md:p-10">
-      <div className="max-w-3xl mx-auto space-y-8">
+      <div className="max-w-3xl mx-auto space-y-6">
         <header className="space-y-2">
-          <h1 className="text-3xl font-bold">Welcome to Elahe Messenger</h1>
-          <p className="text-zinc-400">Your account is ready. Complete these steps to harden your account and start chatting.</p>
+          <h1 className="text-3xl font-bold">You&apos;re all set 🎉</h1>
+          <p className="text-zinc-400">Let&apos;s do a quick first-run setup so your account is ready for everyday use.</p>
         </header>
 
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
-          <OnboardingStep icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />} title="1) Account created" description="Your immutable numeric ID has been assigned. You can later change username/password in account settings." />
-          <OnboardingStep icon={<Smartphone className="w-5 h-5 text-brand-gold" />} title="2) Device secured" description="Device keys were generated on this browser during signup. Keep this device protected." />
-          <OnboardingStep icon={<KeyRound className="w-5 h-5 text-brand-gold" />} title="3) Optional: enable 2FA" description="Add TOTP now or later from Profile Settings." actionHref="/chat/profile" actionLabel="Open profile security" />
-          <OnboardingStep icon={<UserPlus className="w-5 h-5 text-brand-gold" />} title="4) Add first contact" description="Search by username or numeric ID from chat." actionHref="/chat" actionLabel="Open contacts" />
-          <OnboardingStep icon={<MessageSquare className="w-5 h-5 text-brand-gold" />} title="5) Start first conversation" description="Send your first encrypted direct message and verify peer safety number in Security Center." actionHref="/chat/security-center" actionLabel="Open Security Center" />
+          <OnboardingStep icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />} title="Account created" description="Your account is active now. Your numeric ID is permanent and won&apos;t change." />
+          <OnboardingStep icon={<Smartphone className="w-5 h-5 text-brand-gold" />} title="This device is prepared" description="Security keys were created in this browser during sign-up. Keep this device protected." />
+          <OnboardingStep icon={<KeyRound className="w-5 h-5 text-brand-gold" />} title="Optional: add 2-step verification" description="Extra sign-in protection with authenticator codes. You can enable this now or later." actionHref="/chat/profile" actionLabel="Open security settings" />
+          <OnboardingStep icon={<UserPlus className="w-5 h-5 text-brand-gold" />} title="Add your first contact" description="Find people by username or numeric ID to start chatting." actionHref="/chat" actionLabel="Open chat" />
+          <OnboardingStep icon={<MessageSquare className="w-5 h-5 text-brand-gold" />} title="Send your first message" description="Start with a direct chat and send a quick hello." actionHref="/chat" actionLabel="Start messaging" />
         </section>
 
         <section className="rounded-2xl border border-brand-blue/30 bg-brand-blue/10 p-5 text-sm text-zinc-300 flex items-start gap-3">
           <Shield className="w-5 h-5 text-brand-blue mt-0.5" />
           <p>
-            Security model summary: direct messages and secure attachments use client-side encryption. Group/channel E2EE and advanced ratcheting are still transitional.
+            Direct messages and secure attachments are protected on your device. Groups and channels are still improving and are not yet identical to direct-message protection.
           </p>
         </section>
 
-        <div className="flex justify-end">
-          <Link href={nextTarget} className="px-6 py-3 rounded-xl bg-emerald-500 text-zinc-950 font-semibold hover:bg-emerald-600">
-            Continue to chat
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 text-sm text-zinc-300 space-y-2">
+          <p>Tip: You can change your username and password later in profile settings.</p>
+          <p>Tip: Save your numeric ID somewhere safe so contacts can find you.</p>
+        </section>
+
+        <div className="flex flex-col sm:flex-row justify-end gap-3">
+          <Link href="/chat/profile" className="px-6 py-3 rounded-xl border border-zinc-700 text-zinc-200 hover:bg-zinc-800 text-center">
+            Review security settings
+          </Link>
+          <Link href={nextTarget} className="px-6 py-3 rounded-xl bg-emerald-500 text-zinc-950 font-semibold hover:bg-emerald-600 inline-flex items-center justify-center gap-2">
+            Continue to chat <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </div>
