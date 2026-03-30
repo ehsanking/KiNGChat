@@ -96,7 +96,7 @@ flowchart TD
 ### 一键安装（Linux/macOS）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | ( [ "$(id -u)" -eq 0 ] && bash || sudo bash )
 ```
 
 ### 手动安装
@@ -166,7 +166,7 @@ npm run db:setup   # 数据库初始化
 
 ## 许可证
 
-基于 [MIT 许可证](./LICENSE) 发布。Copyright © 2025 Elahe Messenger Contributors.
+基于 [MIT 许可证](./LICENSE) 发布。Copyright © 2026 Elahe Messenger Contributors.
 
 <p align="center">由 <a href="https://github.com/ehsanking">@ehsanking</a> 用 ❤️ 构建 · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 
@@ -180,3 +180,13 @@ For critical production safety guidance, see the English README sections:
 - **UFW manual, opt-in setup** (never auto-enable before allowing SSH)
 
 Keep PostgreSQL (`5432`) internal-only by default.
+
+---
+
+## Donate
+
+If this project helps you, you can support its maintenance:
+
+- **USDT (TRC20 / Tether):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+- **TRON (TRX):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+

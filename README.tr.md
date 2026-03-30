@@ -96,7 +96,7 @@ flowchart TD
 ### Tek Satırlık Yükleyici (Linux/macOS)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | ( [ "$(id -u)" -eq 0 ] && bash || sudo bash )
 ```
 
 ### Manuel Kurulum
@@ -166,7 +166,7 @@ npm run db:setup   # Veritabanı kurulumu
 
 ## Lisans
 
-[MIT Lisansı](./LICENSE) altında yayınlanmıştır. Copyright © 2025 Elahe Messenger Katkıda Bulunanları.
+[MIT Lisansı](./LICENSE) altında yayınlanmıştır. Copyright © 2026 Elahe Messenger Katkıda Bulunanları.
 
 <p align="center">❤️ ile yapıldı: <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 
@@ -180,3 +180,13 @@ For critical production safety guidance, see the English README sections:
 - **UFW manual, opt-in setup** (never auto-enable before allowing SSH)
 
 Keep PostgreSQL (`5432`) internal-only by default.
+
+---
+
+## Donate
+
+If this project helps you, you can support its maintenance:
+
+- **USDT (TRC20 / Tether):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+- **TRON (TRX):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+

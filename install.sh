@@ -10,6 +10,7 @@ INSTALL_REF_RESOLVED=""
 INSTALL_REF_TYPE=""
 TARGET_DIR="ElaheMessenger"
 MIN_RAM_MB=1024
+DOCKER_COMPOSE_BIN=""
 
 BLUE='\033[1;34m'
 RED='\033[1;31m'
@@ -40,6 +41,17 @@ log_step() { echo -e "\n${PURPLE}=== $1 ===${NC}"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
+run_compose() {
+  case "$DOCKER_COMPOSE_BIN" in
+    "docker compose") docker compose "$@" ;;
+    "docker-compose") docker-compose "$@" ;;
+    *)
+      log_error "Compose command not initialized."
+      exit 1
+      ;;
+  esac
+}
+
 on_error() {
   local exit_code=$?
   if [ "$exit_code" -ne 0 ]; then
@@ -53,14 +65,18 @@ on_error() {
 
 require_root() {
   if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-    log_error "Installer must run as root. Re-run with: sudo bash install.sh"
+    if command_exists sudo && [ -t 0 ] && [ -f "${BASH_SOURCE[0]:-}" ]; then
+      log_info "Root privileges are required. Re-running installer with sudo..."
+      exec sudo -E bash "${BASH_SOURCE[0]}" "$@"
+    fi
+    log_error "Installer must run as root. Re-run with: curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | ( [ \"\$(id -u)\" -eq 0 ] && bash || sudo bash )"
     exit 1
   fi
 }
 
 compose_service_exists() {
   local service="$1"
-  docker compose config --services 2>/dev/null | grep -Fxq "$service"
+  run_compose config --services 2>/dev/null | grep -Fxq "$service"
 }
 
 get_primary_ipv4() {
@@ -383,12 +399,31 @@ install_docker_apt() {
 
   log_info "Installing Docker from distro packages (no curl|sh)."
   apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-compose-plugin
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io
 
   if ! command_exists docker; then
     log_error "Docker installation failed."
     exit 1
   fi
+}
+
+install_docker_compose_plugin_apt() {
+  if ! command_exists apt-get; then
+    return 1
+  fi
+
+  local candidates=("docker-compose-plugin" "docker-compose-v2" "docker-compose")
+  local pkg
+  for pkg in "${candidates[@]}"; do
+    if ! apt-cache show "$pkg" >/dev/null 2>&1; then
+      continue
+    fi
+    if DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$pkg"; then
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 ensure_docker_ready() {
@@ -440,14 +475,37 @@ check_dependencies() {
     install_docker_apt
   fi
 
-  if ! docker compose version >/dev/null 2>&1; then
-    if command_exists apt-get; then
-      apt-get update -qq
-      DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-compose-plugin
-    fi
+  if docker compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE_BIN="docker compose"
+    log_success "Using compose command: docker compose"
+    return
   fi
 
-  docker compose version >/dev/null 2>&1 || { log_error "docker compose not available."; exit 1; }
+  if command_exists docker-compose; then
+    DOCKER_COMPOSE_BIN="docker-compose"
+    log_success "Using compose command: docker-compose"
+    return
+  fi
+
+  if command_exists apt-get; then
+    apt-get update -qq
+  fi
+  install_docker_compose_plugin_apt || true
+
+  if docker compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE_BIN="docker compose"
+    log_success "Using compose command: docker compose"
+    return
+  fi
+
+  if command_exists docker-compose; then
+    DOCKER_COMPOSE_BIN="docker-compose"
+    log_success "Using compose command: docker-compose"
+    return
+  fi
+
+  log_error "Docker Compose not available. Install 'docker-compose-plugin' or 'docker-compose-v2' (preferred), or 'docker-compose' fallback."
+  exit 1
 }
 
 collect_domain_ssl_input() {
@@ -673,8 +731,8 @@ stop_existing_stack_if_needed() {
   if [ -f "$TARGET_DIR/docker-compose.yml" ]; then
     (
       cd "$TARGET_DIR"
-      if docker compose ps >/dev/null 2>&1; then
-        docker compose down --remove-orphans || true
+      if run_compose ps >/dev/null 2>&1; then
+        run_compose down --remove-orphans || true
       fi
     )
     log_success "Existing compose stack stopped."
@@ -953,7 +1011,7 @@ validate_caddy_runtime_config() {
   (
     cd "$TARGET_DIR"
     local caddy_cid
-    caddy_cid="$(docker compose ps -q caddy 2>/dev/null | head -n1)"
+    caddy_cid="$(run_compose ps -q caddy 2>/dev/null | head -n1)"
     [ -n "$caddy_cid" ] || { log_error "Caddy container ID not found."; exit 1; }
     docker exec "$caddy_cid" caddy validate --config /etc/caddy/Caddyfile >/dev/null
   )
@@ -966,7 +1024,7 @@ provision_runtime_db_role() {
   (
     cd "$TARGET_DIR"
     local db_cid db_user db_password db_name app_db_user app_db_password sql_file
-    db_cid="$(docker compose ps -q db 2>/dev/null | head -n1)"
+    db_cid="$(run_compose ps -q db 2>/dev/null | head -n1)"
     [ -n "$db_cid" ] || { log_error "DB container ID not found for runtime role provisioning."; exit 1; }
 
     db_user="$(env_get POSTGRES_USER)"
@@ -1013,13 +1071,13 @@ launch_services() {
   (
     cd "$TARGET_DIR"
 
-    docker compose config >/dev/null
+    run_compose config >/dev/null
 
     if [ "$INSTALL_MODE" = "upgrade" ]; then
-      docker compose pull db caddy || true
-      docker compose up -d db
+      run_compose pull db caddy || true
+      run_compose up -d db
     else
-      docker compose up -d db
+      run_compose up -d db
     fi
   )
 
@@ -1031,8 +1089,8 @@ launch_services() {
 
   (
     cd "$TARGET_DIR"
-    docker compose build app
-    docker compose up -d app caddy
+    run_compose build app
+    run_compose up -d app caddy
   )
 
   log_success "Compose services started."
@@ -1042,7 +1100,7 @@ get_service_container_id() {
   local service="$1"
   (
     cd "$TARGET_DIR"
-    docker compose ps -q "$service" 2>/dev/null | head -n1
+    run_compose ps -q "$service" 2>/dev/null | head -n1
   )
 }
 
@@ -1094,10 +1152,10 @@ print_failure_diagnostics() {
   log_error "Startup verification failed. Collecting diagnostics."
   (
     cd "$TARGET_DIR"
-    docker compose ps || true
+    run_compose ps || true
     for svc in db app caddy; do
       local cid
-      cid="$(docker compose ps -q "$svc" 2>/dev/null | head -n1)"
+      cid="$(run_compose ps -q "$svc" 2>/dev/null | head -n1)"
       if [ -n "$cid" ]; then
         echo "--- logs: $svc ---"
         docker logs --tail 120 "$cid" || true
@@ -1152,7 +1210,7 @@ verify_post_launch_health() {
     local admin_username admin_count
     admin_username="$(env_get ADMIN_USERNAME)"
     [ -n "$admin_username" ] || { log_error "ADMIN_USERNAME is not set; cannot verify bootstrap admin."; exit 1; }
-    admin_count="$(docker compose exec -T db sh -lc "PGPASSWORD=\"\$POSTGRES_PASSWORD\" psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tAc \"SELECT COUNT(*) FROM \\\"User\\\" WHERE username = '${admin_username}' AND role = 'ADMIN';\"" 2>/dev/null | tr -d '[:space:]')"
+    admin_count="$(run_compose exec -T db sh -lc "PGPASSWORD=\"\$POSTGRES_PASSWORD\" psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tAc \"SELECT COUNT(*) FROM \\\"User\\\" WHERE username = '${admin_username}' AND role = 'ADMIN';\"" 2>/dev/null | tr -d '[:space:]')"
     [ -n "$admin_count" ] || admin_count="0"
     if [ "$admin_count" != "1" ]; then
       log_error "Bootstrap admin verification failed. Expected one admin user '${admin_username}', found ${admin_count}."
@@ -1201,7 +1259,7 @@ main() {
     exit 1
   fi
 
-  require_root
+  require_root "$@"
   choose_install_mode
   preflight_checks
   check_dependencies

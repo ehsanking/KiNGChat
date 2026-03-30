@@ -94,7 +94,7 @@ flowchart TD
 ## เริ่มต้นอย่างรวดเร็ว
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | ( [ "$(id -u)" -eq 0 ] && bash || sudo bash )
 ```
 
 ### ติดตั้งด้วยตนเอง
@@ -122,7 +122,7 @@ npm run build && npm start
 
 ## ใบอนุญาต
 
-เผยแพร่ภายใต้ [ใบอนุญาต MIT](./LICENSE) Copyright © 2025 Elahe Messenger Contributors
+เผยแพร่ภายใต้ [ใบอนุญาต MIT](./LICENSE) Copyright © 2026 Elahe Messenger Contributors
 
 <p align="center">สร้างด้วย ❤️ โดย <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 
@@ -136,3 +136,13 @@ For critical production safety guidance, see the English README sections:
 - **UFW manual, opt-in setup** (never auto-enable before allowing SSH)
 
 Keep PostgreSQL (`5432`) internal-only by default.
+
+---
+
+## Donate
+
+If this project helps you, you can support its maintenance:
+
+- **USDT (TRC20 / Tether):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+- **TRON (TRX):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+
