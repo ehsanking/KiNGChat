@@ -36,6 +36,7 @@ LOCAL_PROXY_HEALTH_VALIDATED=false
 REINSTALL_ENV_REUSED=false
 REINSTALL_ADMIN_SECRET_RESTORED=false
 REINSTALL_DB_ENV_RESTORED=false
+REINSTALL_LIVE_DB_ENV_USED=false
 declare -A REINSTALL_LIVE_DB_ENV=()
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
@@ -974,6 +975,7 @@ seed_reinstall_env_from_backup() {
     done
     REINSTALL_DB_ENV_RESTORED=true
     REINSTALL_ENV_REUSED=true
+    REINSTALL_LIVE_DB_ENV_USED=true
     log_info "Reinstall mode: reusing database credentials captured from existing DB container."
     return 0
   fi
@@ -1508,7 +1510,9 @@ print_summary() {
     echo "Admin bootstrap env vars are create-only by default and do not overwrite an existing admin user."
     echo "To reset an existing admin via env, set ADMIN_BOOTSTRAP_RESET_EXISTING=true for a one-time reset."
   fi
-  if [ "$INSTALL_MODE" = "reinstall" ] && [ "$REINSTALL_ENV_REUSED" = true ]; then
+  if [ "$INSTALL_MODE" = "reinstall" ] && [ "$REINSTALL_LIVE_DB_ENV_USED" = true ]; then
+    echo "Reinstall reused DB credentials captured from existing DB container."
+  elif [ "$INSTALL_MODE" = "reinstall" ] && [ "$REINSTALL_ENV_REUSED" = true ]; then
     echo "Reinstall reused preserved .env credentials/settings from installer backup."
   fi
   if [ "$INSTALL_MODE" = "reinstall" ] && [ "$REINSTALL_ADMIN_SECRET_RESTORED" = true ]; then
