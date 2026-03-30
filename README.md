@@ -147,6 +147,26 @@ sudo INSTALL_REF=<release-tag> bash install.sh
 # Pinned commit
 sudo INSTALL_REF=<40-char-commit-sha> bash install.sh
 ```
+
+Non-interactive automation (CI/provisioning-safe):
+```bash
+sudo INSTALL_NONINTERACTIVE=true \
+     INSTALL_MODE=fresh \
+     INSTALL_USE_DOMAIN=false \
+     INSTALL_REF=<release-tag> \
+     bash install.sh
+```
+
+Optional non-interactive domain mode:
+```bash
+sudo INSTALL_NONINTERACTIVE=true \
+     INSTALL_MODE=fresh \
+     INSTALL_USE_DOMAIN=true \
+     INSTALL_DOMAIN_NAME=chat.example.com \
+     INSTALL_SSL_EMAIL=admin@example.com \
+     INSTALL_REF=<release-tag> \
+     bash install.sh
+```
 Unsafe/dev-only (mutable branch head):
 ```bash
 curl -fsSLo install.sh https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh
@@ -167,12 +187,23 @@ Installer safety behavior:
 - Aborts upgrades when git sync fails or the worktree is dirty (no implicit `rm -rf` fallback).
 - Uses Caddy on `:80/:443`; in IP-only mode the generated `APP_URL` uses `http://<server-ip>` (no internal `:3000` mismatch).
 - Never prints bootstrap admin password in terminal output; auto-generated credentials are written once to a local secrets file with restrictive permissions.
+- Non-interactive installs are first-class: no hidden interactive dependency; install choices are deterministic and env-driven.
 - Verifies post-launch health in explicit phases: container health, local reverse-proxy routing, and external DNS/TLS readiness guidance.
 - Fails install when local reverse-proxy routing does not work, and only warns for external DNS/TLS propagation uncertainty.
 - Source trust defaults to a pinned tag when available; mutable branch-head installs are opt-in and explicitly warned during installer prompts.
 - Fresh/reinstall writes bootstrap admin password to a one-time file (`./runtime/admin-bootstrap-password`) and passes it via `ADMIN_BOOTSTRAP_PASSWORD_FILE`.
 - `ADMIN_USERNAME`/`ADMIN_PASSWORD` are create-only by default; if `ADMIN_BOOTSTRAP_RESET_EXISTING=true` is used, reset is consumed once per credential set (not repeated on every restart).
 - Does **not** auto-enable UFW; firewall changes remain operator-driven.
+
+### Installer troubleshooting
+
+- **Installer hangs in piped mode**: run with `INSTALL_NONINTERACTIVE=true` (and optionally `INSTALL_MODE`, `INSTALL_USE_DOMAIN`, `INSTALL_DOMAIN_NAME`).  
+- **Ports 80/443 are already used**: stop conflicting services; non-interactive installs fail fast on conflicts by design.
+- **Domain install fails local probe**: verify `INSTALL_DOMAIN_NAME`/domain prompt value is correct and resolves publicly; installer now validates host-routed proxy behavior locally with `--resolve`.
+- **Docker Compose missing on Debian/Ubuntu**: installer attempts distro compose plugin packages (`docker-compose-plugin` / `docker-compose-v2`) and exits with actionable guidance if unavailable.
+- **Need strict reproducibility**: pin `INSTALL_REF` to a release tag or commit, not `main`.
+
+Detailed runbook: `docs/installer-verification-checklist.md`.
 
 ---
 
@@ -530,4 +561,3 @@ If this project helps you, you can support its maintenance:
 
 - **USDT (TRC20 / Tether):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
 - **TRON (TRX):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
-
