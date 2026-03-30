@@ -47,3 +47,16 @@ When scaling/operational requirements justify it, split in this order:
 
 These split points should preserve existing authorization checks, auditability, and encrypted payload boundaries.
 
+
+
+## Reliability-critical flow map (current)
+
+- **Message send path**: socket `sendMessage` -> DTO parse + rate limit + fresh session -> shared `authorizeConversationAction(..., 'message.send')` -> idempotency lookup (`senderId + idempotencyKey`) -> persist -> emit -> enqueue push job.
+- **Message ack path**: client `messagesDelivered` -> `markMessagesDelivered` updates only recipient-owned undelivered rows.
+- **Read receipt path**: `messageRead` allows only direct-message recipient and transitions status to `READ`.
+- **Reconnect/sync path**: `syncConversation` requires shared read policy before `messaging-service.syncConversation` returns bounded batch.
+- **Upload path**: `/api/upload-secure` -> same-origin + fresh auth -> metadata validation -> shared `attachment.write` policy -> malware + MIME policy -> object storage + metadata index + token.
+- **Download path**: `/api/upload-secure/[fileId]` -> fresh auth + token verification -> shared `conversation.read` policy -> audited download response.
+- **Session validation path**: HTTP via `requireFreshAuthenticatedUser`, socket via `requireFreshSocketSession`.
+- **Conversation authorization path**: centralized in `lib/conversation-access.ts` through `authorizeConversationAction`.
+- **Admin bootstrap path**: `server.ts` startup -> `runAdminBootstrapOrExit` before socket handler registration.

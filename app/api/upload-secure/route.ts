@@ -8,12 +8,12 @@ export async function POST(req: NextRequest) {
   try {
     assertSameOrigin(req);
   } catch {
-    return NextResponse.json({ error: 'Origin is not allowed.' }, { status: 400 });
+    return NextResponse.json({ error: 'Origin is not allowed.', code: 'INVALID_ORIGIN' }, { status: 400 });
   }
 
   const user = await requireFreshAuthenticatedUser(req);
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required.', code: 'UNAUTHENTICATED' }, { status: 401 });
   }
 
   const userId = user.id;
@@ -35,14 +35,17 @@ export async function POST(req: NextRequest) {
       typeof wrappedFileKeyNonce !== 'string' ||
       typeof fileNonce !== 'string'
     ) {
-      return NextResponse.json({ error: 'Invalid form data.' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid form data.', code: 'MALFORMED_METADATA' }, { status: 400 });
     }
 
     const settings = await getOrCreateAdminSettings();
 
     if (file.size > settings.maxAttachmentSize) {
       return NextResponse.json(
-        { error: `File too large. Max allowed: ${Math.round(settings.maxAttachmentSize / 1024 / 1024)}MB` },
+        {
+          error: `File too large. Max allowed: ${Math.round(settings.maxAttachmentSize / 1024 / 1024)}MB`,
+          code: 'FILE_TOO_LARGE',
+        },
         { status: 400 },
       );
     }
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!stored.ok) {
-      return NextResponse.json({ error: stored.error }, { status: stored.status });
+      return NextResponse.json({ error: stored.error, code: stored.code ?? 'UPLOAD_REJECTED' }, { status: stored.status });
     }
 
     return NextResponse.json({
@@ -71,6 +74,6 @@ export async function POST(req: NextRequest) {
       metadata: { wrappedFileKey, wrappedFileKeyNonce, fileNonce },
     });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Upload failed' }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Upload failed', code: 'UPLOAD_FAILED' }, { status: 500 });
   }
 }

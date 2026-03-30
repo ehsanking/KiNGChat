@@ -7,7 +7,7 @@ import { prisma } from './prisma';
 import { parseSendMessageDto } from './dto/messaging';
 import type { DeliveryState, SocketMessagePayload } from './contracts/socket';
 import { appendAuditLog } from './audit';
-import { authorizeConversationAccess, canSendToGroup } from './conversation-access';
+import { authorizeConversationAction } from './conversation-access';
 import { incrementMetric } from './observability';
 import { editMessage, syncConversation, toggleReaction, markMessagesDelivered } from './messaging-service';
 import { requireFreshSocketSession } from './fresh-session';
@@ -64,29 +64,23 @@ export function setupSocket(io: Server, options: SocketOptions) {
     socket.on('joinGroup', async (groupId) => {
       if (typeof groupId !== 'string' || groupId.length === 0) return;
       const userId = socket.data.userId;
-      try {
-        const membership = await prisma.groupMember.findFirst({ where: { groupId, userId } });
-        if (!membership) {
-          await appendAuditLog({
-            action: 'SOCKET_GROUP_JOIN_REJECTED',
-            actorUserId: userId,
-            targetId: groupId,
-            conversationId: groupId,
-            outcome: 'blocked',
-            details: { reason: 'missing_group_membership', socketId: socket.id },
-          });
-          incrementMetric('socket_joins_rejected', 1, { reason: 'missing_group_membership' });
-          logger.warn('Socket group join rejected due to missing membership', { userId, groupId });
-          return;
-        }
-      } catch (err) {
-        logger.error('Failed to verify group membership', {
-          error: err instanceof Error ? err.message : String(err),
-          userId,
-          groupId,
+      if (typeof userId !== 'string' || userId.length === 0) return;
+
+      const access = await authorizeConversationAction(userId, { groupId }, 'conversation.join');
+      if (!access.allowed || access.access.kind !== 'group') {
+        await appendAuditLog({
+          action: 'SOCKET_GROUP_JOIN_REJECTED',
+          actorUserId: userId,
+          targetId: groupId,
+          conversationId: groupId,
+          outcome: 'blocked',
+          details: { reason: access.reason, socketId: socket.id },
         });
+        incrementMetric('socket_joins_rejected', 1, { reason: access.reason });
+        logger.warn('Socket group join rejected due to missing membership', { userId, groupId, reason: access.reason });
         return;
       }
+
       socket.join(`group:${groupId}`);
       incrementMetric('socket_group_joins_allowed');
       logger.info('User joined group room', { userId, groupId });
@@ -147,8 +141,8 @@ export function setupSocket(io: Server, options: SocketOptions) {
           : null;
 
         if (data.groupId) {
-          const groupAccess = await canSendToGroup(data.groupId, senderId);
-          if (!groupAccess.allowed) {
+          const groupAccess = await authorizeConversationAction(senderId, { groupId: data.groupId }, 'message.send');
+          if (!groupAccess.allowed || groupAccess.access.kind !== 'group') {
             await appendAuditLog({
               action: 'SOCKET_SEND_REJECTED',
               actorUserId: senderId,
@@ -166,7 +160,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
         }
 
         if (data.recipientId) {
-          const directAccess = await authorizeConversationAccess(data.recipientId, senderId);
+          const directAccess = await authorizeConversationAction(senderId, { recipientId: data.recipientId }, 'message.send');
           if (!directAccess.allowed) {
             await appendAuditLog({
               action: 'SOCKET_SEND_REJECTED',
@@ -344,7 +338,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
       const requestedRecipientId = typeof payload?.recipientId === 'string' ? payload.recipientId : null;
       const conversationId = requestedGroupId || (requestedRecipientId ? (normalizeConversationId(requestedRecipientId, userId) ?? requestedRecipientId) : null);
       if (conversationId) {
-        const access = await authorizeConversationAccess(conversationId, userId);
+        const access = await authorizeConversationAction(userId, { conversationId }, 'conversation.read');
         if (!access.allowed) {
           socket.emit('conversationSync', { error: 'Access denied.' });
           return;
@@ -399,7 +393,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
       const requestedRecipientId = typeof data?.recipientId === 'string' ? data.recipientId : null;
       const conversationId = requestedGroupId || (requestedRecipientId ? (normalizeConversationId(requestedRecipientId, senderId) ?? requestedRecipientId) : null);
       if (!conversationId) return;
-      const access = await authorizeConversationAccess(conversationId, senderId);
+      const access = await authorizeConversationAction(senderId, { conversationId }, 'conversation.read');
       if (!access.allowed) {
         socket.emit('typingRejected', { reason: access.reason });
         return;

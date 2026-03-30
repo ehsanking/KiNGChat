@@ -44,6 +44,15 @@ describe('socket and conversation authorization hardening', () => {
     expect(source).toContain('typingRejected');
     expect(source).toContain("socket.on('syncConversation', async");
     expect(source).toContain("{ error: 'Access denied.' }");
+    expect(source).toContain("authorizeConversationAction(userId, { conversationId }, 'conversation.read')");
+  });
+
+
+  it('socket joinGroup and sendMessage use shared conversation action policy', () => {
+    const source = fs.readFileSync('lib/socket.ts', 'utf8');
+    expect(source).toContain("authorizeConversationAction(userId, { groupId }, 'conversation.join')");
+    expect(source).toContain("authorizeConversationAction(senderId, { groupId: data.groupId }, 'message.send')");
+    expect(source).toContain("authorizeConversationAction(senderId, { recipientId: data.recipientId }, 'message.send')");
   });
 
   it('group read receipts are explicitly disabled in socket handler', () => {
@@ -65,6 +74,11 @@ describe('socket and conversation authorization hardening', () => {
     const downloadRoute = fs.readFileSync('app/api/upload-secure/[fileId]/route.ts', 'utf8');
     expect(attachments).toContain("downloadUrl: `/api/upload-secure/${fileId}`");
     expect(downloadRoute).toContain("ALLOW_QUERY_DOWNLOAD_TOKEN === 'true'");
+    expect(downloadRoute).toContain("code: 'INVALID_TOKEN'");
+    expect(downloadRoute).toContain("code: 'UNAUTHORIZED_CONVERSATION'");
+    const uploadRoute = fs.readFileSync('app/api/upload-secure/route.ts', 'utf8');
+    expect(uploadRoute).toContain("code: 'MALFORMED_METADATA'");
+    expect(uploadRoute).toContain("code: 'FILE_TOO_LARGE'");
   });
 });
 

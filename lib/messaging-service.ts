@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { authorizeConversationAccess, canSendToGroup } from '@/lib/conversation-access';
+import { authorizeConversationAction } from '@/lib/conversation-access';
 import { appendAuditLog } from '@/lib/audit';
 import { incrementMetric } from '@/lib/observability';
 import { conversationCacheKey, getOrSetCache, invalidateCacheByPrefix } from '@/lib/cache';
@@ -14,10 +14,15 @@ export const getConversationKey = (userId: string, recipientId?: string | null, 
   return canonicalizeDirectConversationId(userId, recipientId) ?? 'unknown';
 };
 
-const ensureConversationAccess = async (userId: string, recipientId?: string | null, groupId?: string | null) => {
-  if (groupId) return canSendToGroup(groupId, userId);
-  if (recipientId) return authorizeConversationAccess(recipientId, userId);
-  return { allowed: false as const, reason: 'missing_conversation' };
+const ensureConversationAccess = async (
+  userId: string,
+  recipientId?: string | null,
+  groupId?: string | null,
+  action: 'conversation.read' | 'message.send' | 'attachment.write' = 'conversation.read',
+) => {
+  const result = await authorizeConversationAction(userId, { recipientId, groupId }, action);
+  if (result.allowed) return result.access;
+  return { allowed: false as const, reason: result.reason };
 };
 
 export const invalidateConversationCaches = (userId: string, recipientId?: string | null, groupId?: string | null) => {

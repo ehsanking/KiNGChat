@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+
+### Authz consistency
+- Added centralized conversation action policy (`authorizeConversationAction`) to enforce one policy path for socket join/send/sync/typing and secure attachment read/write authorization checks.
+- Removed ad-hoc `joinGroup` membership query from socket handler and replaced it with shared policy evaluation + consistent rejection reason logging.
+
+### Messaging reliability
+- Kept server-side idempotency behavior explicit in socket send flow and aligned all conversation-level gates to shared policy checks to reduce transport drift during retries/reconnect.
+
+### Attachments
+- Hardened secure upload/download API error semantics with stable machine-readable codes (`UNAUTHENTICATED`, `MALFORMED_METADATA`, `FILE_TOO_LARGE`, `INVALID_TOKEN`, `UNAUTHORIZED_CONVERSATION`, etc.).
+- Added `X-Content-Type-Options: nosniff` to secure download responses and aligned download authorization to shared read policy.
+
+### Onboarding
+- No onboarding route behavior changes in this patch; existing flow retained.
+
+### Crypto honesty
+- No new cryptographic guarantees introduced; docs continue to describe current transitional scope.
+
+### Architecture
+- Documented a reliability-critical runtime flow map in `docs/runtime-topology.md` covering send/ack/read/sync/upload/download/session/authz/bootstrap paths.
+
+### Observability
+- Preserved and expanded blocked-download metrics while keeping rejection reasons explicit and transport-consistent.
+
+### Deferred items / risk
+- Full deterministic message lifecycle state machine transition enforcement (`QUEUED -> SENT -> DELIVERED -> READ/FAILED`) remains partially distributed across socket/background paths and needs deeper integration tests with a real DB.
+- Socket/API integration tests are still mostly source-regression style; transport-level runtime tests should be expanded in follow-up.
+
+
 ### Security and runtime hardening
 - Removed startup secret-generation side effects from `server.ts`; production startup now validates required secrets and placeholders fail fast.
 - Hardened installer network behavior by removing global git SSL verification disable and insecure `curl -k` usage.

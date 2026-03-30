@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import path from 'path';
 import { scanBufferForMalware } from '@/lib/antivirus';
 import { appendAuditLog } from '@/lib/audit';
-import { authorizeConversationAccess } from '@/lib/conversation-access';
+import { authorizeConversationAction } from '@/lib/conversation-access';
 import { incrementMetric } from '@/lib/observability';
 import { getPrivateObject, getPrivateObjectPath, putPrivateObject } from '@/lib/object-storage';
 import { isSecureUploadAllowed } from '@/lib/file-upload-policy';
@@ -24,12 +24,17 @@ const buildSecureAttachmentMetadataKey = (fileId: string) => path.posix.join('at
 export const verifyAttachmentWriteAccess = async (conversationId: string, userId: string) => {
   const normalizedConversationId = normalizeConversationId(conversationId, userId);
   if (!normalizedConversationId) return { allowed: false as const, reason: 'missing_conversation_id', kind: 'unknown' as const };
-  const access = await authorizeConversationAccess(normalizedConversationId, userId);
-  if (!access.allowed) return access;
-  if (access.kind === 'group' && access.isMuted) {
-    return { allowed: false as const, reason: 'member_muted', kind: 'group' as const };
+
+  const result = await authorizeConversationAction(userId, { conversationId: normalizedConversationId }, 'attachment.write');
+  if (!result.allowed) {
+    return {
+      allowed: false as const,
+      reason: result.reason,
+      kind: result.access.kind,
+    };
   }
-  return access;
+
+  return result.access;
 };
 
 export const createSecureDownloadToken = (fileId: string, expiresAt: number, userId: string, conversationId: string) => {
@@ -84,12 +89,12 @@ export const storeSecureAttachment = async (params: {
 }) => {
   const normalizedConversationId = normalizeConversationId(params.conversationId, params.userId);
   if (!normalizedConversationId) {
-    return { ok: false as const, status: 400, error: 'Invalid conversation identifier.' };
+    return { ok: false as const, status: 400, code: 'INVALID_CONVERSATION_ID', error: 'Invalid conversation identifier.' };
   }
   const access = await verifyAttachmentWriteAccess(params.conversationId, params.userId);
   if (!access.allowed) {
     await appendAuditLog({ action: 'SECURE_UPLOAD_BLOCKED', actorUserId: params.userId, targetId: params.conversationId, conversationId: params.conversationId, ip: params.ip, outcome: 'blocked', details: { reason: access.reason } });
-    return { ok: false as const, status: 403, error: 'Access denied for this conversation.' };
+    return { ok: false as const, status: 403, code: 'UNAUTHORIZED_CONVERSATION', error: 'Access denied for this conversation.' };
   }
 
   const buffer = Buffer.from(await params.file.arrayBuffer());
@@ -97,7 +102,7 @@ export const storeSecureAttachment = async (params: {
   if (!scan.clean) {
     incrementMetric('secure_uploads_blocked', 1, { reason: scan.reason ?? 'scan_failed' });
     await appendAuditLog({ action: 'SECURE_UPLOAD_BLOCKED', actorUserId: params.userId, targetId: params.conversationId, conversationId: params.conversationId, ip: params.ip, outcome: 'blocked', details: { fileName: params.file.name, fileSize: params.file.size, reason: scan.reason, detectedMime: scan.detectedMime } });
-    return { ok: false as const, status: 400, error: scan.reason ?? 'Malware scan failed.' };
+    return { ok: false as const, status: 400, code: 'MALWARE_SCAN_BLOCKED', error: scan.reason ?? 'Malware scan failed.' };
   }
 
   if (
@@ -109,7 +114,7 @@ export const storeSecureAttachment = async (params: {
       allowedFileFormats: params.allowedFileFormats,
     })
   ) {
-    return { ok: false as const, status: 400, error: 'File type is not allowed by server policy.' };
+    return { ok: false as const, status: 400, code: 'MIME_MISMATCH', error: 'File type is not allowed by server policy.' };
   }
 
   const fileId = crypto.randomUUID();

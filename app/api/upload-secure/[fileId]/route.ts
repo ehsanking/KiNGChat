@@ -2,21 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { requireFreshAuthenticatedUser } from '@/lib/fresh-session';
 import { appendAuditLog } from '@/lib/audit';
-import { authorizeConversationAccess } from '@/lib/conversation-access';
+import { authorizeConversationAction } from '@/lib/conversation-access';
 import { resolveSecureAttachmentPath, verifySecureDownloadToken } from '@/lib/secure-attachments';
 import { incrementMetric } from '@/lib/observability';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ fileId: string }> }) {
   const user = await requireFreshAuthenticatedUser(req);
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required.', code: 'UNAUTHENTICATED' }, { status: 401 });
   }
 
   const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip');
   const { fileId } = await context.params;
   const resolved = await resolveSecureAttachmentPath(fileId);
   if (!resolved) {
-    return NextResponse.json({ error: 'Encrypted file not found.' }, { status: 404 });
+    return NextResponse.json({ error: 'Encrypted file not found.', code: 'FILE_NOT_FOUND' }, { status: 404 });
   }
 
   const conversationId = resolved.conversationId;
@@ -25,10 +25,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ fileId:
   const token = headerToken || (process.env.ALLOW_QUERY_DOWNLOAD_TOKEN === 'true' ? queryToken : '');
   if (!fileId || !token || !verifySecureDownloadToken(token, fileId, user.id, conversationId)) {
     incrementMetric('secure_downloads_blocked', 1, { reason: 'invalid_token' });
-    return NextResponse.json({ error: 'Invalid or expired download token.' }, { status: 403 });
+    return NextResponse.json({ error: 'Invalid or expired download token.', code: 'INVALID_TOKEN' }, { status: 403 });
   }
 
-  const access = await authorizeConversationAccess(conversationId, user.id);
+  const access = await authorizeConversationAction(user.id, { conversationId }, 'conversation.read');
   if (!access.allowed) {
     incrementMetric('secure_downloads_blocked', 1, { reason: access.reason });
     await appendAuditLog({
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ fileId:
       outcome: 'blocked',
       details: { reason: access.reason },
     });
-    return NextResponse.json({ error: 'Access denied for this conversation.' }, { status: 403 });
+    return NextResponse.json({ error: 'Access denied for this conversation.', code: 'UNAUTHORIZED_CONVERSATION' }, { status: 403 });
   }
 
   await appendAuditLog({
@@ -50,9 +50,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ fileId:
     conversationId,
     ip: clientIp,
     outcome: 'success',
-    details: { conversationKind: access.kind },
+    details: { conversationKind: access.access.kind },
   });
-  incrementMetric('secure_downloads_granted', 1, { kind: access.kind });
+  incrementMetric('secure_downloads_granted', 1, { kind: access.access.kind });
 
   const fileBuffer = await readFile(resolved.filePath);
   return new NextResponse(fileBuffer, {
@@ -60,6 +60,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ fileId:
     headers: {
       'Content-Type': 'application/octet-stream',
       'Cache-Control': 'private, max-age=60',
+      'X-Content-Type-Options': 'nosniff',
       'Content-Disposition': `attachment; filename="${fileId}.bin"`,
     },
   });
