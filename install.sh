@@ -33,6 +33,9 @@ ADMIN_FORCE_PASSWORD_CHANGE=false
 UPGRADE_BACKUP_DIR=""
 CADDY_RUNTIME_VALIDATED=false
 LOCAL_PROXY_HEALTH_VALIDATED=false
+REINSTALL_ENV_REUSED=false
+REINSTALL_ADMIN_SECRET_RESTORED=false
+REINSTALL_DB_ENV_RESTORED=false
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -41,6 +44,20 @@ log_error() { echo -e "${RED}[ERR]${NC} $1"; }
 log_step() { echo -e "\n${PURPLE}=== $1 ===${NC}"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+compose_project_name() {
+  basename "$TARGET_DIR" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '_'
+}
+
+postgres_named_volume() {
+  printf '%s_pgdata' "$(compose_project_name)"
+}
+
+postgres_volume_exists() {
+  local volume_name
+  volume_name="$(postgres_named_volume)"
+  docker volume inspect "$volume_name" >/dev/null 2>&1
+}
 
 is_true() {
   case "${1:-}" in
@@ -329,10 +346,10 @@ choose_install_mode() {
   [ -f "$TARGET_DIR/.env" ] && env_exists=true
   [ -f "$TARGET_DIR/docker-compose.yml" ] && known_project_files=true
 
-  local compose_project_name
-  compose_project_name="$(basename "$TARGET_DIR" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '_')"
+  local detected_compose_project
+  detected_compose_project="$(compose_project_name)"
 
-  if command_exists docker && [ -n "$(docker ps -a --filter "label=com.docker.compose.project=${compose_project_name}" --format '{{.Names}}' 2>/dev/null)" ]; then
+  if command_exists docker && [ -n "$(docker ps -a --filter "label=com.docker.compose.project=${detected_compose_project}" --format '{{.Names}}' 2>/dev/null)" ]; then
     compose_project=true
   fi
 
@@ -849,6 +866,10 @@ backup_upgrade_artifacts() {
   [ -f "$TARGET_DIR/docker-compose.yml" ] && cp "$TARGET_DIR/docker-compose.yml" "$backup_dir/docker-compose.yml"
   [ -f "$TARGET_DIR/compose.prod.yaml" ] && cp "$TARGET_DIR/compose.prod.yaml" "$backup_dir/compose.prod.yaml"
   [ -f "$TARGET_DIR/compose_prod_full.yml" ] && cp "$TARGET_DIR/compose_prod_full.yml" "$backup_dir/compose_prod_full.yml"
+  if [ -f "$TARGET_DIR/runtime/admin-bootstrap-password" ]; then
+    mkdir -p "$backup_dir/runtime"
+    cp "$TARGET_DIR/runtime/admin-bootstrap-password" "$backup_dir/runtime/admin-bootstrap-password"
+  fi
 
   UPGRADE_BACKUP_DIR="$backup_dir"
   log_success "Backup created: $backup_dir"
@@ -909,6 +930,94 @@ sync_source_tree() {
   )
 }
 
+seed_reinstall_env_from_backup() {
+  [ "$INSTALL_MODE" = "reinstall" ] || return 0
+  [ -n "$UPGRADE_BACKUP_DIR" ] || return 0
+
+  local backup_env_file
+  backup_env_file="$UPGRADE_BACKUP_DIR/.env"
+  [ -f "$backup_env_file" ] || return 0
+
+  declare -A backup_env=()
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$(trim_space "$line")" ]]; then
+      continue
+    fi
+    if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+      backup_env["${line%%=*}"]="${line#*=}"
+    fi
+  done < "$backup_env_file"
+
+  local key db_keys required_db_keys
+  db_keys=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB APP_DB_USER APP_DB_PASSWORD APP_DB_SSLMODE DATABASE_URL MIGRATION_DATABASE_URL)
+  required_db_keys=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB APP_DB_USER APP_DB_PASSWORD)
+
+  for key in "${db_keys[@]}"; do
+    if [ -n "${backup_env[$key]-}" ]; then
+      env_set_explicit "$key" "${backup_env[$key]}"
+    fi
+  done
+
+  local all_required_present=true
+  for key in "${required_db_keys[@]}"; do
+    if [ -z "${backup_env[$key]-}" ]; then
+      all_required_present=false
+      break
+    fi
+  done
+  if [ "$all_required_present" = true ]; then
+    REINSTALL_DB_ENV_RESTORED=true
+  fi
+
+  local admin_keys
+  admin_keys=(ADMIN_USERNAME ADMIN_BOOTSTRAP_PASSWORD_FILE ADMIN_BOOTSTRAP_STRICT ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE ADMIN_BOOTSTRAP_RESET_EXISTING)
+  for key in "${admin_keys[@]}"; do
+    if [ -n "${backup_env[$key]-}" ]; then
+      env_set_explicit "$key" "${backup_env[$key]}"
+      REINSTALL_ENV_REUSED=true
+    fi
+  done
+
+  if [ "$REINSTALL_DB_ENV_RESTORED" = true ]; then
+    REINSTALL_ENV_REUSED=true
+    log_info "Reinstall mode: reusing preserved database credentials from backup .env."
+  else
+    log_warn "Reinstall mode: backup .env is missing one or more required database credentials."
+  fi
+}
+
+restore_reinstall_admin_secret() {
+  [ "$INSTALL_MODE" = "reinstall" ] || return 0
+  [ -n "$UPGRADE_BACKUP_DIR" ] || return 0
+
+  local source_secret target_secret
+  source_secret="$UPGRADE_BACKUP_DIR/runtime/admin-bootstrap-password"
+  target_secret="$TARGET_DIR/runtime/admin-bootstrap-password"
+  [ -f "$source_secret" ] || return 0
+
+  mkdir -p "$TARGET_DIR/runtime"
+  cp "$source_secret" "$target_secret"
+  ensure_root_owned_600 "$target_secret"
+  REINSTALL_ADMIN_SECRET_RESTORED=true
+  log_info "Reinstall mode: restored preserved runtime admin bootstrap secret."
+}
+
+guard_reinstall_db_state() {
+  [ "$INSTALL_MODE" = "reinstall" ] || return 0
+
+  if ! postgres_volume_exists; then
+    return 0
+  fi
+
+  if [ "$REINSTALL_DB_ENV_RESTORED" = true ]; then
+    return 0
+  fi
+
+  log_error "Reinstall refused: persistent PostgreSQL volume '$(postgres_named_volume)' exists, but compatible credentials were not restored from backup .env."
+  log_error "Action required: restore the previous .env (with POSTGRES_USER/POSTGRES_PASSWORD/APP_DB_USER/APP_DB_PASSWORD) into ${UPGRADE_BACKUP_DIR:-<backup-dir>}/.env, or use upgrade mode."
+  exit 1
+}
+
 configure_runtime_env() {
   log_step "Runtime environment"
 
@@ -917,8 +1026,18 @@ configure_runtime_env() {
 
   local env_file="$TARGET_DIR/.env"
   load_env_file "$env_file"
+  seed_reinstall_env_from_backup
+  restore_reinstall_admin_secret
+  guard_reinstall_db_state
 
-  if [ "$INSTALL_MODE" = "fresh" ] || [ "$INSTALL_MODE" = "reinstall" ]; then
+  local should_prompt_admin=false
+  if [ "$INSTALL_MODE" = "fresh" ]; then
+    should_prompt_admin=true
+  elif [ "$INSTALL_MODE" = "reinstall" ] && ! postgres_volume_exists; then
+    should_prompt_admin=true
+  fi
+
+  if [ "$should_prompt_admin" = true ]; then
     prompt_admin_credentials_fresh
   fi
 
@@ -1021,21 +1140,37 @@ configure_runtime_env() {
   env_set_if_missing "ADMIN_BOOTSTRAP_STATE_DIR" "/app/runtime_state"
 
   if [ "$INSTALL_MODE" = "fresh" ] || [ "$INSTALL_MODE" = "reinstall" ]; then
-    env_set_if_missing "ADMIN_USERNAME" "$ADMIN_USERNAME_VALUE"
+    local bootstrap_admin_username
+    bootstrap_admin_username="${ADMIN_USERNAME_VALUE:-$(env_get ADMIN_USERNAME)}"
+    if [ -z "$bootstrap_admin_username" ]; then
+      log_error "ADMIN_USERNAME is missing for ${INSTALL_MODE} mode."
+      exit 1
+    fi
+    env_set_if_missing "ADMIN_USERNAME" "$bootstrap_admin_username"
     local bootstrap_password_file_host="$TARGET_DIR/runtime/admin-bootstrap-password"
     mkdir -p "$TARGET_DIR/runtime"
     if [ ! -f "$bootstrap_password_file_host" ]; then
+      if [ -z "${ADMIN_PASSWORD_VALUE:-}" ]; then
+        log_error "Missing admin bootstrap password for reinstall. Restore runtime/admin-bootstrap-password from backup or reinstall without persistent state."
+        exit 1
+      fi
       printf '%s\n' "$ADMIN_PASSWORD_VALUE" > "$bootstrap_password_file_host"
       ensure_root_owned_600 "$bootstrap_password_file_host"
     fi
     env_set_if_missing "ADMIN_BOOTSTRAP_PASSWORD_FILE" "/run/secrets/admin-bootstrap-password"
-    env_set_if_missing "ADMIN_BOOTSTRAP_STRICT" "true"
-    if [ "$ADMIN_FORCE_PASSWORD_CHANGE" = true ]; then
-      env_set_if_missing "ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE" "true"
-    else
+    if [ "$INSTALL_MODE" = "reinstall" ] && postgres_volume_exists; then
+      env_set_if_missing "ADMIN_BOOTSTRAP_STRICT" "false"
       env_set_if_missing "ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE" "false"
+      env_set_if_missing "ADMIN_BOOTSTRAP_RESET_EXISTING" "false"
+    else
+      env_set_if_missing "ADMIN_BOOTSTRAP_STRICT" "true"
+      if [ "$ADMIN_FORCE_PASSWORD_CHANGE" = true ]; then
+        env_set_if_missing "ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE" "true"
+      else
+        env_set_if_missing "ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE" "false"
+      fi
+      env_set_if_missing "ADMIN_BOOTSTRAP_RESET_EXISTING" "false"
     fi
-    env_set_if_missing "ADMIN_BOOTSTRAP_RESET_EXISTING" "false"
   else
     env_set_if_missing "ADMIN_BOOTSTRAP_STRICT" "false"
     env_set_if_missing "ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE" "false"
@@ -1327,6 +1462,12 @@ print_summary() {
   if [ "$INSTALL_MODE" = "upgrade" ]; then
     echo "Admin bootstrap env vars are create-only by default and do not overwrite an existing admin user."
     echo "To reset an existing admin via env, set ADMIN_BOOTSTRAP_RESET_EXISTING=true for a one-time reset."
+  fi
+  if [ "$INSTALL_MODE" = "reinstall" ] && [ "$REINSTALL_ENV_REUSED" = true ]; then
+    echo "Reinstall reused preserved .env credentials/settings from installer backup."
+  fi
+  if [ "$INSTALL_MODE" = "reinstall" ] && [ "$REINSTALL_ADMIN_SECRET_RESTORED" = true ]; then
+    echo "Reinstall restored runtime/admin-bootstrap-password from installer backup."
   fi
   echo "No admin password was printed to terminal output."
   if [ "$CADDY_RUNTIME_VALIDATED" = true ]; then
