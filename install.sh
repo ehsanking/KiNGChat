@@ -1106,7 +1106,7 @@ provision_runtime_db_role() {
 
     sql_file="$(mktemp)"
     cat > "$sql_file" <<'EOSQL'
-DO \$\$
+DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_db_user') THEN
     EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT', :'app_db_user', :'app_db_password');
@@ -1114,7 +1114,7 @@ BEGIN
     EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT', :'app_db_user', :'app_db_password');
   END IF;
 END
-\$\$;
+$$;
 SELECT format('GRANT CONNECT, TEMP ON DATABASE %I TO %I', :'db_name', :'app_db_user') AS sql \gexec
 \c :db_name
 SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'app_db_user') AS sql \gexec
