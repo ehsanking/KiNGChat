@@ -46,6 +46,39 @@
 
 ---
 
+## Arquitetura (algoritmo + fluxograma visual)
+
+### Algoritmo de fluxo de mensagens ponta a ponta
+
+1. **Autenticação e vínculo de sessão**: o usuário entra e a sessão por cookie seguro permanece protegida por checagens CSRF/origin.
+2. **Carregamento de chaves no cliente**: chaves E2EE são geradas/carregadas no navegador (Web Crypto + IndexedDB).
+3. **Criptografia no cliente**: a mensagem é criptografada antes do envio; o servidor não precisa de texto puro.
+4. **Envio em tempo real**: o ciphertext é enviado por HTTPS/WSS para `server.ts` e Socket.IO.
+5. **Controles de segurança no servidor**: adesão, autorização, rate limiting, antiabuso e auditoria são aplicados.
+6. **Persistência e distribuição**: payload criptografado é salvo via Prisma no PostgreSQL; Redis opcional escala Pub/Sub.
+7. **Entrega ao destinatário**: sessões autorizadas do destinatário recebem ciphertext em tempo real.
+8. **Descriptografia só no navegador do destinatário**: o cliente descriptografa localmente e atualiza estado delivered/read.
+
+### Fluxograma visual
+
+```mermaid
+flowchart TD
+  A[Login do usuário + sessão segura] --> B[Carregar chaves E2EE no navegador]
+  B --> C[Escrever mensagem]
+  C --> D[Criptografia no cliente]
+  D --> E[Enviar ciphertext via HTTPS/WSS]
+  E --> F[server.ts + Next.js + Socket.IO]
+  F --> G{Controles: adesão/rate/autorização}
+  G -->|Permitido| H[(PostgreSQL via Prisma)]
+  G -->|Permitido| I[(Redis opcional: Pub/Sub)]
+  H --> J[Entrega em tempo real ao destinatário]
+  I --> J
+  J --> K[Navegador do destinatário descriptografa]
+  K --> L[Atualizar estado delivered/read]
+```
+
+---
+
 ## Requisitos
 
 | Dependência | Versão Mínima |

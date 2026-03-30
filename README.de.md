@@ -46,6 +46,39 @@
 
 ---
 
+## Architektur (Algorithmus + visuelles Ablaufdiagramm)
+
+### End-to-End-Algorithmus für den Nachrichtenfluss
+
+1. **Authentifizieren und Sitzung binden**: Nutzer meldet sich an; sichere Cookie-Sitzung bleibt durch CSRF-/Origin-Prüfung geschützt.
+2. **Client-Schlüssel laden**: E2EE-Schlüssel werden im Browser erzeugt/geladen (Web Crypto + IndexedDB).
+3. **Client-seitige Verschlüsselung**: Nachricht wird vor dem Versand verschlüsselt; der Server benötigt keinen Klartext.
+4. **Echtzeitversand**: Chiffretext wird per HTTPS/WSS an `server.ts` und Socket.IO gesendet.
+5. **Serverseitige Sicherheitsprüfungen**: Mitgliedschaft, Berechtigung, Rate-Limits, Anti-Missbrauch und Audit-Logging werden erzwungen.
+6. **Speichern und Verteilen**: Verschlüsselte Daten werden via Prisma in PostgreSQL gespeichert; optionales Redis dient der Pub/Sub-Skalierung.
+7. **Zustellung an Empfängergeräte**: autorisierte Empfängersitzungen erhalten Chiffretext in Echtzeit.
+8. **Entschlüsselung nur im Empfänger-Browser**: Browser entschlüsselt lokal und aktualisiert Zustell-/Lesestatus.
+
+### Visueller Ablauf
+
+```mermaid
+flowchart TD
+  A[Login + sichere Sitzung] --> B[E2EE-Schlüssel im Browser laden]
+  B --> C[Nachricht verfassen]
+  C --> D[Client-seitige Verschlüsselung]
+  D --> E[Chiffretext über HTTPS/WSS senden]
+  E --> F[server.ts + Next.js + Socket.IO]
+  F --> G{Sicherheitsprüfung: Mitgliedschaft/Rate/Berechtigung}
+  G -->|Erlaubt| H[(PostgreSQL via Prisma)]
+  G -->|Erlaubt| I[(Redis optional: Pub/Sub)]
+  H --> J[Echtzeitzustellung an Empfänger]
+  I --> J
+  J --> K[Empfänger-Browser entschlüsselt]
+  K --> L[Zugestellt/Gelesen aktualisieren]
+```
+
+---
+
 ## Anforderungen
 
 | Abhängigkeit | Mindestversion |

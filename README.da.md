@@ -46,6 +46,39 @@
 
 ---
 
+## Arkitektur (Algoritme + visuel flowchart)
+
+### End-to-end algoritme for beskedflow
+
+1. **Godkendelse og sessionsbinding**: brugeren logger ind, og den sikre cookiesession beskyttes af CSRF-/origin-kontrol.
+2. **Indlæs klientnøgler**: E2EE-nøgler oprettes/indlæses i browseren (Web Crypto + IndexedDB).
+3. **Kryptering på klienten**: beskeden krypteres før afsendelse; serveren skal ikke bruge klartekst.
+4. **Realtidsafsendelse**: krypteret payload sendes via HTTPS/WSS til `server.ts` og Socket.IO.
+5. **Sikkerhedskontrol på serveren**: medlemskab, autorisation, rate limiting, anti-misbrug og audit-log håndhæves.
+6. **Persistens og distribution**: krypterede data lagres via Prisma i PostgreSQL; valgfri Redis bruges til Pub/Sub-skalering.
+7. **Levering til modtagerenheder**: autoriserede modtagersessioner får krypteret data i realtid.
+8. **Dekryptering kun hos modtager**: modtagerens browser dekrypterer lokalt og opdaterer leveret/læst-status.
+
+### Visuelt flow
+
+```mermaid
+flowchart TD
+  A[Brugerlogin + sikker session] --> B[Indlæs E2EE-nøgler i browser]
+  B --> C[Skriv besked]
+  C --> D[Kryptering på klient]
+  D --> E[Send krypteret data via HTTPS/WSS]
+  E --> F[server.ts + Next.js + Socket.IO]
+  F --> G{Sikkerhedstjek: medlemskab/rate/autorisation}
+  G -->|Tilladt| H[(PostgreSQL via Prisma)]
+  G -->|Tilladt| I[(Redis valgfri: Pub/Sub)]
+  H --> J[Realtidslevering til modtager]
+  I --> J
+  J --> K[Modtagerbrowser dekrypterer]
+  K --> L[Opdater leveret/læst-status]
+```
+
+---
+
 ## Krav
 
 | Afhængighed | Minimumsversion |

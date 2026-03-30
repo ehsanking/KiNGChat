@@ -46,6 +46,39 @@
 
 ---
 
+## Arkitektur (algoritm + visuellt flödesschema)
+
+### End-to-end-algoritm för meddelandeflöde
+
+1. **Autentisering och sessionsbindning**: användaren loggar in och säker cookiesession skyddas av CSRF-/origin-kontroller.
+2. **Ladda klientnycklar**: E2EE-nycklar skapas/laddas i webbläsaren (Web Crypto + IndexedDB).
+3. **Kryptering på klienten**: meddelandet krypteras före sändning; servern behöver inte klartext.
+4. **Realtidssändning**: krypterad payload skickas via HTTPS/WSS till `server.ts` och Socket.IO.
+5. **Säkerhetskontroller på servern**: medlemskap, behörighet, rate limiting, anti-missbruk och revisionslogg tillämpas.
+6. **Lagring och distribution**: krypterad payload sparas via Prisma i PostgreSQL; valfri Redis skalar Pub/Sub.
+7. **Leverans till mottagarenheter**: behöriga mottagarsessioner får ciphertext i realtid.
+8. **Dekryptering endast hos mottagaren**: mottagarens webbläsare dekrypterar lokalt och uppdaterar levererad/läst-status.
+
+### Visuellt flöde
+
+```mermaid
+flowchart TD
+  A[Användarinloggning + säker session] --> B[Ladda E2EE-nycklar i webbläsaren]
+  B --> C[Skriv meddelande]
+  C --> D[Kryptering på klienten]
+  D --> E[Skicka ciphertext via HTTPS/WSS]
+  E --> F[server.ts + Next.js + Socket.IO]
+  F --> G{Kontroller: medlemskap/rate/behörighet}
+  G -->|Tillåtet| H[(PostgreSQL via Prisma)]
+  G -->|Tillåtet| I[(Redis valfri: Pub/Sub)]
+  H --> J[Realtidsleverans till mottagare]
+  I --> J
+  J --> K[Mottagarwebbläsare dekrypterar]
+  K --> L[Uppdatera levererad/läst-status]
+```
+
+---
+
 ## Krav
 
 | Beroende | Minversion |

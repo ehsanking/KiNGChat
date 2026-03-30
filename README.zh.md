@@ -46,6 +46,39 @@
 
 ---
 
+## 架构（算法 + 可视化流程图）
+
+### 端到端消息流算法
+
+1. **认证并绑定会话**：用户登录后，安全 Cookie 会话持续受 CSRF/origin 校验保护。
+2. **加载客户端密钥材料**：在浏览器内生成/加载 E2EE 密钥（Web Crypto + IndexedDB）。
+3. **客户端加密**：消息在发送前完成加密；服务器不需要明文。
+4. **实时发送**：密文通过 HTTPS/WSS 发送到 `server.ts` 与 Socket.IO。
+5. **服务端安全校验**：执行成员关系、授权、限流、反滥用和审计日志检查。
+6. **持久化与分发**：加密负载通过 Prisma 存入 PostgreSQL；可选 Redis 用于 Pub/Sub 扩展。
+7. **投递到接收端设备**：已授权的接收端会话实时收到密文。
+8. **仅在接收端浏览器解密**：接收端本地解密并更新 delivered/read 状态。
+
+### 可视化流程图
+
+```mermaid
+flowchart TD
+  A[用户登录 + 安全会话] --> B[在浏览器加载 E2EE 密钥]
+  B --> C[编写消息]
+  C --> D[客户端加密]
+  D --> E[通过 HTTPS/WSS 发送密文]
+  E --> F[server.ts + Next.js + Socket.IO]
+  F --> G{安全校验：成员/rate/授权}
+  G -->|允许| H[(PostgreSQL via Prisma)]
+  G -->|允许| I[(Redis 可选: Pub/Sub)]
+  H --> J[实时投递给接收端]
+  I --> J
+  J --> K[接收端浏览器解密]
+  K --> L[更新 delivered/read 状态]
+```
+
+---
+
 ## 环境要求
 
 | 依赖 | 最低版本 |

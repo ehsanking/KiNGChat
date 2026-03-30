@@ -46,6 +46,39 @@
 
 ---
 
+## Arquitectura (algoritmo + diagrama visual de flujo)
+
+### Algoritmo de flujo de mensajes end-to-end
+
+1. **Autenticación y vínculo de sesión**: el usuario inicia sesión y la cookie segura queda protegida por validaciones CSRF/origin.
+2. **Carga de claves del cliente**: las claves E2EE se generan/cargan en el navegador (Web Crypto + IndexedDB).
+3. **Cifrado en cliente**: el mensaje se cifra antes de enviarse; el servidor no necesita texto plano.
+4. **Envío en tiempo real**: el ciphertext viaja por HTTPS/WSS hacia `server.ts` y Socket.IO.
+5. **Controles de seguridad del servidor**: se aplican membresía, autorización, rate limiting, antiabuso y auditoría.
+6. **Persistencia y distribución**: el payload cifrado se guarda con Prisma en PostgreSQL; Redis opcional escala Pub/Sub.
+7. **Entrega al receptor**: las sesiones autorizadas del receptor reciben ciphertext en tiempo real.
+8. **Descifrado solo en navegador receptor**: el cliente receptor descifra localmente y actualiza estado delivered/read.
+
+### Diagrama visual
+
+```mermaid
+flowchart TD
+  A[Inicio de sesión + sesión segura] --> B[Cargar claves E2EE en navegador]
+  B --> C[Escribir mensaje]
+  C --> D[Cifrado en cliente]
+  D --> E[Enviar ciphertext por HTTPS/WSS]
+  E --> F[server.ts + Next.js + Socket.IO]
+  F --> G{Controles: membresía/rate/autorización}
+  G -->|Permitido| H[(PostgreSQL via Prisma)]
+  G -->|Permitido| I[(Redis opcional: Pub/Sub)]
+  H --> J[Entrega en tiempo real al receptor]
+  I --> J
+  J --> K[Descifrado en navegador receptor]
+  K --> L[Actualizar estado delivered/read]
+```
+
+---
+
 ## Requisitos
 
 | Dependencia | Versión mínima |

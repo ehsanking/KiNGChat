@@ -72,63 +72,34 @@
 
 ## Architecture
 
+### End-to-End message flow algorithm
+
+1. **Authenticate and bind session**: user signs in; secure cookie session remains guarded by CSRF/origin checks.
+2. **Load client key material**: E2EE keys are generated/loaded in-browser (Web Crypto + IndexedDB).
+3. **Encrypt on client**: message content is encrypted before transmission; server should not require plaintext.
+4. **Send in real-time**: ciphertext is sent over HTTPS/WSS to `server.ts` and Socket.IO.
+5. **Apply server-side guards**: membership, authorization, rate limits, anti-abuse rules, and audit logging are enforced.
+6. **Persist and distribute**: encrypted payload is stored via Prisma in PostgreSQL; optional Redis supports pub/sub scaling.
+7. **Deliver to recipient devices**: authorized recipient sessions receive ciphertext in real-time.
+8. **Decrypt only on recipient client**: browser decrypts locally and updates delivery/read state.
+
+### Visual runtime chart
+
 ```mermaid
-flowchart TB
-  subgraph Client[Browser Client]
-    UI[Next.js UI (ChatDashboardClient)]
-    SW[Service Worker / Web Push (optional)]
-    IDB[IndexedDB: E2EE keys]
-    LS[localStorage: drafts + offline queue]
-  end
-
-  subgraph App[App Container]
-    NS[Next.js App Router + Route Handlers]
-    CS[Custom Node Server (server.ts)]
-    IO[Socket.IO Server]
-    BJ[Background Job Worker]
-    SEC[Session + CSRF + Origin checks]
-    ATT[Secure Attachments Pipeline]
-  end
-
-  subgraph Data[Data Stores]
-    PG[(PostgreSQL via Prisma)]
-    FS[(Local Object Storage)]
-    RD[(Redis optional)]
-  end
-
-  subgraph Edge[Ingress]
-    Caddy[Caddy Reverse Proxy]
-  end
-
-  UI -->|HTTPS| Caddy --> CS
-  CS --> NS
-  CS --> IO
-  UI -->|WebSocket| IO
-
-  NS --> SEC
-  IO --> SEC
-
-  NS --> PG
-  IO --> PG
-  BJ --> PG
-
-  ATT --> FS
-  ATT --> PG
-
-  IO -. optional adapter .-> RD
-  BJ -. optional distributed queue .-> RD
-  SEC -. optional distributed rate-limit .-> RD
-
-  UI --> IDB
-  UI --> LS
-  SW -. optional .-> UI
+flowchart TD
+  A[User login + secure session] --> B[Load E2EE keys in browser]
+  B --> C[Compose message]
+  C --> D[Client-side encryption]
+  D --> E[Send ciphertext over HTTPS/WSS]
+  E --> F[server.ts + Next.js + Socket.IO]
+  F --> G{Security checks: membership/rate/authz}
+  G -->|Allowed| H[(PostgreSQL via Prisma)]
+  G -->|Allowed| I[(Redis optional: Pub/Sub)]
+  H --> J[Real-time delivery to recipient]
+  I --> J
+  J --> K[Recipient browser decrypts]
+  K --> L[Update delivered/read state]
 ```
-
-**Key design principles:**
-- **Zero-trust server**: private keys never leave the browser
-- **Stateless auth + revocation checks**: signed session cookies validated against live user state (`sessionVersion`, role, ban/approval)
-- **Horizontal scaling**: Redis adapter for Socket.IO cluster mode
-- **Graceful degradation**: SQLite fallback for development; Redis is optional
 
 ---
 

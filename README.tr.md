@@ -46,6 +46,39 @@
 
 ---
 
+## Mimari (algoritma + görsel akış şeması)
+
+### Uçtan uca mesaj akışı algoritması
+
+1. **Kimlik doğrulama ve oturum bağlama**: kullanıcı giriş yapar, güvenli çerez oturumu CSRF/origin kontrolleriyle korunur.
+2. **İstemci anahtarlarını yükleme**: E2EE anahtarları tarayıcıda üretilir/yüklenir (Web Crypto + IndexedDB).
+3. **İstemci tarafı şifreleme**: mesaj gönderilmeden önce şifrelenir; sunucu düz metne ihtiyaç duymaz.
+4. **Gerçek zamanlı gönderim**: ciphertext HTTPS/WSS üzerinden `server.ts` ve Socket.IO'ya gönderilir.
+5. **Sunucu güvenlik kontrolleri**: üyelik, yetkilendirme, rate limiting, kötüye kullanım önleme ve denetim logları uygulanır.
+6. **Kalıcılaştırma ve dağıtım**: şifreli payload Prisma ile PostgreSQL'e yazılır; isteğe bağlı Redis Pub/Sub ölçeklemesi sağlar.
+7. **Alıcı cihazlarına teslimat**: yetkili alıcı oturumlarına ciphertext gerçek zamanlı iletilir.
+8. **Şifre çözme yalnızca alıcıda**: alıcının tarayıcısı yerelde çözer ve delivered/read durumunu günceller.
+
+### Görsel akış
+
+```mermaid
+flowchart TD
+  A[Kullanıcı girişi + güvenli oturum] --> B[Tarayıcıda E2EE anahtarlarını yükle]
+  B --> C[Mesaj yaz]
+  C --> D[İstemci tarafı şifreleme]
+  D --> E[HTTPS/WSS ile ciphertext gönder]
+  E --> F[server.ts + Next.js + Socket.IO]
+  F --> G{Kontroller: üyelik/rate/yetki}
+  G -->|İzinli| H[(PostgreSQL via Prisma)]
+  G -->|İzinli| I[(Redis isteğe bağlı: Pub/Sub)]
+  H --> J[Alıcıya gerçek zamanlı teslimat]
+  I --> J
+  J --> K[Alıcı tarayıcısı şifreyi çözer]
+  K --> L[Delivered/read durumunu güncelle]
+```
+
+---
+
 ## Gereksinimler
 
 | Bağımlılık | Minimum Sürüm |
