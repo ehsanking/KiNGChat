@@ -1060,8 +1060,8 @@ guard_reinstall_db_state() {
     return 0
   fi
 
-  log_error "Reinstall refused: persistent PostgreSQL volume '$(postgres_named_volume)' exists, but compatible credentials were not restored from backup .env."
-  log_error "Action required: restore the previous .env (with POSTGRES_USER/POSTGRES_PASSWORD/APP_DB_USER/APP_DB_PASSWORD) into ${UPGRADE_BACKUP_DIR:-<backup-dir>}/.env, or use upgrade mode."
+  log_error "Reinstall refused: persistent PostgreSQL volume '$(postgres_named_volume)' exists, but compatible DB credentials were not recovered."
+  log_error "Action required: restore the previous .env (with POSTGRES_USER/POSTGRES_PASSWORD/APP_DB_USER/APP_DB_PASSWORD) into ${UPGRADE_BACKUP_DIR:-<backup-dir>}/.env, or run upgrade mode."
   exit 1
 }
 
