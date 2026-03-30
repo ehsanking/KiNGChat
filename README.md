@@ -120,18 +120,21 @@ flowchart TD
 ### Installer (Linux, production-safe flow)
 
 ```bash
-# 1) Download installer from a pinned tag (recommended for production)
-TAG="v1.0.0"
+# 1) One-line install (works for root and non-root users)
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | ( [ "$(id -u)" -eq 0 ] && bash || sudo bash )
+
+# 2) Optional: Download from a pinned tag for reproducible installs
+TAG="<release-tag>"
 curl -fsSLo install.sh "https://raw.githubusercontent.com/ehsanking/ElaheMessenger/${TAG}/install.sh"
 
-# 2) Verify checksum (recommended)
+# 3) Verify checksum (recommended)
 # Replace with the checksum published for the chosen release/tag.
 echo "<sha256>  install.sh" | sha256sum -c -
 
-# 3) Inspect installer before running
+# 4) Inspect installer before running
 less install.sh
 
-# 4) Run explicitly as root
+# 5) Run (installer auto-elevates with sudo when possible)
 sudo bash install.sh
 ```
 
@@ -139,7 +142,7 @@ Reproducible alternatives:
 
 ```bash
 # Pinned tag
-sudo INSTALL_REF=v1.0.0 bash install.sh
+sudo INSTALL_REF=<release-tag> bash install.sh
 
 # Pinned commit
 sudo INSTALL_REF=<40-char-commit-sha> bash install.sh
@@ -518,3 +521,13 @@ Copyright © 2026 Elahe Messenger Contributors.
   <br/>
   <a href="https://t.me/kingithub">t.me/kingithub</a>
 </p>
+
+---
+
+## Donate
+
+If this project helps you, you can support its maintenance:
+
+- **USDT (TRC20 / Tether):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+- **TRON (TRX):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+

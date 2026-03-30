@@ -53,7 +53,11 @@ on_error() {
 
 require_root() {
   if [ "${EUID:-$(id -u)}" -ne 0 ]; then
-    log_error "Installer must run as root. Re-run with: sudo bash install.sh"
+    if command_exists sudo && [ -t 0 ] && [ -f "${BASH_SOURCE[0]:-}" ]; then
+      log_info "Root privileges are required. Re-running installer with sudo..."
+      exec sudo -E bash "${BASH_SOURCE[0]}" "$@"
+    fi
+    log_error "Installer must run as root. Re-run with: curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | ( [ \"\$(id -u)\" -eq 0 ] && bash || sudo bash )"
     exit 1
   fi
 }
@@ -1201,7 +1205,7 @@ main() {
     exit 1
   fi
 
-  require_root
+  require_root "$@"
   choose_install_mode
   preflight_checks
   check_dependencies

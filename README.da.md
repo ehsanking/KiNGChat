@@ -94,7 +94,7 @@ flowchart TD
 ## Hurtig start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/install.sh | ( [ "$(id -u)" -eq 0 ] && bash || sudo bash )
 ```
 
 ### Manuel installation
@@ -125,3 +125,13 @@ npm run build && npm start
 Udgivet under [MIT-licensen](./LICENSE). Copyright © 2025 Elahe Messenger Contributors.
 
 <p align="center">Lavet med ❤️ af <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
+
+---
+
+## Donate
+
+If this project helps you, you can support its maintenance:
+
+- **USDT (TRC20 / Tether):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+- **TRON (TRX):** `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+
