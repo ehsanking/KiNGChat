@@ -20,6 +20,8 @@ CYAN='\033[1;36m'
 NC='\033[0m'
 
 INSTALL_MODE=""
+INSTALL_NONINTERACTIVE="${INSTALL_NONINTERACTIVE:-}"
+NONINTERACTIVE=false
 USE_DOMAIN=false
 DOMAIN_NAME=""
 SSL_EMAIL=""
@@ -39,6 +41,17 @@ log_error() { echo -e "${RED}[ERR]${NC} $1"; }
 log_step() { echo -e "\n${PURPLE}=== $1 ===${NC}"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+is_true() {
+  case "${1:-}" in
+    1|true|TRUE|yes|YES|y|Y|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+has_prompt_tty() {
+  [ -t 0 ] || [ -r /dev/tty ]
+}
 
 on_error() {
   local exit_code=$?
@@ -258,6 +271,12 @@ choose_source_ref() {
   local latest_tag
   latest_tag="$(detect_latest_tag_ref || true)"
   if [ -n "$latest_tag" ]; then
+    if [ "$NONINTERACTIVE" = true ]; then
+      INSTALL_REF_RESOLVED="$latest_tag"
+      INSTALL_REF_TYPE="tag"
+      log_info "Non-interactive mode: using latest tag ${latest_tag}."
+      return 0
+    fi
     echo -e "${CYAN}Select source ref:${NC}"
     echo "  1) Use latest tag (${latest_tag}) [recommended]"
     echo "  2) Enter a specific tag/commit/branch"
@@ -294,6 +313,16 @@ choose_source_ref() {
 choose_install_mode() {
   log_step "Install mode detection"
 
+  if [ -n "${INSTALL_MODE:-}" ]; then
+    case "$INSTALL_MODE" in
+      fresh|upgrade|reinstall) ;;
+      *)
+        log_error "Invalid INSTALL_MODE='${INSTALL_MODE}'. Allowed: fresh|upgrade|reinstall."
+        exit 1
+        ;;
+    esac
+  fi
+
   local dir_exists=false env_exists=false compose_project=false known_containers=false known_project_files=false
 
   [ -d "$TARGET_DIR" ] && dir_exists=true
@@ -324,13 +353,20 @@ choose_install_mode() {
   echo "  2) Reinstall (replace files, keep old backup, no implicit data deletion)"
   echo "  3) Abort"
 
-  local choice
-  choice=$(read_tty_input "${YELLOW}Enter choice [1-3]:${NC} " "1")
-  case "$choice" in
-    1) INSTALL_MODE="upgrade" ;;
-    2) INSTALL_MODE="reinstall" ;;
-    *) log_warn "Aborted by operator."; exit 0 ;;
-  esac
+  if [ -n "${INSTALL_MODE:-}" ]; then
+    log_info "Using INSTALL_MODE from environment: $INSTALL_MODE"
+  elif [ "$NONINTERACTIVE" = true ]; then
+    INSTALL_MODE="upgrade"
+    log_info "Non-interactive mode: defaulting to upgrade for detected existing install."
+  else
+    local choice
+    choice=$(read_tty_input "${YELLOW}Enter choice [1-3]:${NC} " "1")
+    case "$choice" in
+      1) INSTALL_MODE="upgrade" ;;
+      2) INSTALL_MODE="reinstall" ;;
+      *) log_warn "Aborted by operator."; exit 0 ;;
+    esac
+  fi
 
   log_info "Selected mode: $INSTALL_MODE"
 }
@@ -346,6 +382,10 @@ check_ports() {
 
   if [ ${#conflicts[@]} -gt 0 ]; then
     log_warn "Required ports in use: ${conflicts[*]}"
+    if [ "$NONINTERACTIVE" = true ]; then
+      log_error "Non-interactive mode refuses to continue with occupied ports. Free ports 80/443 or rerun interactively."
+      exit 1
+    fi
     local decision
     decision=$(read_tty_input "${YELLOW}Continue anyway? [y/N]:${NC} " "N")
     case "$decision" in
@@ -479,6 +519,25 @@ check_dependencies() {
 collect_domain_ssl_input() {
   log_step "Domain/IP configuration"
 
+  if [ "$NONINTERACTIVE" = true ]; then
+    if is_true "${INSTALL_USE_DOMAIN:-false}"; then
+      DOMAIN_NAME="${DOMAIN_NAME:-${INSTALL_DOMAIN_NAME:-}}"
+      DOMAIN_NAME="${DOMAIN_NAME#http://}"
+      DOMAIN_NAME="${DOMAIN_NAME#https://}"
+      DOMAIN_NAME="${DOMAIN_NAME%%/*}"
+      DOMAIN_NAME="${DOMAIN_NAME,,}"
+      if [[ -z "$DOMAIN_NAME" || ! "$DOMAIN_NAME" =~ ^([a-z0-9-]+\.)+[a-z]{2,}$ ]]; then
+        log_error "INSTALL_USE_DOMAIN=true requires valid INSTALL_DOMAIN_NAME in non-interactive mode."
+        exit 1
+      fi
+      SSL_EMAIL="${SSL_EMAIL:-${INSTALL_SSL_EMAIL:-admin@${DOMAIN_NAME}}}"
+      USE_DOMAIN=true
+      return
+    fi
+    USE_DOMAIN=false
+    return
+  fi
+
   echo -e "${CYAN}Choose external access mode:${NC}"
   echo "  1) Domain (Caddy TLS on :443)"
   echo "  2) IP-only (Caddy HTTP on :80)"
@@ -505,6 +564,15 @@ collect_domain_ssl_input() {
 
 choose_proxy_config_action_upgrade() {
   log_step "Proxy configuration on upgrade"
+  if [ "$NONINTERACTIVE" = true ]; then
+    if [ "${PROXY_CONFIG_ACTION:-}" = "regenerate" ]; then
+      log_info "Non-interactive mode: regenerating proxy config due to PROXY_CONFIG_ACTION=regenerate."
+      return
+    fi
+    PROXY_CONFIG_ACTION="preserve"
+    log_info "Non-interactive mode: preserving existing proxy config."
+    return
+  fi
   echo -e "${CYAN}Upgrade proxy handling:${NC}"
   echo "  1) Preserve existing proxy config (recommended)"
   echo "  2) Regenerate proxy config (change ingress/domain/IP mode)"
@@ -522,6 +590,36 @@ prompt_admin_credentials_fresh() {
   generated_suffix=$(random_hex 4)
   generated_user="owner_${generated_suffix}"
   generated_password=$(random_base64 36)
+
+  if [ "$NONINTERACTIVE" = true ]; then
+    local configured_user configured_password
+    configured_user="${ADMIN_USERNAME:-}"
+    configured_password="${ADMIN_PASSWORD:-}"
+    if [ -n "$configured_user" ]; then
+      if ! is_valid_admin_username "$configured_user"; then
+        log_error "ADMIN_USERNAME is invalid for non-interactive install."
+        exit 1
+      fi
+      ADMIN_USERNAME_VALUE="$configured_user"
+    else
+      ADMIN_USERNAME_VALUE="$generated_user"
+    fi
+
+    if [ -n "$configured_password" ]; then
+      if ! is_valid_admin_password "$configured_password"; then
+        log_error "ADMIN_PASSWORD does not satisfy policy for non-interactive install."
+        exit 1
+      fi
+      ADMIN_PASSWORD_VALUE="$configured_password"
+      ADMIN_AUTO_GENERATED=false
+      ADMIN_FORCE_PASSWORD_CHANGE=false
+    else
+      ADMIN_PASSWORD_VALUE="$generated_password"
+      ADMIN_AUTO_GENERATED=true
+      ADMIN_FORCE_PASSWORD_CHANGE=true
+    fi
+    return
+  fi
 
   while true; do
     local input_user
@@ -552,6 +650,11 @@ prompt_admin_credentials_fresh() {
     fi
 
     local input_password input_confirm
+    if ! has_prompt_tty; then
+      log_error "Interactive admin password prompt is unavailable (no TTY)."
+      log_error "Set INSTALL_NONINTERACTIVE=true, or provide ADMIN_PASSWORD env var."
+      exit 1
+    fi
     input_password=$(read_tty_secret "${CYAN}Admin password (min 16, upper/lower/number/symbol):${NC} ")
     input_confirm=$(read_tty_secret "${CYAN}Confirm admin password:${NC} ")
 
@@ -1163,13 +1266,29 @@ verify_post_launch_health() {
     exit 1
   fi
 
-  if curl -fsS --max-time 8 "http://127.0.0.1/api/health/live" >/dev/null 2>&1; then
-    LOCAL_PROXY_HEALTH_VALIDATED=true
-    log_success "Local Caddy HTTP routing probe passed."
+  if [ "$USE_DOMAIN" = true ]; then
+    local http_status
+    http_status="$(curl -sS --max-time 8 --resolve "${DOMAIN_NAME}:80:127.0.0.1" -o /dev/null -w '%{http_code}' "http://${DOMAIN_NAME}/api/health/live" || true)"
+    case "$http_status" in
+      200|301|302|307|308)
+        LOCAL_PROXY_HEALTH_VALIDATED=true
+        log_success "Local Caddy domain routing probe passed via Host=${DOMAIN_NAME} (HTTP status ${http_status})."
+        ;;
+      *)
+        log_error "Local Caddy domain routing probe failed for host ${DOMAIN_NAME} (status: ${http_status:-none})."
+        print_failure_diagnostics
+        exit 1
+        ;;
+    esac
   else
-    log_error "Local Caddy HTTP routing probe failed (http://127.0.0.1/api/health/live)."
-    print_failure_diagnostics
-    exit 1
+    if curl -fsS --max-time 8 "http://127.0.0.1/api/health/live" >/dev/null 2>&1; then
+      LOCAL_PROXY_HEALTH_VALIDATED=true
+      log_success "Local Caddy HTTP routing probe passed."
+    else
+      log_error "Local Caddy HTTP routing probe failed (http://127.0.0.1/api/health/live)."
+      print_failure_diagnostics
+      exit 1
+    fi
   fi
 
   log_info "Phase 3/4: bootstrap admin verification"
@@ -1228,6 +1347,14 @@ main() {
   fi
 
   require_root "$@"
+  if is_true "$INSTALL_NONINTERACTIVE"; then
+    NONINTERACTIVE=true
+  elif ! has_prompt_tty; then
+    NONINTERACTIVE=true
+  fi
+  if [ "$NONINTERACTIVE" = true ]; then
+    log_info "Installer running in non-interactive mode."
+  fi
   choose_install_mode
   preflight_checks
   check_dependencies
