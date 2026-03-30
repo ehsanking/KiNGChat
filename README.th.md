@@ -122,7 +122,7 @@ npm run build && npm start
 
 ## ใบอนุญาต
 
-เผยแพร่ภายใต้ [ใบอนุญาต MIT](./LICENSE) Copyright © 2025 Elahe Messenger Contributors
+เผยแพร่ภายใต้ [ใบอนุญาต MIT](./LICENSE) Copyright © 2026 Elahe Messenger Contributors
 
 <p align="center">สร้างด้วย ❤️ โดย <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 

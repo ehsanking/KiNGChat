@@ -166,7 +166,7 @@ npm run db:setup   # Настройка БД
 
 ## Лицензия
 
-Распространяется под [лицензией MIT](./LICENSE). Copyright © 2025 Elahe Messenger Contributors.
+Распространяется под [лицензией MIT](./LICENSE). Copyright © 2026 Elahe Messenger Contributors.
 
 <p align="center">Создано с ❤️ <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 

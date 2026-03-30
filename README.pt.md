@@ -166,7 +166,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) e abra um PR pa
 
 ## Licença
 
-Lançado sob a [Licença MIT](./LICENSE). Copyright © 2025 Colaboradores do Elahe Messenger.
+Lançado sob a [Licença MIT](./LICENSE). Copyright © 2026 Colaboradores do Elahe Messenger.
 
 <p align="center">Feito com ❤️ por <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 

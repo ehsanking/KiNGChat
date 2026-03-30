@@ -122,7 +122,7 @@ npm run build && npm start
 
 ## Licens
 
-Udgivet under [MIT-licensen](./LICENSE). Copyright © 2025 Elahe Messenger Contributors.
+Udgivet under [MIT-licensen](./LICENSE). Copyright © 2026 Elahe Messenger Contributors.
 
 <p align="center">Lavet med ❤️ af <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 

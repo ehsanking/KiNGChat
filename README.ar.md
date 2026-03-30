@@ -168,7 +168,7 @@ npm run db:setup   # إعداد قاعدة البيانات
 
 ## الترخيص
 
-مُصدَر تحت [ترخيص MIT](./LICENSE). حقوق النشر © 2025 مساهمو Elahe Messenger.
+مُصدَر تحت [ترخيص MIT](./LICENSE). حقوق النشر © 2026 مساهمو Elahe Messenger.
 
 <p align="center">صُنع بـ ❤️ بواسطة <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 

@@ -166,7 +166,7 @@ npm run db:setup   # 数据库初始化
 
 ## 许可证
 
-基于 [MIT 许可证](./LICENSE) 发布。Copyright © 2025 Elahe Messenger Contributors.
+基于 [MIT 许可证](./LICENSE) 发布。Copyright © 2026 Elahe Messenger Contributors.
 
 <p align="center">由 <a href="https://github.com/ehsanking">@ehsanking</a> 用 ❤️ 构建 · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 

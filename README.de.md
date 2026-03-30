@@ -166,7 +166,7 @@ Nutze [Conventional Commits](https://www.conventionalcommits.org/) und öffne ei
 
 ## Lizenz
 
-Veröffentlicht unter der [MIT-Lizenz](./LICENSE). Copyright © 2025 Elahe Messenger Contributors.
+Veröffentlicht unter der [MIT-Lizenz](./LICENSE). Copyright © 2026 Elahe Messenger Contributors.
 
 <p align="center">Mit ❤️ erstellt von <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 

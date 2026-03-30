@@ -166,7 +166,7 @@ npm run db:setup   # Veritabanı kurulumu
 
 ## Lisans
 
-[MIT Lisansı](./LICENSE) altında yayınlanmıştır. Copyright © 2025 Elahe Messenger Katkıda Bulunanları.
+[MIT Lisansı](./LICENSE) altında yayınlanmıştır. Copyright © 2026 Elahe Messenger Katkıda Bulunanları.
 
 <p align="center">❤️ ile yapıldı: <a href="https://github.com/ehsanking">@ehsanking</a> · <a href="https://t.me/kingithub">t.me/kingithub</a></p>
 
