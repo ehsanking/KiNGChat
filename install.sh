@@ -50,6 +50,14 @@ log_step() { echo -e "\n${PURPLE}=== $1 ===${NC}"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
+detect_linux_distribution() {
+  local distro_id=""
+  if [ -r /etc/os-release ]; then
+    distro_id="$(. /etc/os-release && printf '%s' "${ID:-}")"
+  fi
+  printf '%s' "${distro_id,,}"
+}
+
 compose_project_name() {
   basename "$TARGET_DIR" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '_'
 }
@@ -439,6 +447,26 @@ preflight_checks() {
   fi
 
   check_ports
+}
+
+ensure_system_up_to_date() {
+  log_step "System update check"
+  local distro_id
+  distro_id="$(detect_linux_distribution)"
+
+  case "$distro_id" in
+    ubuntu|debian)
+      log_info "Detected Linux distribution: ${distro_id}. Running apt package index update."
+      apt-get update -qq
+      log_info "Applying available package upgrades."
+      DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq
+      log_success "System packages updated."
+      ;;
+    *)
+      log_warn "Detected Linux distribution: ${distro_id:-unknown}. Automatic system upgrade is not configured for this distro."
+      log_warn "Please update system packages manually before proceeding."
+      ;;
+  esac
 }
 
 install_docker_apt() {
@@ -1552,12 +1580,16 @@ print_summary() {
 }
 
 main() {
-  if [ "$(uname -s)" != "Linux" ]; then
+  local os_name
+  os_name="$(uname -s)"
+  if [ "$os_name" != "Linux" ]; then
     log_error "Linux is required."
     exit 1
   fi
 
+  log_info "Detected operating system: $os_name"
   require_root "$@"
+  ensure_system_up_to_date
   if is_true "$INSTALL_NONINTERACTIVE"; then
     NONINTERACTIVE=true
   elif ! has_prompt_tty; then
