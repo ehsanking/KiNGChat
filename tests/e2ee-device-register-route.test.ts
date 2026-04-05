@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeOneTimePreKeys } from '@/app/api/e2ee/devices/register/route';
+import { normalizeOneTimePreKeys } from '@/lib/e2ee-utils';
 
 describe('e2ee device register route prekey normalization', () => {
   it('deduplicates keyId and drops invalid entries', () => {
