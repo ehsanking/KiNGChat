@@ -908,6 +908,13 @@ sync_source_tree() {
       exit 1
     fi
 
+    # Keep local installer backups from causing false positives while still
+    # protecting user-managed untracked files from checkout/reset overwrite.
+    if [ -n "$(git ls-files --others --exclude-standard -- | grep -v '^.installer-backups/' || true)" ]; then
+      log_error "Upgrade aborted: untracked files detected. Move/remove them first."
+      exit 1
+    fi
+
     if ! git fetch origin --tags; then
       log_error "git fetch failed. Upgrade aborted safely (no deletion performed)."
       exit 1
