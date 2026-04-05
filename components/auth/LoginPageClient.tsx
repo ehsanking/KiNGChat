@@ -26,7 +26,7 @@ const toFriendlyError = (error: unknown) => {
 export default function LoginPageClient() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [show2FA, setShow2FA] = useState(false);
@@ -161,7 +161,7 @@ export default function LoginPageClient() {
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">Password</label>
             <div className="relative">
-              <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 pr-20 text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors" placeholder="********" required disabled={isLoading} />
+              <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 pr-20 text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors" placeholder="********" required disabled={isLoading} autoComplete="current-password" autoCorrect="off" autoCapitalize="none" spellCheck={false} />
               <button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-3 text-xs text-zinc-400 hover:text-zinc-200 disabled:opacity-50" disabled={isLoading} aria-label={showPassword ? 'Hide password' : 'Show password'}>
                 {showPassword ? 'Hide' : 'Show'}
               </button>
