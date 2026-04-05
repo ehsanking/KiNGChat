@@ -26,6 +26,7 @@ const toFriendlyError = (error: unknown) => {
 export default function LoginPageClient() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [show2FA, setShow2FA] = useState(false);
@@ -157,7 +158,16 @@ export default function LoginPageClient() {
         {error && <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-xl mb-6 text-center">{error}</div>}
         <form onSubmit={handleLogin} className="space-y-4">
           <div><label className="block text-sm font-medium text-zinc-400 mb-1">Username</label><input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors" placeholder="e.g. ehsanking" required disabled={isLoading} /></div>
-          <div><label className="block text-sm font-medium text-zinc-400 mb-1">Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors" placeholder="********" required disabled={isLoading} /><div className="mt-2 text-right"><Link href="/auth/recover" className="text-xs text-emerald-400 hover:underline">Forgot password?</Link></div></div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Password</label>
+            <div className="relative">
+              <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 pr-20 text-zinc-50 focus:outline-none focus:border-emerald-500 transition-colors" placeholder="********" required disabled={isLoading} />
+              <button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-3 text-xs text-zinc-400 hover:text-zinc-200 disabled:opacity-50" disabled={isLoading} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <div className="mt-2 text-right"><Link href="/auth/recover" className="text-xs text-emerald-400 hover:underline">Forgot password?</Link></div>
+          </div>
           <button type="submit" disabled={isLoading || (publicSettings.isCaptchaEnabled && ((publicSettings.captchaProvider === 'local' && !localCaptchaAnswer.trim()) || (publicSettings.captchaProvider !== 'local' && !captchaToken)))} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-semibold py-3 rounded-xl transition-colors mt-6 flex items-center justify-center gap-2">{isLoading ? <><Loader2 className="w-5 h-5 animate-spin" />Signing in…</> : 'Sign in securely'}</button>
           {publicSettings.isCaptchaEnabled && publicSettings.captchaProvider === 'recaptcha' && publicSettings.recaptchaSiteKey && <GoogleRecaptcha siteKey={publicSettings.recaptchaSiteKey} onTokenChange={setCaptchaToken} disabled={isLoading} />}
           {publicSettings.isCaptchaEnabled && publicSettings.captchaProvider === 'local' && publicSettings.localCaptcha && (

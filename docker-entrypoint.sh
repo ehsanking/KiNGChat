@@ -59,7 +59,14 @@ on_err() {
   echo "[entrypoint] ERROR: bootstrap failed near line ${line}. Check previous logs for root cause." >&2
 }
 
-trap 'on_err $LINENO' ERR
+# NOTE:
+# Alpine's /bin/sh (BusyBox ash) does not support `trap ... ERR`.
+# Unconditionally setting that trap aborts startup with:
+#   trap: ERR: bad trap
+# Keep startup POSIX-compatible by enabling the trap only when supported.
+if (trap '' ERR) 2>/dev/null; then
+  trap 'on_err $LINENO' ERR
+fi
 
 log() {
   echo "[entrypoint] $1"
