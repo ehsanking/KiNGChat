@@ -88,6 +88,26 @@ resolve_admin_bootstrap_password() {
   printf ""
 }
 
+resolve_database_password() {
+  if [ -n "${APP_DB_PASSWORD:-}" ]; then
+    printf "%s" "$APP_DB_PASSWORD"
+    return 0
+  fi
+
+  _db_url="${DATABASE_URL:-${MIGRATION_DATABASE_URL:-}}"
+  [ -z "$_db_url" ] && {
+    printf ""
+    return 0
+  }
+
+  # Parse password from URL userinfo: scheme://user:password@host[:port]/db
+  # We intentionally keep this POSIX + BusyBox compatible.
+  _userinfo=$(printf "%s" "$_db_url" | sed -n 's|^[a-zA-Z0-9+.-]*://\([^@/]*\)@.*|\1|p')
+  _password=$(printf "%s" "$_userinfo" | sed -n 's|^[^:]*:\(.*\)$|\1|p')
+
+  printf "%s" "$_password"
+}
+
 fail() {
   echo "[entrypoint] ERROR: $1" >&2
   exit 1
@@ -153,7 +173,9 @@ if [ "$APP_ENV_EFFECTIVE" = "production" ]; then
   if [ -n "$_bootstrap_password" ]; then
     ADMIN_PASSWORD="$_bootstrap_password" require_strong_value ADMIN_PASSWORD 16 "admin changeme password change_this_admin_password"
   fi
-  require_strong_value APP_DB_PASSWORD 16 "postgres pass password"
+  _resolved_db_password="$(resolve_database_password)"
+  [ -z "$_resolved_db_password" ] && fail "APP_DB_PASSWORD is required in production (or include password in DATABASE_URL/MIGRATION_DATABASE_URL)."
+  APP_DB_PASSWORD="$_resolved_db_password" require_strong_value APP_DB_PASSWORD 16 "postgres pass password"
   if [ "${CAPTCHA_PROVIDER:-recaptcha}" = "local" ] && [ -z "${LOCAL_CAPTCHA_SECRET:-}" ]; then
     fail "LOCAL_CAPTCHA_SECRET is required when CAPTCHA_PROVIDER=local in production."
   fi
