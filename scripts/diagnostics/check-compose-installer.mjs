@@ -94,8 +94,6 @@ export function run() {
   const dbEnv = parseServiceEnvironment(compose, 'db');
 
   const criticalDbEnv = new Set([
-    'DATABASE_URL',
-    'MIGRATION_DATABASE_URL',
     'POSTGRES_USER',
     'POSTGRES_PASSWORD',
     'POSTGRES_DB',
@@ -103,12 +101,23 @@ export function run() {
     'APP_DB_PASSWORD',
   ]);
 
-  const missingComposeKeys = Array.from(criticalDbEnv).filter((key) => !appEnv.has(key) && !dbEnv.has(key));
-  if (missingComposeKeys.length > 0) {
-    result.errors.push(`docker-compose.yml is missing critical DB env keys: ${missingComposeKeys.join(', ')}`);
+  const criticalAppDbEnv = new Set([
+    'DATABASE_URL',
+    'MIGRATION_DATABASE_URL',
+  ]);
+
+  const missingDbComposeKeys = Array.from(criticalDbEnv).filter((key) => !dbEnv.has(key));
+  if (missingDbComposeKeys.length > 0) {
+    result.errors.push(`docker-compose.yml db service is missing critical DB env keys: ${missingDbComposeKeys.join(', ')}`);
   }
 
-  const missingInstallerKeys = findMissingInstallerMentions(installer, criticalDbEnv);
+  const missingAppComposeKeys = Array.from(criticalAppDbEnv).filter((key) => !appEnv.has(key));
+  if (missingAppComposeKeys.length > 0) {
+    result.errors.push(`docker-compose.yml app service is missing critical database URL env keys: ${missingAppComposeKeys.join(', ')}`);
+  }
+
+  const installerCriticalDbEnv = new Set([...criticalDbEnv, ...criticalAppDbEnv]);
+  const missingInstallerKeys = findMissingInstallerMentions(installer, installerCriticalDbEnv);
   if (missingInstallerKeys.length > 0) {
     result.errors.push(`install.sh does not provision or validate critical DB env keys: ${missingInstallerKeys.join(', ')}`);
   }
