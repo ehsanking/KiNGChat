@@ -4,6 +4,49 @@ import { prisma } from '@/lib/prisma';
 import { verifySignedPreKey } from '@/lib/e2ee-signing';
 import { getRequestIdForRequest, respondWithInternalError, respondWithSafeError } from '@/lib/http-errors';
 
+const MAX_ONE_TIME_PREKEYS_PER_REQUEST = 500;
+
+type NormalizedOneTimePreKey = {
+  keyId: string;
+  publicKey: string;
+  signature: string | null;
+  expiresAt: Date | null;
+};
+
+export function normalizeOneTimePreKeys(input: unknown[]): NormalizedOneTimePreKey[] {
+  return input.reduce<NormalizedOneTimePreKey[]>((acc, item) => {
+    const entry = item as Record<string, unknown>;
+    if (typeof entry?.keyId !== 'string' || typeof entry?.publicKey !== 'string') {
+      return acc;
+    }
+
+    const keyId = entry.keyId.trim();
+    const publicKey = entry.publicKey.trim();
+    if (!keyId || !publicKey) {
+      return acc;
+    }
+
+    const expiresAtRaw = typeof entry.expiresAt === 'string' ? entry.expiresAt.trim() : '';
+    const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : null;
+    if (expiresAtRaw && Number.isNaN(expiresAt?.getTime())) {
+      return acc;
+    }
+
+    const signature = typeof entry.signature === 'string' ? entry.signature.trim() : null;
+    if (acc.some((existing) => existing.keyId === keyId)) {
+      return acc;
+    }
+
+    acc.push({
+      keyId,
+      publicKey,
+      signature: signature || null,
+      expiresAt,
+    });
+    return acc;
+  }, []);
+}
+
 export async function POST(request: Request) {
   const requestId = getRequestIdForRequest(request);
   try {
@@ -43,6 +86,18 @@ export async function POST(request: Request) {
       });
     }
 
+    if (oneTimePreKeys.length > MAX_ONE_TIME_PREKEYS_PER_REQUEST) {
+      return respondWithSafeError({
+        status: 400,
+        message: 'Too many one-time prekeys in request.',
+        code: 'VALIDATION_ERROR',
+        action: `Submit at most ${MAX_ONE_TIME_PREKEYS_PER_REQUEST} one-time prekeys per request.`,
+        requestId,
+      });
+    }
+
+    const normalizedOneTimePreKeys = normalizeOneTimePreKeys(oneTimePreKeys);
+
     const device = await prisma.$transaction(async (tx) => {
       if (isPrimary) {
         await tx.userDevice.updateMany({ where: { userId: session.userId }, data: { isPrimary: false } });
@@ -76,23 +131,16 @@ export async function POST(request: Request) {
         },
       });
       await tx.oneTimePreKey.deleteMany({ where: { deviceId: savedDevice.id, status: { in: ['AVAILABLE', 'RESERVED'] } } });
-      if (oneTimePreKeys.length > 0) {
-        // Note: skipDuplicates is not supported by SQLite. Since we already
-        // deleted existing keys above (deleteMany), duplicates should not occur.
+      if (normalizedOneTimePreKeys.length > 0) {
         await tx.oneTimePreKey.createMany({
-          data: oneTimePreKeys
-            .filter((item: unknown) => typeof (item as Record<string, unknown>)?.keyId === 'string' && typeof (item as Record<string, unknown>)?.publicKey === 'string')
-            .map((item: unknown) => {
-              const k = item as Record<string, string | null | undefined>;
-              return {
-                userId: session.userId,
-                deviceId: savedDevice.id,
-                keyId: String(k.keyId).trim(),
-                publicKey: String(k.publicKey).trim(),
-                signature: typeof k.signature === 'string' ? k.signature.trim() : null,
-                expiresAt: typeof k.expiresAt === 'string' ? new Date(k.expiresAt) : null,
-              };
-            }),
+          data: normalizedOneTimePreKeys.map((item) => ({
+            userId: session.userId,
+            deviceId: savedDevice.id,
+            keyId: item.keyId,
+            publicKey: item.publicKey,
+            signature: item.signature,
+            expiresAt: item.expiresAt,
+          })),
         });
       }
       await tx.e2EEKeyEvent.create({
@@ -101,7 +149,7 @@ export async function POST(request: Request) {
           deviceId: savedDevice.id,
           eventType: 'DEVICE_REGISTERED',
           keyRef: signedPreKey,
-          details: JSON.stringify({ label: label || null, oneTimePreKeyCount: oneTimePreKeys.length, isPrimary }),
+          details: JSON.stringify({ label: label || null, oneTimePreKeyCount: normalizedOneTimePreKeys.length, isPrimary }),
         },
       });
       return savedDevice;
