@@ -25,6 +25,11 @@ NONINTERACTIVE=false
 USE_DOMAIN=false
 DOMAIN_NAME=""
 SSL_EMAIL=""
+USE_CUSTOM_SSL_CERT=false
+CUSTOM_SSL_CERT_SOURCE=""
+CUSTOM_SSL_KEY_SOURCE=""
+CUSTOM_SSL_CERT_PATH="/etc/caddy/certs/custom-cert.pem"
+CUSTOM_SSL_KEY_PATH="/etc/caddy/certs/custom-key.pem"
 RESOLVED_APP_URL=""
 PROXY_CONFIG_ACTION="generate"
 ADMIN_CREATED_FILE=""
@@ -548,6 +553,25 @@ collect_domain_ssl_input() {
         exit 1
       fi
       SSL_EMAIL="${SSL_EMAIL:-${INSTALL_SSL_EMAIL:-admin@${DOMAIN_NAME}}}"
+      if is_true "${INSTALL_USE_CUSTOM_SSL_CERT:-false}"; then
+        CUSTOM_SSL_CERT_SOURCE="${INSTALL_SSL_CERT_PATH:-}"
+        CUSTOM_SSL_KEY_SOURCE="${INSTALL_SSL_KEY_PATH:-}"
+        if [ -z "$CUSTOM_SSL_CERT_SOURCE" ] || [ -z "$CUSTOM_SSL_KEY_SOURCE" ]; then
+          log_error "INSTALL_USE_CUSTOM_SSL_CERT=true requires INSTALL_SSL_CERT_PATH and INSTALL_SSL_KEY_PATH."
+          exit 1
+        fi
+        if [ ! -f "$CUSTOM_SSL_CERT_SOURCE" ] || [ ! -r "$CUSTOM_SSL_CERT_SOURCE" ]; then
+          log_error "Custom certificate file is missing or unreadable: $CUSTOM_SSL_CERT_SOURCE"
+          exit 1
+        fi
+        if [ ! -f "$CUSTOM_SSL_KEY_SOURCE" ] || [ ! -r "$CUSTOM_SSL_KEY_SOURCE" ]; then
+          log_error "Custom certificate key is missing or unreadable: $CUSTOM_SSL_KEY_SOURCE"
+          exit 1
+        fi
+        USE_CUSTOM_SSL_CERT=true
+      else
+        USE_CUSTOM_SSL_CERT=false
+      fi
       USE_DOMAIN=true
       return
     fi
@@ -573,9 +597,46 @@ collect_domain_ssl_input() {
       exit 1
     fi
     SSL_EMAIL=$(read_tty_input "${CYAN}TLS notification email:${NC} " "admin@${DOMAIN_NAME}")
+    local has_custom_cert
+    has_custom_cert=$(read_tty_input "${CYAN}Do you already have a personal SSL certificate? [y/N]:${NC} " "N")
+    case "$has_custom_cert" in
+      y|Y|yes|YES)
+        USE_CUSTOM_SSL_CERT=true
+        CUSTOM_SSL_CERT_SOURCE=$(read_tty_input "${CYAN}Full path to certificate file (.crt/.pem):${NC} " "")
+        CUSTOM_SSL_KEY_SOURCE=$(read_tty_input "${CYAN}Full path to private key file (.key/.pem):${NC} " "")
+        if [ -z "$CUSTOM_SSL_CERT_SOURCE" ] || [ -z "$CUSTOM_SSL_KEY_SOURCE" ]; then
+          log_error "Certificate and key paths are required when using personal SSL certificates."
+          exit 1
+        fi
+        if [ ! -f "$CUSTOM_SSL_CERT_SOURCE" ] || [ ! -r "$CUSTOM_SSL_CERT_SOURCE" ]; then
+          log_error "Certificate file is missing or unreadable: $CUSTOM_SSL_CERT_SOURCE"
+          exit 1
+        fi
+        if [ ! -f "$CUSTOM_SSL_KEY_SOURCE" ] || [ ! -r "$CUSTOM_SSL_KEY_SOURCE" ]; then
+          log_error "Private key file is missing or unreadable: $CUSTOM_SSL_KEY_SOURCE"
+          exit 1
+        fi
+        ;;
+      *)
+        USE_CUSTOM_SSL_CERT=false
+        ;;
+    esac
     USE_DOMAIN=true
   else
     USE_DOMAIN=false
+  fi
+}
+
+persist_custom_ssl_certificates() {
+  [ "$USE_DOMAIN" = true ] || return 0
+  [ "$USE_CUSTOM_SSL_CERT" = true ] || return 0
+
+  local cert_dir="$TARGET_DIR/certs"
+  mkdir -p "$cert_dir"
+  install -m 600 "$CUSTOM_SSL_CERT_SOURCE" "$TARGET_DIR/certs/custom-cert.pem"
+  install -m 600 "$CUSTOM_SSL_KEY_SOURCE" "$TARGET_DIR/certs/custom-key.pem"
+  if command_exists chown; then
+    chown root:root "$TARGET_DIR/certs/custom-cert.pem" "$TARGET_DIR/certs/custom-key.pem" 2>/dev/null || true
   fi
 }
 
@@ -725,6 +786,10 @@ configure_caddyfile() {
   fi
 
   if [ "$USE_DOMAIN" = true ]; then
+    local tls_directive=""
+    if [ "$USE_CUSTOM_SSL_CERT" = true ]; then
+      tls_directive="    tls ${CUSTOM_SSL_CERT_PATH} ${CUSTOM_SSL_KEY_PATH}"
+    fi
     cat > "$TARGET_DIR/Caddyfile" <<EOC
 {
     email ${SSL_EMAIL}
@@ -732,6 +797,7 @@ configure_caddyfile() {
 }
 
 ${DOMAIN_NAME} {
+${tls_directive}
     reverse_proxy app:3000 {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
@@ -1468,6 +1534,11 @@ print_summary() {
   if [ "$INSTALL_MODE" = "reinstall" ] && [ "$REINSTALL_ADMIN_SECRET_RESTORED" = true ]; then
     echo "Reinstall restored runtime/admin-bootstrap-password from installer backup."
   fi
+  if [ "$USE_DOMAIN" = true ] && [ "$USE_CUSTOM_SSL_CERT" = true ]; then
+    echo "TLS mode: using operator-provided certificate/key stored under $TARGET_DIR/certs."
+  elif [ "$USE_DOMAIN" = true ]; then
+    echo "TLS mode: automatic certificate issuance/renewal via Caddy."
+  fi
   echo "No admin password was printed to terminal output."
   if [ "$CADDY_RUNTIME_VALIDATED" = true ]; then
     echo "Caddy runtime config validated inside container."
@@ -1510,6 +1581,7 @@ main() {
   if [ "$INSTALL_MODE" != "upgrade" ] || [ "$PROXY_CONFIG_ACTION" = "regenerate" ]; then
     collect_domain_ssl_input
   fi
+  persist_custom_ssl_certificates
   configure_caddyfile
   configure_runtime_env
   configure_npmrc
