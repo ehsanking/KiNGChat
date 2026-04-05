@@ -111,6 +111,6 @@ ENV PORT=3000 \
 # Health check — wget is installed above.  Use a generous start period
 # to allow for database migrations on first run.
 HEALTHCHECK --interval=15s --timeout=10s --start-period=180s --retries=12 \
-  CMD wget -qO- http://localhost:3000/api/health/live || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/api/health/live || exit 1
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
