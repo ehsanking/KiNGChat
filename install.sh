@@ -186,6 +186,16 @@ ensure_root_owned_600() {
   chmod_600 "$target"
 }
 
+ensure_container_secret_permissions() {
+  local target="$1"
+  # App container runs as uid/gid 1001. Keep file private while making
+  # mounted bootstrap secret readable to the runtime user.
+  if command_exists chown; then
+    chown 1001:1001 "$target" 2>/dev/null || true
+  fi
+  chmod 600 "$target" 2>/dev/null || true
+}
+
 # shellcheck disable=SC1090
 load_env_file() {
   local file="$1"
@@ -828,8 +838,6 @@ ${DOMAIN_NAME} {
 ${tls_directive}
     reverse_proxy app:3000 {
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
         header_up Host {host}
     }
     encode gzip zstd
@@ -849,8 +857,6 @@ EOC
 :80 {
     reverse_proxy app:3000 {
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
         header_up Host {host}
     }
     encode gzip zstd
@@ -1091,7 +1097,7 @@ restore_reinstall_admin_secret() {
 
   mkdir -p "$TARGET_DIR/runtime"
   cp "$source_secret" "$target_secret"
-  ensure_root_owned_600 "$target_secret"
+  ensure_container_secret_permissions "$target_secret"
   REINSTALL_ADMIN_SECRET_RESTORED=true
   log_info "Reinstall mode: restored preserved runtime admin bootstrap secret."
 }
@@ -1249,8 +1255,9 @@ configure_runtime_env() {
         exit 1
       fi
       printf '%s\n' "$ADMIN_PASSWORD_VALUE" > "$bootstrap_password_file_host"
-      ensure_root_owned_600 "$bootstrap_password_file_host"
+      ensure_container_secret_permissions "$bootstrap_password_file_host"
     fi
+    ensure_container_secret_permissions "$bootstrap_password_file_host"
     env_set_if_missing "ADMIN_BOOTSTRAP_PASSWORD_FILE" "/run/secrets/admin-bootstrap-password"
     if [ "$INSTALL_MODE" = "reinstall" ] && postgres_volume_exists; then
       env_set_if_missing "ADMIN_BOOTSTRAP_STRICT" "false"
@@ -1388,7 +1395,7 @@ launch_services() {
 
   (
     cd "$TARGET_DIR"
-    docker compose build app
+    COMPOSE_BAKE=false docker compose build app
     docker compose up -d app caddy
   )
 
