@@ -903,8 +903,8 @@ sync_source_tree() {
   (
     cd "$TARGET_DIR"
 
-    if [ -n "$(git status --porcelain)" ]; then
-      log_error "Upgrade aborted: worktree is dirty. Commit/stash local changes first."
+    if ! git diff --quiet --ignore-submodules -- || ! git diff --cached --quiet --ignore-submodules --; then
+      log_error "Upgrade aborted: tracked local changes detected. Commit/stash them first."
       exit 1
     fi
 
