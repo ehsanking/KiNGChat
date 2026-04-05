@@ -86,7 +86,12 @@ export function run() {
     result.errors.push('installer does not contain dynamic compose service detection.');
   }
 
-  if (!installer.includes('OBJECT_STORAGE_DRIVER=local')) {
+  const writesLocalObjectStorageDriver =
+    installer.includes('OBJECT_STORAGE_DRIVER=local')
+    || /env_set_(?:if_missing|explicit)\("OBJECT_STORAGE_DRIVER"\s*,\s*"local"\)/.test(installer)
+    || /env_set_(?:if_missing|explicit)\s+"OBJECT_STORAGE_DRIVER"\s+"local"/.test(installer);
+
+  if (!writesLocalObjectStorageDriver) {
     result.warnings.push('installer does not write an explicit local object storage driver to .env.');
   }
 
