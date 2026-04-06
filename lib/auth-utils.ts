@@ -2,7 +2,6 @@ import { prisma } from './prisma';
 import argon2 from 'argon2';
 import { logger } from './logger';
 import path from 'path';
-import { createHash } from 'crypto';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import fs from 'fs';
 
