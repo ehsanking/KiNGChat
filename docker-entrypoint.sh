@@ -56,7 +56,8 @@ fi
 
 on_err() {
   line="$1"
-  echo "[entrypoint] ERROR: bootstrap failed near line ${line}. Check previous logs for root cause." >&2
+  cmd="${2:-unknown}"
+  echo "[entrypoint] ERROR: bootstrap failed near line ${line} (command: ${cmd}). Check logs above for root cause." >&2
 }
 
 # NOTE:
@@ -65,7 +66,7 @@ on_err() {
 #   trap: ERR: bad trap
 # Keep startup POSIX-compatible by enabling the trap only when supported.
 if (trap '' ERR) 2>/dev/null; then
-  trap 'on_err $LINENO' ERR
+  trap 'on_err $LINENO "${BASH_COMMAND:-unknown}"' ERR
 fi
 
 log() {
@@ -153,14 +154,20 @@ require_strong_value() {
 
   eval "_value=\${${_var_name}:-}"
 
-  [ -z "$_value" ] && fail "$_var_name is required in production."
+  if [ -z "$_value" ]; then
+    fail "$_var_name is required in production."
+  fi
 
   _value_length=$(printf "%s" "$_value" | wc -c | tr -d ' ')
-  [ "$_value_length" -lt "$_min_length" ] && fail "$_var_name must be at least ${_min_length} characters in production."
+  if [ "$_value_length" -lt "$_min_length" ]; then
+    fail "$_var_name must be at least ${_min_length} characters in production."
+  fi
 
   _normalized=$(printf "%s" "$_value" | tr '[:upper:]' '[:lower:]')
   for _weak in $_deny_list; do
-    [ "$_normalized" = "$_weak" ] && fail "$_var_name uses a weak or placeholder value in production."
+    if [ "$_normalized" = "$_weak" ]; then
+      fail "$_var_name uses a weak or placeholder value in production."
+    fi
   done
 }
 

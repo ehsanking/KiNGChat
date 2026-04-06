@@ -42,12 +42,32 @@ LOCAL_PROXY_HEALTH_VALIDATED=false
 REINSTALL_ENV_REUSED=false
 REINSTALL_ADMIN_SECRET_RESTORED=false
 REINSTALL_DB_ENV_RESTORED=false
+INSTALL_ERRORS=()
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo -e "${RED}[ERR]${NC} $1"; }
+log_error() {
+  local message="$1"
+  INSTALL_ERRORS+=("$message")
+  echo -e "${RED}[ERR]${NC} ${message}"
+}
 log_step() { echo -e "\n${PURPLE}=== $1 ===${NC}"; }
+
+print_error_report() {
+  if [ "${#INSTALL_ERRORS[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  echo ""
+  echo "---- install failure report ----"
+  local i=1
+  for err in "${INSTALL_ERRORS[@]}"; do
+    printf '%d) %s\n' "$i" "$err"
+    i=$((i + 1))
+  done
+  echo "--------------------------------"
+}
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
@@ -161,13 +181,16 @@ has_prompt_tty() {
 }
 
 on_error() {
+  local line="${1:-unknown}"
+  local cmd="${2:-unknown}"
   local exit_code=$?
   if [ "$exit_code" -ne 0 ]; then
-    log_error "Installer failed (exit code: $exit_code)."
+    log_error "Installer failed (exit code: $exit_code, line: $line, command: $cmd)."
     if [ -n "$UPGRADE_BACKUP_DIR" ]; then
       log_warn "Backup available at: $UPGRADE_BACKUP_DIR"
       log_warn "Rollback: stop compose, restore files from backup, then relaunch."
     fi
+    print_error_report
   fi
 }
 
@@ -1745,5 +1768,5 @@ main() {
   print_summary
 }
 
-trap on_error ERR
+trap 'on_error $LINENO "${BASH_COMMAND:-unknown}"' ERR
 main "$@"
