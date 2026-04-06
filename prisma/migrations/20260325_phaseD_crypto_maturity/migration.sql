@@ -32,6 +32,50 @@ CREATE TABLE IF NOT EXISTS "OneTimePreKey" (
   "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+DO $$
+DECLARE
+  has_device_id BOOLEAN;
+BEGIN
+  -- Legacy schema compatibility: initial migrations created OneTimePreKey without device lifecycle columns.
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'OneTimePreKey'
+      AND column_name = 'deviceId'
+  ) INTO has_device_id;
+
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "signature" TEXT;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'AVAILABLE';
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "reservedAt" TIMESTAMP;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "consumedAt" TIMESTAMP;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMP;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+  IF NOT has_device_id THEN
+    -- Legacy rows are device-unaware and incompatible with phase-D device binding.
+    -- Drop them so clients can re-register fresh device-scoped prekeys.
+    DELETE FROM "OneTimePreKey";
+
+    ALTER TABLE "OneTimePreKey" ADD COLUMN "deviceId" TEXT;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'OneTimePreKey'
+      AND column_name = 'keyId'
+      AND data_type <> 'text'
+  ) THEN
+    ALTER TABLE "OneTimePreKey" ALTER COLUMN "keyId" TYPE TEXT USING "keyId"::TEXT;
+  END IF;
+
+  DELETE FROM "OneTimePreKey" WHERE "deviceId" IS NULL;
+  ALTER TABLE "OneTimePreKey" ALTER COLUMN "deviceId" SET NOT NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS "E2EESession" (
   "id" TEXT PRIMARY KEY,
   "initiatorUserId" TEXT NOT NULL,
