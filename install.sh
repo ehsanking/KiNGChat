@@ -489,7 +489,7 @@ check_ports() {
   if [ ${#conflicts[@]} -gt 0 ]; then
     log_warn "Required listener ports are in use: ${conflicts[*]}"
     if [ "$NONINTERACTIVE" = true ]; then
-      log_error "Non-interactive mode refuses to continue. Free tcp/80 tcp/443 udp/443 or rerun interactively."
+      log_error "Non-interactive mode refuses to continue with occupied ports. Free tcp/80 tcp/443 udp/443 or rerun interactively."
       exit 1
     fi
     local decision
