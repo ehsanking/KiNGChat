@@ -1,6 +1,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache openssl libc6-compat
+RUN apk add --no-cache \
+    openssl=3.* \
+    libc6-compat=1.*
 ENV NPM_CONFIG_LOGLEVEL=warn \
     NPM_CONFIG_REGISTRY=https://registry.npmjs.org \
     NEXT_TELEMETRY_DISABLED=1
@@ -17,7 +19,10 @@ RUN npm prune --production
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production APP_ENV=production NEXT_TELEMETRY_DISABLED=1
-RUN apk add --no-cache openssl libc6-compat wget
+RUN apk add --no-cache \
+    openssl=3.* \
+    libc6-compat=1.* \
+    wget=1.*
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
