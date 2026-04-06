@@ -31,7 +31,6 @@
     "clsx": "2.1.1",
     "idb": "8.0.3",
     "lucide-react": "0.553.0",
-    "mls-protocol": "^1.0.0",
     "motion": "12.38.0",
     "next": "15.5.14",
     "otpauth": "9.5.0",
