@@ -63,7 +63,7 @@ RUN apk add --no-cache \
     openssl~3 \
     libc6-compat~1 \
     wget~1 \
-    su-exec~0.2
+    su-exec~0.3
 
 # Non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
