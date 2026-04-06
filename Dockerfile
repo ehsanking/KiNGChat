@@ -3,8 +3,8 @@ WORKDIR /app
 
 # Install system dependencies for Prisma (OpenSSL + libc compatibility)
 RUN apk add --no-cache \
-    openssl=3.* \
-    libc6-compat=1.*
+    openssl~3 \
+    libc6-compat~1
 
 # Environment & NPM tuning
 ENV NPM_CONFIG_LOGLEVEL=warn \
@@ -60,10 +60,10 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN apk add --no-cache \
-    openssl=3.* \
-    libc6-compat=1.* \
-    wget=1.* \
-    su-exec=0.2-r*
+    openssl~3 \
+    libc6-compat~1 \
+    wget~1 \
+    su-exec~0.2
 
 # Non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
