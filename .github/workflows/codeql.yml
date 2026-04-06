@@ -12,12 +12,12 @@
 name: "CodeQL Advanced"
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '25 21 * * 3'
+  # Keep this advanced workflow manual-only to avoid conflicts when
+  # repository-level Code Scanning default setup is enabled.
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   analyze:
