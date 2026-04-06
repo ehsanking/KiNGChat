@@ -32,6 +32,36 @@ CREATE TABLE IF NOT EXISTS "OneTimePreKey" (
   "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+DO $$
+BEGIN
+  -- Legacy schema compatibility: initial migrations created OneTimePreKey without device lifecycle columns.
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "deviceId" TEXT;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "signature" TEXT;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'AVAILABLE';
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "reservedAt" TIMESTAMP;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "consumedAt" TIMESTAMP;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMP;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+  ALTER TABLE "OneTimePreKey" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'OneTimePreKey'
+      AND column_name = 'keyId'
+      AND data_type <> 'text'
+  ) THEN
+    ALTER TABLE "OneTimePreKey" ALTER COLUMN "keyId" TYPE TEXT USING "keyId"::TEXT;
+  END IF;
+
+  UPDATE "OneTimePreKey"
+  SET "deviceId" = COALESCE("deviceId", "id")
+  WHERE "deviceId" IS NULL;
+
+  ALTER TABLE "OneTimePreKey" ALTER COLUMN "deviceId" SET NOT NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS "E2EESession" (
   "id" TEXT PRIMARY KEY,
   "initiatorUserId" TEXT NOT NULL,
