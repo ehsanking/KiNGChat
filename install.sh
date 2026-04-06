@@ -98,7 +98,33 @@ apt_install_quiet() {
 }
 
 apt_upgrade_quiet() {
-  run_apt_with_error_context "upgrade" upgrade -y -qq
+  local upgrade_log
+  upgrade_log="$(mktemp)"
+
+  if DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq >"$upgrade_log" 2>&1; then
+    rm -f "$upgrade_log"
+    return 0
+  fi
+
+  if grep -Fqi "dpkg was interrupted, you must manually run 'dpkg --configure -a'" "$upgrade_log"; then
+    log_warn "Detected interrupted dpkg state. Running 'dpkg --configure -a' once, then retrying apt upgrade."
+    if ! DEBIAN_FRONTEND=noninteractive dpkg --configure -a >>"$upgrade_log" 2>&1; then
+      log_error "dpkg --configure -a failed while recovering apt state. Recent output:"
+      tail -n 40 "$upgrade_log" >&2 || true
+      rm -f "$upgrade_log"
+      return 1
+    fi
+
+    if DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq >>"$upgrade_log" 2>&1; then
+      rm -f "$upgrade_log"
+      return 0
+    fi
+  fi
+
+  log_error "apt-get upgrade failed. Recent apt output:"
+  tail -n 40 "$upgrade_log" >&2 || true
+  rm -f "$upgrade_log"
+  return 1
 }
 
 detect_linux_distribution() {
