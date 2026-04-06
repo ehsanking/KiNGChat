@@ -50,6 +50,35 @@ log_step() { echo -e "\n${PURPLE}=== $1 ===${NC}"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
+run_apt_with_error_context() {
+  local action="$1"
+  shift
+  local log_file
+  log_file="$(mktemp)"
+
+  if ! DEBIAN_FRONTEND=noninteractive apt-get "$@" >"$log_file" 2>&1; then
+    log_error "apt-get ${action} failed. Recent apt output:"
+    tail -n 40 "$log_file" >&2 || true
+    rm -f "$log_file"
+    return 1
+  fi
+
+  rm -f "$log_file"
+}
+
+apt_update_quiet() {
+  run_apt_with_error_context "update" update -qq
+}
+
+apt_install_quiet() {
+  local packages=("$@")
+  run_apt_with_error_context "install (${packages[*]})" install -y -qq "${packages[@]}"
+}
+
+apt_upgrade_quiet() {
+  run_apt_with_error_context "upgrade" upgrade -y -qq
+}
+
 detect_linux_distribution() {
   local distro_id=""
   if [ -r /etc/os-release ]; then
@@ -467,9 +496,9 @@ ensure_system_up_to_date() {
   case "$distro_id" in
     ubuntu|debian)
       log_info "Detected Linux distribution: ${distro_id}. Running apt package index update."
-      apt-get update -qq
+      apt_update_quiet
       log_info "Applying available package upgrades."
-      DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq
+      apt_upgrade_quiet
       log_success "System packages updated."
       ;;
     *)
@@ -486,8 +515,8 @@ install_docker_apt() {
   fi
 
   log_info "Installing Docker from distro packages (no curl|sh)."
-  apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io
+  apt_update_quiet
+  apt_install_quiet docker.io
 
   if ! command_exists docker; then
     log_error "Docker installation failed."
@@ -506,7 +535,7 @@ install_docker_compose_plugin_apt() {
     if ! apt-cache show "$pkg" >/dev/null 2>&1; then
       continue
     fi
-    if DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$pkg"; then
+    if apt_install_quiet "$pkg"; then
       return 0
     fi
   done
@@ -554,8 +583,8 @@ check_dependencies() {
         log_error "Missing dependency '$dep' and apt-get unavailable."
         exit 1
       fi
-      apt-get update -qq
-      DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$dep"
+      apt_update_quiet
+      apt_install_quiet "$dep"
     fi
   done
 
@@ -565,7 +594,7 @@ check_dependencies() {
 
   if ! docker compose version >/dev/null 2>&1; then
     if command_exists apt-get; then
-      apt-get update -qq
+      apt_update_quiet
     fi
     install_docker_compose_plugin_apt || true
   fi
