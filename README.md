@@ -113,6 +113,8 @@ flowchart TD
 | Redis | 6+ | Optional; enables clustering |
 | Docker + Compose | v2+ | Recommended for production |
 
+Supported installer platform: **Linux (amd64/x86_64, arm64/aarch64)**.
+
 ---
 
 ## Quick Start
@@ -137,6 +139,8 @@ less install.sh
 # 5) Run (installer auto-elevates with sudo when possible)
 sudo bash install.sh
 ```
+
+The one-line installer performs the full production lifecycle (preflight checks, environment configuration, and service launch). There is no separate `setup` command for production installs in this repository.
 
 Reproducible alternatives:
 
@@ -186,6 +190,7 @@ Installer safety behavior:
 - Creates timestamped upgrade backups (`.env`, `Caddyfile`, compose files) before update steps.
 - Aborts upgrades when git sync fails or the worktree is dirty (no implicit `rm -rf` fallback).
 - Uses Caddy on `:80/:443`; in IP-only mode the generated `APP_URL` uses `http://<server-ip>` (no internal `:3000` mismatch).
+- Preflight checks validate listener availability on `tcp/80`, `tcp/443`, and `udp/443` before launch (non-interactive mode fails closed on conflicts).
 - Never prints bootstrap admin password in terminal output; auto-generated credentials are written once to a local secrets file with restrictive permissions.
 - Non-interactive installs are first-class: no hidden interactive dependency; install choices are deterministic and env-driven.
 - Verifies post-launch health in explicit phases: container health, local reverse-proxy routing, and external DNS/TLS readiness guidance.

@@ -10,6 +10,7 @@ INSTALL_REF_RESOLVED=""
 INSTALL_REF_TYPE=""
 TARGET_DIR="ElaheMessenger"
 MIN_RAM_MB=1024
+SUPPORTED_ARCHS=("amd64" "arm64")
 
 BLUE='\033[1;34m'
 RED='\033[1;31m'
@@ -49,6 +50,27 @@ log_error() { echo -e "${RED}[ERR]${NC} $1"; }
 log_step() { echo -e "\n${PURPLE}=== $1 ===${NC}"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+normalize_arch() {
+  local raw_arch="$1"
+  case "$raw_arch" in
+    x86_64|amd64) printf 'amd64' ;;
+    aarch64|arm64) printf 'arm64' ;;
+    *) printf '%s' "$raw_arch" ;;
+  esac
+}
+
+check_supported_architecture() {
+  local raw_arch normalized
+  raw_arch="$(uname -m)"
+  normalized="$(normalize_arch "$raw_arch")"
+  if [[ " ${SUPPORTED_ARCHS[*]} " != *" ${normalized} "* ]]; then
+    log_error "Unsupported CPU architecture: ${raw_arch} (normalized: ${normalized})."
+    log_error "Supported architectures: ${SUPPORTED_ARCHS[*]}."
+    exit 1
+  fi
+  log_success "Architecture check passed (${normalized})."
+}
 
 run_apt_with_error_context() {
   local action="$1"
@@ -441,18 +463,33 @@ choose_install_mode() {
 }
 
 check_ports() {
+  if ! command_exists ss; then
+    log_error "Required command 'ss' is unavailable. Install iproute2 package and rerun installer."
+    exit 1
+  fi
+
   local conflicts=()
-  local port
-  for port in 80 443; do
-    if ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "(^|:)$port$"; then
-      conflicts+=("$port")
+  local tcp_port
+  local udp_port
+  local tcp_ports=(80 443)
+  local udp_ports=(443)
+
+  for tcp_port in "${tcp_ports[@]}"; do
+    if ss -ltnH 2>/dev/null | awk '{print $4}' | grep -Eq "(^|:)$tcp_port$"; then
+      conflicts+=("tcp/$tcp_port")
+    fi
+  done
+
+  for udp_port in "${udp_ports[@]}"; do
+    if ss -lunH 2>/dev/null | awk '{print $5}' | grep -Eq "(^|:)$udp_port$"; then
+      conflicts+=("udp/$udp_port")
     fi
   done
 
   if [ ${#conflicts[@]} -gt 0 ]; then
-    log_warn "Required ports in use: ${conflicts[*]}"
+    log_warn "Required listener ports are in use: ${conflicts[*]}"
     if [ "$NONINTERACTIVE" = true ]; then
-      log_error "Non-interactive mode refuses to continue with occupied ports. Free ports 80/443 or rerun interactively."
+      log_error "Non-interactive mode refuses to continue. Free tcp/80 tcp/443 udp/443 or rerun interactively."
       exit 1
     fi
     local decision
@@ -1646,6 +1683,7 @@ main() {
   fi
 
   log_info "Detected operating system: $os_name"
+  check_supported_architecture
   require_root "$@"
   ensure_system_up_to_date
   if is_true "$INSTALL_NONINTERACTIVE"; then
