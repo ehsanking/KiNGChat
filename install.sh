@@ -1772,8 +1772,19 @@ verify_post_launch_health() {
 print_summary() {
   log_step "Complete"
   local summary_admin_username summary_admin_password summary_bootstrap_password_file
+  local summary_db_host summary_db_port summary_db_name summary_db_app_user summary_db_admin_user
+  local summary_db_app_password summary_db_admin_password
   summary_admin_username="${ADMIN_USERNAME_VALUE:-$(env_get ADMIN_USERNAME)}"
   summary_admin_password="${ADMIN_PASSWORD_VALUE:-}"
+  summary_db_host="db"
+  summary_db_port="5432"
+  summary_db_name="$(env_get APP_DB_NAME)"
+  summary_db_app_user="$(env_get APP_DB_USER)"
+  summary_db_admin_user="$(env_get POSTGRES_USER)"
+  summary_db_app_password="$(env_get APP_DB_PASSWORD)"
+  summary_db_admin_password="$(env_get POSTGRES_PASSWORD)"
+  [ -n "$summary_db_name" ] || summary_db_name="$(env_get POSTGRES_DB)"
+  [ -n "$summary_db_app_user" ] || summary_db_app_user="$(env_get POSTGRES_USER)"
   if [ -z "$summary_admin_password" ]; then
     summary_bootstrap_password_file="$TARGET_DIR/runtime/admin-bootstrap-password"
     if [ -f "$summary_bootstrap_password_file" ]; then
@@ -1833,6 +1844,24 @@ print_summary() {
   if [ "$LOCAL_PROXY_HEALTH_VALIDATED" = true ]; then
     echo "Local reverse-proxy route validated via http://127.0.0.1/api/health/live."
   fi
+  echo "Database host (internal Docker network): ${summary_db_host}"
+  echo "Database port (internal Docker network): ${summary_db_port}"
+  if [ -n "$summary_db_name" ]; then
+    echo "Database name: ${summary_db_name}"
+  fi
+  if [ -n "$summary_db_app_user" ]; then
+    echo "Database app user: ${summary_db_app_user}"
+  fi
+  if [ -n "$summary_db_admin_user" ]; then
+    echo "Database admin user: ${summary_db_admin_user}"
+  fi
+  if [ -n "$summary_db_app_password" ]; then
+    echo "Database app password: ${summary_db_app_password}"
+  fi
+  if [ -n "$summary_db_admin_password" ]; then
+    echo "Database admin password: ${summary_db_admin_password}"
+  fi
+  echo "Rotate admin and database passwords after initial verification."
   echo "PostgreSQL remains internal to Docker network by default (no host 5432 publish)."
   echo "Firewall (UFW) is operator-managed and was not auto-enabled by installer."
   echo "Caddy handles TLS renewals internally; no extra cron entry was installed."

@@ -124,53 +124,6 @@ curl -fsSL https://raw.githubusercontent.com/ehsanking/ElaheMessenger/main/insta
 ۴. secrets را تولید می‌کند
 ۵. سرویس‌ها را با Docker Compose و SSL خودکار راه‌اندازی می‌کند
 
-### خروجی نهایی نصب (`=== Complete ===`)
-
-در پایان نصب/ارتقا، بخش `=== Complete ===` باید این اطلاعات عملیاتی را برای مدیر پنل نمایش دهد:
-
-- `Mode` (مثلاً `upgrade`)
-- `Source ref` (شاخه/تگ/کامیت منبع نصب)
-- `App URL`
-- `Project dir`
-- `Config policy` (حفظ `.env`/`Caddyfile`/overrideها مگر با انتخاب صریح برای بازتولید)
-- `Admin login username`
-- `Admin login password` (فقط برای ورود اولیه؛ سپس باید فوراً چرخش/تغییر داده شود)
-- توضیح `Admin bootstrap env vars` در حالت `upgrade` (create-only بودن و عدم overwrite)
-- راهنمای ریست یک‌باره ادمین با `ADMIN_BOOTSTRAP_RESET_EXISTING=true`
-- `TLS mode` (گواهی خودکار Caddy یا گواهی سفارشی اپراتور)
-- `Server IPv4` و در صورت وجود `Server IPv6`
-- راهنمای DNS: رکورد `A` برای IPv4 و `AAAA` برای IPv6
-- وضعیت اعتبارسنجی `Caddy runtime config`
-- وضعیت اعتبارسنجی مسیر reverse-proxy محلی (`http://127.0.0.1/api/health/live`)
-- نکته امنیتی: PostgreSQL به‌صورت پیش‌فرض داخل شبکه Docker باقی می‌ماند (بدون publish شدن 5432 روی host)
-- نکته عملیاتی: UFW توسط installer به‌صورت خودکار فعال نمی‌شود (operator-managed)
-- نکته نگه‌داری: تمدید TLS توسط Caddy انجام می‌شود و cron جداگانه‌ای نصب نمی‌شود
-
-نمونه خروجی واقعی:
-
-```text
-=== Complete ===
-Mode: upgrade
-Source ref: main (branch)
-App URL: https://ui.qombook.com
-Project dir: ElaheMessenger
-Config policy: preserve .env/Caddyfile/operator overrides by default; regenerate only when explicitly selected.
-Admin login username: ehsanking
-Admin login password: MIui0ToaOw7WYT9JnQC6CUfMeQv3F5bKaX8BjP9xRT6XnKyD
-Admin bootstrap env vars are create-only by default and do not overwrite an existing admin user.
-To reset an existing admin via env, set ADMIN_BOOTSTRAP_RESET_EXISTING=true for a one-time reset.
-TLS mode: automatic certificate issuance/renewal via Caddy.
-Server IPv4: 188.137.234.22
-Server IPv6: 2a13:4ac0:28:a:f816:3eff:fe5c:ea82
-DNS guidance: set domain A record to IPv4 and AAAA record to IPv6 (if available).
-Admin password was printed above for initial login. Keep it secure and rotate after first login.
-Caddy runtime config validated inside container.
-Local reverse-proxy route validated via http://127.0.0.1/api/health/live.
-PostgreSQL remains internal to Docker network by default (no host 5432 publish).
-Firewall (UFW) is operator-managed and was not auto-enabled by installer.
-Caddy handles TLS renewals internally; no extra cron entry was installed.
-```
-
 ---
 
 ## نصب دستی
