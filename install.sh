@@ -1069,6 +1069,35 @@ infer_origin_from_caddyfile() {
   return 1
 }
 
+sync_preserved_proxy_context() {
+  [ "$INSTALL_MODE" = "upgrade" ] || return 0
+  [ "$PROXY_CONFIG_ACTION" = "preserve" ] || return 0
+
+  local app_url host
+  app_url="$(trim_space "$(env_get APP_URL)")"
+  if [ -z "$app_url" ]; then
+    app_url="$(infer_origin_from_caddyfile "$TARGET_DIR/Caddyfile" || true)"
+  fi
+  [ -n "$app_url" ] || return 0
+
+  RESOLVED_APP_URL="$app_url"
+  host="${app_url#http://}"
+  host="${host#https://}"
+  host="${host%%/*}"
+  host="${host%%:*}"
+
+  if [[ "$host" =~ ^([a-z0-9-]+\.)+[a-z]{2,}$ ]]; then
+    USE_DOMAIN=true
+    DOMAIN_NAME="$host"
+    return 0
+  fi
+
+  if is_valid_ipv4 "$host"; then
+    USE_DOMAIN=false
+    PUBLIC_IP="$host"
+  fi
+}
+
 stop_existing_stack_if_needed() {
   [ "$INSTALL_MODE" = "reinstall" ] || return 0
 
@@ -1681,15 +1710,27 @@ verify_post_launch_health() {
   fi
 
   if [ "$USE_DOMAIN" = true ]; then
-    local http_status
+    local http_status https_status
     http_status="$(curl -sS --max-time 8 --resolve "${DOMAIN_NAME}:80:127.0.0.1" -o /dev/null -w '%{http_code}' "http://${DOMAIN_NAME}/api/health/live" || true)"
     case "$http_status" in
       200|301|302|307|308)
-        LOCAL_PROXY_HEALTH_VALIDATED=true
         log_success "Local Caddy domain routing probe passed via Host=${DOMAIN_NAME} (HTTP status ${http_status})."
         ;;
       *)
         log_error "Local Caddy domain routing probe failed for host ${DOMAIN_NAME} (status: ${http_status:-none})."
+        print_failure_diagnostics
+        exit 1
+        ;;
+    esac
+    https_status="$(curl -sS --max-time 12 --resolve "${DOMAIN_NAME}:443:127.0.0.1" -o /dev/null -w '%{http_code}' "https://${DOMAIN_NAME}/api/health/live" || true)"
+    case "$https_status" in
+      200|301|302|307|308)
+        LOCAL_PROXY_HEALTH_VALIDATED=true
+        log_success "Local Caddy TLS probe passed via Host=${DOMAIN_NAME} (HTTPS status ${https_status})."
+        ;;
+      *)
+        log_error "Local Caddy TLS probe failed for host ${DOMAIN_NAME} (status: ${https_status:-none})."
+        log_error "Check DNS A/AAAA records for ${DOMAIN_NAME}, then inspect Caddy logs for ACME/TLS issues."
         print_failure_diagnostics
         exit 1
         ;;
@@ -1835,6 +1876,7 @@ main() {
   persist_custom_ssl_certificates
   configure_caddyfile
   configure_runtime_env
+  sync_preserved_proxy_context
   configure_npmrc
   validate_caddy_config
   launch_services
