@@ -25,6 +25,7 @@ INSTALL_NONINTERACTIVE="${INSTALL_NONINTERACTIVE:-}"
 NONINTERACTIVE=false
 USE_DOMAIN=false
 DOMAIN_NAME=""
+PUBLIC_IP=""
 SSL_EMAIL=""
 USE_CUSTOM_SSL_CERT=false
 CUSTOM_SSL_CERT_SOURCE=""
@@ -215,6 +216,12 @@ get_primary_ipv4() {
   server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
   [ -z "$server_ip" ] && server_ip="127.0.0.1"
   printf '%s' "$server_ip"
+}
+
+is_valid_ipv4() {
+  local ip="$1"
+  [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
+  awk -F'.' '{ for (i=1; i<=4; i++) if ($i < 0 || $i > 255) exit 1 }' <<<"$ip"
 }
 
 get_primary_ipv6() {
@@ -745,6 +752,11 @@ collect_domain_ssl_input() {
       USE_DOMAIN=true
       return
     fi
+    PUBLIC_IP="${INSTALL_PUBLIC_IP:-$(get_primary_ipv4)}"
+    if ! is_valid_ipv4 "$PUBLIC_IP"; then
+      log_error "INSTALL_PUBLIC_IP must be a valid IPv4 address in non-interactive mode."
+      exit 1
+    fi
     USE_DOMAIN=false
     return
   fi
@@ -754,7 +766,13 @@ collect_domain_ssl_input() {
   echo "  2) IP-only (Caddy HTTP on :80)"
 
   local choice
-  choice=$(read_tty_input "${YELLOW}Enter choice [1-2]:${NC} " "2")
+  while true; do
+    choice=$(read_tty_input "${YELLOW}Enter choice [1-2]:${NC} " "")
+    case "$choice" in
+      1|2) break ;;
+      *) log_warn "Please enter 1 (Domain) or 2 (IP-only)." ;;
+    esac
+  done
 
   if [ "$choice" = "1" ]; then
     DOMAIN_NAME=$(read_tty_input "${CYAN}Domain (example: chat.example.com):${NC} " "")
@@ -793,6 +811,13 @@ collect_domain_ssl_input() {
     esac
     USE_DOMAIN=true
   else
+    while true; do
+      PUBLIC_IP=$(read_tty_input "${CYAN}Public IPv4 for APP_URL (required, detected: ${detected_ipv4}):${NC} " "")
+      if is_valid_ipv4 "$PUBLIC_IP"; then
+        break
+      fi
+      log_warn "A valid IPv4 address is required to continue."
+    done
     USE_DOMAIN=false
   fi
 }
@@ -994,7 +1019,7 @@ EOC
     encode gzip zstd
 }
 EOC
-    RESOLVED_APP_URL="http://$(get_primary_ipv4)"
+    RESOLVED_APP_URL="http://${PUBLIC_IP:-$(get_primary_ipv4)}"
   fi
 }
 
@@ -1306,7 +1331,7 @@ configure_runtime_env() {
     fi
   else
     local ip_origin
-    ip_origin="http://$(get_primary_ipv4)"
+    ip_origin="http://${PUBLIC_IP:-$(get_primary_ipv4)}"
 
     env_set_if_missing "APP_URL" "$ip_origin"
     env_set_if_missing "ALLOWED_ORIGINS" "$ip_origin,http://localhost:3000,http://127.0.0.1:3000"
