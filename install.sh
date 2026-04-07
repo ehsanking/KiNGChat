@@ -11,6 +11,9 @@ INSTALL_REF_TYPE=""
 TARGET_DIR="ElaheMessenger"
 MIN_RAM_MB=1024
 SUPPORTED_ARCHS=("amd64" "arm64")
+APT_MAX_RETRIES=3
+APT_RETRY_DELAY_SECONDS=5
+APT_LOCK_TIMEOUT_SECONDS=120
 
 BLUE='\033[1;34m'
 RED='\033[1;31m'
@@ -96,17 +99,28 @@ check_supported_architecture() {
 run_apt_with_error_context() {
   local action="$1"
   shift
-  local log_file
+  local log_file attempt
   log_file="$(mktemp)"
+  local apt_args=(-o "Dpkg::Lock::Timeout=${APT_LOCK_TIMEOUT_SECONDS}" -o "Acquire::Retries=3")
 
-  if ! DEBIAN_FRONTEND=noninteractive apt-get "$@" >"$log_file" 2>&1; then
-    log_error "apt-get ${action} failed. Recent apt output:"
-    tail -n 40 "$log_file" >&2 || true
-    rm -f "$log_file"
-    return 1
-  fi
+  attempt=1
+  while [ "$attempt" -le "$APT_MAX_RETRIES" ]; do
+    if DEBIAN_FRONTEND=noninteractive apt-get "${apt_args[@]}" "$@" >"$log_file" 2>&1; then
+      rm -f "$log_file"
+      return 0
+    fi
 
+    if [ "$attempt" -lt "$APT_MAX_RETRIES" ]; then
+      log_warn "apt-get ${action} failed (attempt ${attempt}/${APT_MAX_RETRIES}). Retrying in ${APT_RETRY_DELAY_SECONDS}s."
+      sleep "$APT_RETRY_DELAY_SECONDS"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  log_error "apt-get ${action} failed after ${APT_MAX_RETRIES} attempts. Recent apt output:"
+  tail -n 40 "$log_file" >&2 || true
   rm -f "$log_file"
+  return 1
 }
 
 apt_update_quiet() {
@@ -119,30 +133,40 @@ apt_install_quiet() {
 }
 
 apt_upgrade_quiet() {
-  local upgrade_log
+  local upgrade_log attempt
   upgrade_log="$(mktemp)"
+  local apt_args=(-o "Dpkg::Lock::Timeout=${APT_LOCK_TIMEOUT_SECONDS}" -o "Acquire::Retries=3")
 
-  if DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq >"$upgrade_log" 2>&1; then
-    rm -f "$upgrade_log"
-    return 0
-  fi
-
-  if grep -Fqi "dpkg was interrupted, you must manually run 'dpkg --configure -a'" "$upgrade_log"; then
-    log_warn "Detected interrupted dpkg state. Running 'dpkg --configure -a' once, then retrying apt upgrade."
-    if ! DEBIAN_FRONTEND=noninteractive dpkg --configure -a >>"$upgrade_log" 2>&1; then
-      log_error "dpkg --configure -a failed while recovering apt state. Recent output:"
-      tail -n 40 "$upgrade_log" >&2 || true
-      rm -f "$upgrade_log"
-      return 1
-    fi
-
-    if DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq >>"$upgrade_log" 2>&1; then
+  attempt=1
+  while [ "$attempt" -le "$APT_MAX_RETRIES" ]; do
+    if DEBIAN_FRONTEND=noninteractive apt-get "${apt_args[@]}" upgrade -y -qq >"$upgrade_log" 2>&1; then
       rm -f "$upgrade_log"
       return 0
     fi
-  fi
 
-  log_error "apt-get upgrade failed. Recent apt output:"
+    if grep -Fqi "dpkg was interrupted, you must manually run 'dpkg --configure -a'" "$upgrade_log"; then
+      log_warn "Detected interrupted dpkg state. Running 'dpkg --configure -a' once, then retrying apt upgrade."
+      if ! DEBIAN_FRONTEND=noninteractive dpkg --configure -a >>"$upgrade_log" 2>&1; then
+        log_error "dpkg --configure -a failed while recovering apt state. Recent output:"
+        tail -n 40 "$upgrade_log" >&2 || true
+        rm -f "$upgrade_log"
+        return 1
+      fi
+
+      if DEBIAN_FRONTEND=noninteractive apt-get "${apt_args[@]}" upgrade -y -qq >>"$upgrade_log" 2>&1; then
+        rm -f "$upgrade_log"
+        return 0
+      fi
+    fi
+
+    if [ "$attempt" -lt "$APT_MAX_RETRIES" ]; then
+      log_warn "apt-get upgrade failed (attempt ${attempt}/${APT_MAX_RETRIES}). Retrying in ${APT_RETRY_DELAY_SECONDS}s."
+      sleep "$APT_RETRY_DELAY_SECONDS"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  log_error "apt-get upgrade failed after ${APT_MAX_RETRIES} attempts. Recent apt output:"
   tail -n 40 "$upgrade_log" >&2 || true
   rm -f "$upgrade_log"
   return 1
