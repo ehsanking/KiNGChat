@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Shield, Loader2, KeyRound } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import GoogleRecaptcha from '@/components/auth/google-recaptcha';
-import { sanitizeNextPath } from '@/lib/auth-next-path';
 
 type PublicSettings = {
   isCaptchaEnabled: boolean;
@@ -23,7 +22,11 @@ const toFriendlyError = (error: unknown) => {
   return message;
 };
 
-export default function LoginPageClient() {
+type LoginPageClientProps = {
+  nextPath: string;
+};
+
+export default function LoginPageClient({ nextPath }: LoginPageClientProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,8 +46,6 @@ export default function LoginPageClient() {
     localCaptcha: null,
   });
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextPath = useMemo(() => sanitizeNextPath(searchParams.get('next')), [searchParams]);
 
   useEffect(() => {
     const loadPublicSettings = async () => {
