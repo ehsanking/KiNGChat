@@ -1,9 +1,9 @@
 import argon2 from 'argon2';
 import crypto from 'crypto';
-import type { JWT } from 'next-auth/jwt';
-import Google from 'next-auth/providers/google';
-import GitHub from 'next-auth/providers/github';
-import type { Account, Profile } from 'next-auth';
+import type { JWT } from '@auth/core/jwt';
+import Google from '@auth/core/providers/google';
+import GitHub from '@auth/core/providers/github';
+import type { Account, Profile } from '@auth/core/types';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateAdminSettings } from '@/lib/admin-settings';
 
@@ -39,6 +39,11 @@ const ensureUniqueNumericId = async () => {
     if (!existing) return candidate;
   }
   throw new Error('Could not allocate numeric id for OAuth user.');
+};
+
+type OAuthAccountDelegate = {
+  findUnique(args: unknown): Promise<{ id: string; user?: { id: string; role: string; sessionVersion: number; needsPasswordChange: boolean } | null } | null>;
+  update(args: unknown): Promise<unknown>;
 };
 
 export type OAuthProviderFlags = {
@@ -122,7 +127,8 @@ export async function provisionOAuthUser(params: {
     throw new Error('OAuth provider identity is missing.');
   }
 
-  const existing = await prisma.oAuthAccount.findUnique({
+  const prismaCompat = prisma as typeof prisma & { oAuthAccount: OAuthAccountDelegate };
+  const existing = await prismaCompat.oAuthAccount.findUnique({
     where: { provider_providerAccountId: { provider, providerAccountId } },
     include: {
       user: {
@@ -132,7 +138,7 @@ export async function provisionOAuthUser(params: {
   });
 
   if (existing?.user) {
-    await prisma.oAuthAccount.update({
+    await prismaCompat.oAuthAccount.update({
       where: { id: existing.id },
       data: {
         accessToken: params.account.access_token ?? null,
@@ -183,7 +189,7 @@ export async function provisionOAuthUser(params: {
       },
     },
     select: { id: true, role: true, sessionVersion: true, needsPasswordChange: true },
-  });
+  } as never);
 
   return { user: created, isNewUser: true };
 }
