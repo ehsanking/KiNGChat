@@ -20,6 +20,25 @@ export type SocketOptions = {
   socketRateLimitMax: number;
 };
 
+type SocketPersistedMessage = {
+  id: string;
+  senderId: string;
+  recipientId: string | null;
+  groupId: string | null;
+  createdAt: Date;
+  editedAt: Date | null;
+  readAt: Date | null;
+  deliveryStatus: string | null;
+  replyToId: string | null;
+  wrappedFileKey?: string | null;
+  wrappedFileKeyNonce?: string | null;
+  fileNonce?: string | null;
+  ttlSeconds?: number | null;
+  expiresAt?: Date | null;
+  audioDuration?: number | null;
+  waveformData?: string | null;
+};
+
 const emitDeliveryUpdate = (
   io: Server,
   room: string,
@@ -161,7 +180,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
           return;
         }
 
-        let message = data.idempotencyKey
+        let message: SocketPersistedMessage | null = data.idempotencyKey
           ? await prisma.message.findFirst({ where: { senderId, idempotencyKey: data.idempotencyKey } })
           : null;
 
@@ -227,10 +246,10 @@ export function setupSocket(io: Server, options: SocketOptions) {
               waveformData: typeof data.waveformData === 'string' ? data.waveformData : null,
               deliveryStatus: 'SENT',
             },
-          });
+          } as never) as SocketPersistedMessage;
 
           if (normalizeTtlSeconds(data.ttlSeconds)) {
-            message = await scheduleMessageExpiry(message.id, data.ttlSeconds);
+            message = await scheduleMessageExpiry(message.id, data.ttlSeconds) as SocketPersistedMessage;
           }
         }
 

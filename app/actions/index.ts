@@ -21,7 +21,7 @@ export {
   getSystemOverview,
 } from './admin.actions';
 
-export { registerUser, loginUser, getPublicSettings } from './auth.actions';
+export { registerUser, loginUser, getPublicSettings, updateAdminCredentials } from './auth.actions';
 export { setup2FA, verify2FA, disable2FA, validate2FALogin } from './auth.2fa.actions';
 export { getRecoveryQuestion, recoverPassword } from './auth.recovery.actions';
 

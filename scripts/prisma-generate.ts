@@ -13,7 +13,9 @@ const resolveDatabaseUrl = () => {
     mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
   });
   if (envValues.DATABASE_URL) return envValues.DATABASE_URL;
-  return 'file:./prisma/dev.db';
+  // Default to PostgreSQL schema generation so Prisma Client types match the
+  // production feature set even when DATABASE_URL is missing at install time.
+  return 'postgresql://postgres:postgres@localhost:5432/elahe_messenger';
 };
 
 
