@@ -1,6 +1,13 @@
-import pino, { type Logger as PinoLogger } from 'pino';
-
 type LogContext = Record<string, unknown>;
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+type PinoLikeLogger = {
+  debug: (obj: unknown, msg?: string) => void;
+  info: (obj: unknown, msg?: string) => void;
+  warn: (obj: unknown, msg?: string) => void;
+  error: (obj: unknown, msg?: string) => void;
+  child: (bindings: Record<string, unknown>) => PinoLikeLogger;
+};
 
 type LoggerApi = {
   debug: (message: string, context?: LogContext) => void;
@@ -19,10 +26,38 @@ const resolveLogLevel = () => {
 };
 
 const createBaseLogger = () => {
+  type PinoFactory = (options: Record<string, unknown>) => PinoLikeLogger;
+  let pinoFactory: PinoFactory | null = null;
+  try {
+    const req = globalThis.Function('return require')() as (id: string) => unknown;
+    const loaded = req('pino') as { default?: PinoFactory } | PinoFactory;
+    pinoFactory = (typeof loaded === 'function' ? loaded : loaded?.default) ?? null;
+  } catch {
+    pinoFactory = null;
+  }
+
+  if (!pinoFactory) {
+    const fallback = (level: LogLevel, message: string, context?: LogContext) => {
+      const output = context ? [message, context] : [message];
+      if (level === 'error') console.error(...output);
+      else if (level === 'warn') console.warn(...output);
+      else if (level === 'info') console.info(...output);
+      else console.debug(...output);
+    };
+    const fallbackLogger: PinoLikeLogger = {
+      debug: (obj, msg) => fallback('debug', msg ?? String(obj), msg ? (obj as LogContext) : undefined),
+      info: (obj, msg) => fallback('info', msg ?? String(obj), msg ? (obj as LogContext) : undefined),
+      warn: (obj, msg) => fallback('warn', msg ?? String(obj), msg ? (obj as LogContext) : undefined),
+      error: (obj, msg) => fallback('error', msg ?? String(obj), msg ? (obj as LogContext) : undefined),
+      child: () => fallbackLogger,
+    };
+    return fallbackLogger;
+  }
+
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (!isProduction) {
-    return pino({
+    return pinoFactory({
       level: resolveLogLevel(),
       transport: {
         target: 'pino-pretty',
@@ -35,7 +70,7 @@ const createBaseLogger = () => {
     });
   }
 
-  return pino({
+  return pinoFactory({
     level: resolveLogLevel(),
   });
 };
@@ -53,7 +88,7 @@ const withRequestIdFirst = (context?: LogContext): LogContext | undefined => {
   };
 };
 
-const bindLogger = (base: PinoLogger): LoggerApi => {
+const bindLogger = (base: PinoLikeLogger): LoggerApi => {
   const log = (level: 'debug' | 'info' | 'warn' | 'error', message: string, context?: LogContext) => {
     const payload = withRequestIdFirst(context);
     if (payload) {
