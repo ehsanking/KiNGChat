@@ -40,7 +40,7 @@ const CLEANUP_INTERVAL_MS = 60_000;
 
 const store = new Map<string, RateLimitEntry>();
 
-const pruneExpiredEntries = () => {
+const pruneExpiredEntries = (): void => {
   const now = Date.now();
   let pruned = 0;
   for (const [key, entry] of store) {
@@ -55,7 +55,7 @@ const pruneExpiredEntries = () => {
   setGauge('rate_limit_store_size', store.size);
 };
 
-const evictOldestIfNeeded = () => {
+const evictOldestIfNeeded = (): void => {
   if (store.size <= MAX_STORE_SIZE) return;
   // Evict oldest entries (first inserted) until we're under the cap
   const toEvict = store.size - MAX_STORE_SIZE;
@@ -71,7 +71,7 @@ const evictOldestIfNeeded = () => {
 // Start cleanup timer
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
-const ensureCleanupTimer = () => {
+const ensureCleanupTimer = (): void => {
   if (cleanupTimer) return;
   cleanupTimer = setInterval(pruneExpiredEntries, CLEANUP_INTERVAL_MS);
   if (typeof cleanupTimer === 'object' && 'unref' in cleanupTimer) {
@@ -79,12 +79,12 @@ const ensureCleanupTimer = () => {
   }
 };
 
-const getDefaultWindowMs = () => {
+const getDefaultWindowMs = (): number => {
   const value = Number(process.env.RATE_LIMIT_WINDOW_MS);
   return Number.isFinite(value) && value > 0 ? value : 15 * 60 * 1000;
 };
 
-const getDefaultMax = () => {
+const getDefaultMax = (): number => {
   const value = Number(process.env.RATE_LIMIT_MAX_REQUESTS);
   return Number.isFinite(value) && value > 0 ? value : 100;
 };
@@ -109,13 +109,13 @@ export function rateLimitPreset(name: RateLimitPresetName): RateLimitPresetOptio
   return rateLimitPresets[name];
 }
 
-const getFailClosedPrefixes = () =>
+const getFailClosedPrefixes = (): string[] =>
   (process.env.RATE_LIMIT_FAIL_CLOSED_PREFIXES ?? '')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
 
-const shouldFailClosedOnRedisError = (key: string) => {
+const shouldFailClosedOnRedisError = (key: string): boolean => {
   const prefixes = getFailClosedPrefixes();
   return prefixes.some((prefix) => key.startsWith(prefix));
 };
@@ -206,7 +206,10 @@ export async function rateLimit(key: string, options: RateLimitOptions = {}): Pr
   return { allowed: true, remaining: Math.max(max - entry.count, 0), resetAt: entry.resetAt };
 }
 
-export function getRateLimitHeaders(result: RateLimitResult) {
+/**
+ * Build HTTP response headers for the computed rate-limit result.
+ */
+export function getRateLimitHeaders(result: RateLimitResult): Record<string, string> {
   return {
     'X-RateLimit-Limit': String(getDefaultMax()),
     'X-RateLimit-Remaining': String(result.remaining),
@@ -214,7 +217,15 @@ export function getRateLimitHeaders(result: RateLimitResult) {
   };
 }
 
-export const getRateLimitStoreStats = () => ({
+/**
+ * Return current in-memory rate-limit store utilization statistics.
+ */
+export const getRateLimitStoreStats = (): {
+  size: number;
+  maxSize: number;
+  maxQueueSize: number;
+  utilizationPercent: number;
+} => ({
   size: store.size,
   maxSize: MAX_STORE_SIZE,
   maxQueueSize: MAX_QUEUE_SIZE,

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import type { Prisma } from '@prisma/client';
 
 export const ALLOWED_TTL_SECONDS = [5, 30, 60, 300, 3600, 86400, 604800] as const;
 export type AllowedTtlSeconds = (typeof ALLOWED_TTL_SECONDS)[number];
@@ -17,14 +18,14 @@ export async function scheduleMessageExpiry(messageId: string, ttlSeconds: numbe
   if (!normalized) {
     return prisma.message.update({
       where: { id: messageId },
-      data: { expiresAt: null, ttlSeconds: null },
+      data: { expiresAt: null, ttlSeconds: null } as unknown as Parameters<typeof prisma.message.update>[0]['data'],
     });
   }
 
   const expiresAt = new Date(Date.now() + normalized * 1000);
   return prisma.message.update({
     where: { id: messageId },
-    data: { expiresAt, ttlSeconds: normalized },
+    data: { expiresAt, ttlSeconds: normalized } as unknown as Parameters<typeof prisma.message.update>[0]['data'],
   });
 }
 
@@ -33,7 +34,7 @@ export async function runExpiryCleanup() {
   const result = await prisma.message.deleteMany({
     where: {
       expiresAt: { lt: now },
-    },
+    } as unknown as Prisma.MessageWhereInput,
   });
   return { deletedCount: result.count, now: now.toISOString() };
 }

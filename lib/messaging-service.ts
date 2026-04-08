@@ -78,7 +78,7 @@ export const getMessageHistoryExtended = async (
     if (!access.allowed) return { error: 'Access denied.' };
 
     const effectiveLimit = Math.min(limit, 100);
-    const where: Prisma.MessageWhereInput = { isDeleted: false, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] };
+    const where = { isDeleted: false, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } as unknown as Prisma.MessageWhereInput;
     if (groupId) {
       where.groupId = groupId;
     } else if (recipientId) {
@@ -111,7 +111,7 @@ export const syncConversation = async (
   const access = await ensureConversationAccess(userId, args.recipientId, args.groupId);
   if (!access.allowed) return { error: 'Access denied.' };
 
-  const where: Prisma.MessageWhereInput = { isDeleted: false, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] };
+  const where = { isDeleted: false, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } as unknown as Prisma.MessageWhereInput;
   if (args.groupId) {
     where.groupId = args.groupId;
   } else if (args.recipientId) {
