@@ -18,12 +18,19 @@ export interface RedisClientLike {
   // String commands
   get(key: string): Promise<string | null>;
   set(key: string, value: string, options?: { PX?: number; EX?: number; NX?: boolean }): Promise<string | null>;
-  del(key: string | string[]): Promise<number>;
+  del(...key: string[]): Promise<number>;
   incr(key: string): Promise<number>;
 
   // TTL commands
   pttl(key: string): Promise<number>;
   pexpire(key: string, ms: number): Promise<boolean>;
+  scan(
+    cursor: string,
+    options?: {
+      MATCH?: string;
+      COUNT?: number;
+    },
+  ): Promise<{ cursor: string | number; keys: string[] }>;
 
   // List commands
   lLen(key: string): Promise<number>;
@@ -67,7 +74,7 @@ let redisClientPromise: Promise<RedisClientLike> | null = null;
 
 async function loadRedisModule(): Promise<RedisModuleType> {
   if (!redisModulePromise) {
-    redisModulePromise = import('redis') as Promise<RedisModuleType>;
+    redisModulePromise = import('redis') as unknown as Promise<RedisModuleType>;
   }
   return redisModulePromise;
 }

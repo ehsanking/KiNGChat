@@ -12,12 +12,15 @@ export const runtime = 'nodejs';
  * compatible monitoring system.
  *
  * Access control: In production, this endpoint should be protected by
- * a reverse proxy or internal-only network rule. The METRICS_SECRET
- * env var can be set to require a Bearer token.
+ * a reverse proxy or internal-only network rule. The METRICS_TOKEN
+ * (or legacy METRICS_SECRET) env var can be set to require a Bearer token.
  */
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const format = searchParams.get('format')?.toLowerCase();
+
   // Optional bearer-token protection for the metrics endpoint.
-  const secret = process.env.METRICS_SECRET;
+  const secret = process.env.METRICS_TOKEN ?? process.env.METRICS_SECRET;
   if (secret) {
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -27,6 +30,15 @@ export async function GET(request: Request) {
   }
 
   const body = getPrometheusMetrics();
+  if (format === 'json') {
+    return NextResponse.json({ metrics: body }, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
+    });
+  }
+
   return new NextResponse(body, {
     status: 200,
     headers: {

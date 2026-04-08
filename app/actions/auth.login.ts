@@ -6,4 +6,12 @@
 // monolithic app/actions/auth.ts.  Additional login helpers can be added
 // here over time without growing the main auth file.
 
-export { loginUser, validate2FALogin } from './auth-legacy';
+import { loginUser as loginUserLegacy, validate2FALogin as validate2FALoginLegacy } from './auth-legacy';
+
+export async function loginUser(...args: Parameters<typeof loginUserLegacy>) {
+  return loginUserLegacy(...args);
+}
+
+export async function validate2FALogin(...args: Parameters<typeof validate2FALoginLegacy>) {
+  return validate2FALoginLegacy(...args);
+}

@@ -250,7 +250,7 @@ export const searchMessages = async (
   const where: Prisma.MessageWhereInput = {
     isDeleted: false,
     OR: [
-      { fileName: { contains: query, mode: 'insensitive' } },
+      { fileName: { contains: query } },
       { id: query },
     ],
   };

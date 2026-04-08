@@ -82,5 +82,9 @@ const en = {
   },
 } as const;
 
-export type TranslationDictionary = typeof en;
+type StringLeaves<T> = {
+  [K in keyof T]: T[K] extends string ? string : StringLeaves<T[K]>;
+};
+
+export type TranslationDictionary = StringLeaves<typeof en>;
 export default en;

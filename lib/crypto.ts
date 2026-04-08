@@ -168,8 +168,10 @@ async function hkdfDerive(
   lengthBits = 256,
 ): Promise<ArrayBuffer> {
   const hkdfKey = await window.crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  const saltBytes = new Uint8Array(salt.slice(0));
+  const infoBytes = new Uint8Array(info);
   return window.crypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(salt), info },
+    { name: 'HKDF', hash: 'SHA-256', salt: saltBytes, info: infoBytes },
     hkdfKey,
     lengthBits,
   );

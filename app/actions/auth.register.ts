@@ -6,4 +6,8 @@
 // monolithic app/actions/auth.ts.  Use this module when dealing with user
 // sign-up.
 
-export { registerUser } from './auth-legacy';
+import { registerUser as registerUserLegacy } from './auth-legacy';
+
+export async function registerUser(...args: Parameters<typeof registerUserLegacy>) {
+  return registerUserLegacy(...args);
+}
