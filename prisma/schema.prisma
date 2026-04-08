@@ -65,6 +65,7 @@ model User {
   devices          UserDevice[]
   oneTimePreKeys   OneTimePreKey[]
   keyEvents        E2EEKeyEvent[]
+  oauthAccounts    OAuthAccount[]
 
   @@index([createdAt])
   @@index([isApproved])
@@ -284,10 +285,33 @@ model LoginAttempt {
   @@index([username, createdAt])
 }
 
+model OAuthAccount {
+  id                String   @id @default(uuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
 model AdminSettings {
   id                 String  @id @default("1")
   isSetupCompleted   Boolean @default(false)
   isRegistrationEnabled Boolean @default(true)
+  oauthGoogleEnabled Boolean @default(false)
+  oauthGithubEnabled Boolean @default(false)
+  oauthOidcEnabled   Boolean @default(false)
   maxRegistrations   Int?    // Null means infinite
   isCaptchaEnabled    Boolean @default(false)
   recaptchaSiteKey   String?

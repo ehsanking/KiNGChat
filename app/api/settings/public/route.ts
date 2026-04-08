@@ -31,6 +31,11 @@ export async function GET() {
         ),
         recaptchaSiteKey,
         localCaptcha,
+        oauthProviders: {
+          google: Boolean((settings as Record<string, unknown>).oauthGoogleEnabled),
+          github: Boolean((settings as Record<string, unknown>).oauthGithubEnabled),
+          oidc: Boolean((settings as Record<string, unknown>).oauthOidcEnabled),
+        },
       },
     });
   } catch (error) {
@@ -45,6 +50,11 @@ export async function GET() {
         isCaptchaEnabled: false,
         recaptchaSiteKey: null,
         localCaptcha: null,
+        oauthProviders: {
+          google: false,
+          github: false,
+          oidc: false,
+        },
       },
       fallback: true,
     });

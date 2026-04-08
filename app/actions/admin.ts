@@ -412,6 +412,9 @@ export async function updateAdminSettings(settingsData: Record<string, unknown>)
     if (typeof settingsData.isSetupCompleted === 'boolean') update.isSetupCompleted = settingsData.isSetupCompleted;
     if (typeof settingsData.isRegistrationEnabled === 'boolean')
       update.isRegistrationEnabled = settingsData.isRegistrationEnabled;
+    if (typeof settingsData.oauthGoogleEnabled === 'boolean') update.oauthGoogleEnabled = settingsData.oauthGoogleEnabled;
+    if (typeof settingsData.oauthGithubEnabled === 'boolean') update.oauthGithubEnabled = settingsData.oauthGithubEnabled;
+    if (typeof settingsData.oauthOidcEnabled === 'boolean') update.oauthOidcEnabled = settingsData.oauthOidcEnabled;
     if (typeof settingsData.isCaptchaEnabled === 'boolean') update.isCaptchaEnabled = settingsData.isCaptchaEnabled;
     if (typeof settingsData.recaptchaSiteKey === 'string' || settingsData.recaptchaSiteKey === null)
       update.recaptchaSiteKey = settingsData.recaptchaSiteKey;
