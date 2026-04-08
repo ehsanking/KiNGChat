@@ -1,10 +1,6 @@
-import type {NextConfig} from 'next';
-
-// The application previously relied on the `@ducanh2912/next-pwa` plugin to enable PWA
-// functionality.  In Elahe Messenger v3.0 the dependency on this plugin has been removed to
-// simplify the build and reduce bundle size.  If you wish to add a service worker or
-// offline caching in the future, integrate your own workbox configuration instead of
-// depending on an unmaintained plugin.
+import path from 'path';
+import type { NextConfig } from 'next';
+import { InjectManifest } from 'workbox-webpack-plugin';
 
 const cdnUrl = process.env.CDN_URL;
 
@@ -12,59 +8,41 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   assetPrefix: cdnUrl || undefined,
   eslint: {
-    // Do not ignore ESLint errors during production builds.  Linting should block builds to
-    // maintain code quality.
     ignoreDuringBuilds: false,
   },
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Allow access to remote image placeholder.
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
     dangerouslyAllowSVG: false,
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'drive.google.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 's8.uupload.ir',
-        port: '',
-        pathname: '/**',
-      },
+      { protocol: 'https', hostname: 'picsum.photos', port: '', pathname: '/**' },
+      { protocol: 'https', hostname: 'drive.google.com', port: '', pathname: '/**' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com', port: '', pathname: '/**' },
+      { protocol: 'https', hostname: 's8.uupload.ir', port: '', pathname: '/**' },
     ],
   },
   output: 'standalone',
   transpilePackages: ['motion'],
-  webpack: (config, {dev}) => {
-    // HMR is disabled in AI Studio via DISABLE_HMR env var.
+  webpack: (config, { dev, isServer }) => {
     if (dev && process.env.DISABLE_HMR === 'true') {
-      config.watchOptions = {
-        ignored: /.*/,
-      };
+      config.watchOptions = { ignored: /.*/ };
     }
+
+    if (!dev && !isServer) {
+      config.plugins.push(
+        new InjectManifest({
+          swSrc: path.join(process.cwd(), 'public/sw.js'),
+          swDest: 'static/sw.js',
+          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        }) as any,
+      );
+    }
+
     return config;
   },
 };
 
-// Export the Next.js configuration directly.  If PWA support is desired, you can
-// register a service worker in `pages/_app.tsx` or a custom hook without wrapping
-// the configuration in a plugin.
 export default nextConfig;

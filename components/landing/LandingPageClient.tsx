@@ -4,6 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Globe, Lock, UserPlus, Smartphone, EyeOff, Code } from 'lucide-react';
 import EncryptionAnimationClient from '@/components/EncryptionAnimationClient';
+import ThemeToggleButton from '@/components/ThemeToggleButton';
+import LanguageSelector from '@/components/LanguageSelector';
 
 export default function LandingPage() {
   // Use local SVG logo
@@ -24,7 +26,9 @@ export default function LandingPage() {
           <Link href="/security" className="hover:text-brand-gold transition-colors">Security</Link>
           <Link href="/open-source" className="hover:text-brand-gold transition-colors">Open Source</Link>
         </nav>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <LanguageSelector />
+          <ThemeToggleButton />
           <Link href="/auth/login" className="text-sm font-medium hover:text-brand-gold transition-colors">Log In</Link>
           <Link href="/auth/register" className="px-5 py-2 bg-brand-blue text-white text-sm font-bold rounded-xl hover:bg-brand-blue/90 transition-all">Join Now</Link>
         </div>
@@ -104,7 +108,7 @@ export default function LandingPage() {
         />
       </div>
 
-      <footer className="mt-24 py-8 text-zinc-600 text-sm border-t border-zinc-900 w-full text-center">
+      <footer className="mt-24 py-8 text-[var(--text-muted)] text-sm border-t border-[var(--border)] w-full text-center">
         &copy; {new Date().getFullYear()} Elahe Messenger. All rights reserved.
       </footer>
     </div>

@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import { createRegistrationBundleV2, persistRegistrationBundleV2 } from '@/lib/e2ee-registration';
 import { registerUserWithBundleV2 } from '@/lib/e2ee-register-runtime';
 import GoogleRecaptcha from '@/components/auth/google-recaptcha';
+import ThemeToggleButton from '@/components/ThemeToggleButton';
+import LanguageSelector from '@/components/LanguageSelector';
 
 type PublicSettings = {
   isRegistrationEnabled: boolean;
@@ -159,7 +161,8 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-8 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between"><LanguageSelector /><ThemeToggleButton /></div>
         <div className="flex justify-center mb-6"><div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center"><ShieldCheck className="w-8 h-8 text-emerald-500" /></div></div>
         <h1 className="text-2xl font-bold text-center text-zinc-50 mb-2">Create your Elahe Messenger account</h1>
         <p className="text-zinc-400 text-center text-sm mb-8">Sign up in one step. Your device protection is created automatically on this device.</p>
