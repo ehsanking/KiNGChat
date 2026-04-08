@@ -70,7 +70,11 @@ export function I18nProvider({
   children: ReactNode;
   initialLocale?: Locale;
 }) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? DEFAULT_LOCALE);
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === 'undefined') return initialLocale ?? DEFAULT_LOCALE;
+    const local = window.localStorage.getItem('elahe_locale');
+    return (isLocale(local) ? local : (initialLocale ?? DEFAULT_LOCALE));
+  });
   const [dict, setDict] = useState<TranslationDictionary>(dictionaries[locale] ?? enDict);
 
   const setLocale = useCallback(
@@ -78,8 +82,9 @@ export function I18nProvider({
       if (!isLocale(newLocale) || newLocale === locale) return;
       setLocaleState(newLocale);
 
-      // Persist to cookie
+      // Persist locale for SSR and client hydration consistency
       document.cookie = `elahe_locale=${newLocale};path=/;max-age=${365 * 24 * 60 * 60};samesite=strict`;
+      window.localStorage.setItem('elahe_locale', newLocale);
 
       // Update <html> attributes
       document.documentElement.lang = newLocale;

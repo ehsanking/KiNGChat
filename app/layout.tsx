@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import './globals.css';
 import PwaPromptClient from '@/components/PwaPromptClient';
 import { ClientProviders } from '@/components/ClientProviders';
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import { resolveLocale, getDirection } from '@/lib/i18n/config';
 import type { Locale } from '@/lib/i18n/config';
 
@@ -43,8 +44,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: `
               (function() {
                 try {
-                  var t = document.cookie.match(/elahe_theme=([^;]+)/);
-                  var theme = t ? t[1] : 'system';
+                  var t = localStorage.getItem('elahe_theme') || (document.cookie.match(/elahe_theme=([^;]+)/)||[])[1];
+                  var theme = t || 'system';
                   var resolved = theme === 'system'
                     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
                     : theme;
@@ -60,6 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ClientProviders initialLocale={locale}>
           {children}
           <PwaPromptClient />
+          <ServiceWorkerRegister />
         </ClientProviders>
       </body>
     </html>

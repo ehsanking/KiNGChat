@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Smile } from 'lucide-react';
 import type { Socket } from 'socket.io-client';
 import {
   decryptGroupMessage,
@@ -14,6 +16,8 @@ import {
 import { encryptFile } from '@/lib/crypto';
 import VoiceRecorder from '@/components/chat/VoiceRecorder';
 import { ALLOWED_TTL_SECONDS } from '@/lib/disappearing-messages';
+
+const Picker = dynamic(() => import('@emoji-mart/react'), { ssr: false });
 
 type GroupConversationMeta = {
   id: string;
@@ -39,6 +43,18 @@ export default function MessageComposer({
 }: MessageComposerProps) {
   const [input, setInput] = useState('');
   const [ttlSeconds, setTtlSeconds] = useState<number | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [recent, setRecent] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    try {
+      const value = JSON.parse(localStorage.getItem('elahe_recent_emojis') ?? '[]');
+      if (Array.isArray(value)) setRecent(value.slice(0, 12));
+    } catch {
+      // ignore invalid local storage JSON
+    }
+  }, []);
 
   const processSenderKeyDistribution = useCallback(async (payload: {
     groupId?: string;
@@ -131,6 +147,35 @@ export default function MessageComposer({
       waveformData: JSON.stringify(recording.waveform),
     });
   }, [onSend, ttlSeconds]);
+
+  const addEmoji = useCallback((emoji: { native?: string }) => {
+    const value = emoji.native ?? '';
+    if (!value) return;
+
+    setRecent((prev) => {
+      const next = [value, ...prev.filter((x) => x !== value)].slice(0, 12);
+      localStorage.setItem('elahe_recent_emojis', JSON.stringify(next));
+      return next;
+    });
+
+    const inputEl = inputRef.current;
+    if (!inputEl) {
+      setInput((prev) => `${prev}${value}`);
+      return;
+    }
+
+    const start = inputEl.selectionStart ?? input.length;
+    const end = inputEl.selectionEnd ?? input.length;
+    const nextValue = `${input.slice(0, start)}${value}${input.slice(end)}`;
+    setInput(nextValue);
+
+    requestAnimationFrame(() => {
+      const nextPos = start + value.length;
+      inputEl.focus();
+      inputEl.setSelectionRange(nextPos, nextPos);
+    });
+  }, [input]);
+
   // Optional helper for consumer tests / previews.
   const tryDecryptPreview = useCallback(async (payload: {
     groupId: string;
@@ -181,19 +226,20 @@ export default function MessageComposer({
   }, [conversation?.encrypted, conversation?.id, socket, tryDecryptPreview]);
 
   return (
-    <form onSubmit={submit} className="flex gap-2">
+    <form onSubmit={submit} className="relative flex gap-2">
       <input
+        ref={inputRef}
         type="text"
         value={input}
         onChange={(event) => setInput(event.target.value)}
         placeholder={conversation?.encrypted ? 'Write an encrypted group message…' : 'Write a message…'}
-        className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+        className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)]"
       />
       <select
         value={ttlSeconds ?? ''}
         onChange={(event) => setTtlSeconds(event.target.value ? Number(event.target.value) : null)}
         aria-label="Disappearing timer"
-        className="rounded-xl border border-zinc-700 bg-zinc-900 px-2 py-2 text-xs"
+        className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-2 text-xs text-[var(--text-primary)]"
       >
         {ttlOptions.map((option) => (
           <option key={String(option)} value={option ?? ''}>
@@ -201,10 +247,23 @@ export default function MessageComposer({
           </option>
         ))}
       </select>
+      <button type="button" aria-label="Open emoji picker" onClick={() => setEmojiOpen((prev) => !prev)} className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+        <Smile className="h-4 w-4" />
+      </button>
       <VoiceRecorder onRecorded={sendVoiceMessage} />
-      <button type="submit" className="rounded-xl bg-brand-gold px-4 py-2 text-sm font-medium text-zinc-950">
+      <button type="submit" className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)]">
         Send
       </button>
+      {emojiOpen && (
+        <div className="absolute bottom-12 right-0 z-20 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-2 shadow-2xl">
+          {recent.length > 0 && (
+            <div className="mb-2 flex gap-1 border-b border-[var(--border)] pb-2">
+              {recent.map((item) => <button key={item} type="button" onClick={() => addEmoji({ native: item })} className="rounded px-1.5 py-1 hover:bg-[var(--bg-tertiary)]">{item}</button>)}
+            </div>
+          )}
+          <Picker data={async () => (await import('@emoji-mart/data')).default} onEmojiSelect={addEmoji} skinTonePosition="search" theme="dark" />
+        </div>
+      )}
     </form>
   );
 }

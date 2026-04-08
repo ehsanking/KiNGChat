@@ -61,6 +61,8 @@ import {
 } from '@/app/chat/chat-state';
 import { usePendingQueue } from '@/app/chat/hooks/usePendingQueue';
 import { ChatEmptyState, ConversationSecurityBanner, ConversationStatus, DraftAndConnectionStatus } from '@/app/chat/components/ChatFeedback';
+import ThemeToggleButton from '@/components/ThemeToggleButton';
+import LanguageSelector from '@/components/LanguageSelector';
 
 // Import shared type definitions to replace use of `any`.
 import type { ChatUser, Report, AdminSettings, AuditLog, SocketMessagePayload, DeliveryState } from '@/lib/types';
@@ -161,6 +163,8 @@ function ChatDashboardContent() {
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const [recipientE2eeEnrolled, setRecipientE2eeEnrolled] = useState<boolean | null>(null);
   const [isContactLocallyVerified, setIsContactLocallyVerified] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
+  const [lastSeenByUser, setLastSeenByUser] = useState<Record<string, string>>({});
   const router = useRouter();
   const searchParams = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -295,6 +299,21 @@ function ChatDashboardContent() {
 
         activeSocket.on('disconnect', () => {
           setIsOnline(false);
+        });
+
+        activeSocket.on('presence:online', (data: { userId?: string }) => {
+          if (!data?.userId) return;
+          setOnlineUsers((prev) => ({ ...prev, [data.userId as string]: true }));
+        });
+
+        activeSocket.on('presence:offline', (data: { userId?: string }) => {
+          if (!data?.userId) return;
+          setOnlineUsers((prev) => ({ ...prev, [data.userId as string]: false }));
+        });
+
+        activeSocket.on('presence:lastSeen', (data: { userId?: string; at?: string }) => {
+          if (!data?.userId || !data?.at) return;
+          setLastSeenByUser((prev) => ({ ...prev, [data.userId as string]: data.at as string }));
         });
 
         activeSocket.on('receiveMessage', async (data: SocketMessagePayload & { messagePayload?: string; _senderPublicKey?: string }) => {
@@ -1065,6 +1084,7 @@ function ChatDashboardContent() {
               {renderBadgeIcon(contact.badge)}
             </div>
             <p className="text-[10px] text-zinc-500">ID: {contact.numericId}</p>
+            {onlineUsers[contact.id] ? <p className="text-[10px] text-emerald-400">Online</p> : null}
           </div>
         </div>
       ))
@@ -1163,14 +1183,17 @@ function ChatDashboardContent() {
               {renderBadgeIcon(selectedRecipient?.badge)}
             </div>
             <ConversationStatus
-              isOnline={isOnline}
+              isOnline={selectedRecipient ? Boolean(onlineUsers[selectedRecipient.id]) : isOnline}
               isTyping={isOtherUserTyping}
               hasSessionKey={Boolean(sessionKey)}
               recipientNumericId={selectedRecipient?.numericId}
               memberCount={selectedGroup?.memberCount}
               isGroup={Boolean(selectedGroup)}
             />
+            {selectedRecipient && !onlineUsers[selectedRecipient.id] && lastSeenByUser[selectedRecipient.id] ? <p className="text-[10px] text-[var(--text-muted)]">Last seen {new Date(lastSeenByUser[selectedRecipient.id]).toLocaleString()}</p> : null}
           </div>
+          <LanguageSelector className="hidden md:inline-flex" />
+          <ThemeToggleButton />
         </div>
 
         {/* Messages */}
@@ -1463,6 +1486,10 @@ function ChatDashboardContent() {
         </div>
       </div>
       <div className="p-2 space-y-1">
+        <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+          <LanguageSelector />
+          <ThemeToggleButton />
+        </div>
         <Link href="/chat/profile" className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800/50 transition-colors">
           <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
             <User className="w-5 h-5 text-blue-400" />

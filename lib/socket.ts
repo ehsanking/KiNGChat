@@ -44,7 +44,8 @@ export function setupSocket(io: Server, options: SocketOptions) {
 
     socket.data.userId = session.userId;
     socket.join(session.userId);
-    markUserOnline(session.userId);
+    void markUserOnline(session.userId);
+    io.emit('presence:online', { userId: session.userId, at: new Date().toISOString() });
     activeConnections += 1;
     setGauge('elahe_active_socket_connections', activeConnections);
     logger.info('Socket connection established', { socketId: socket.id, userId: session.userId });
@@ -439,7 +440,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
       io.to(userId).emit('messageEdited', { id: msg.id, ciphertext: msg.ciphertext, nonce: msg.nonce, editedAt: editedAtStr });
     });
 
-    socket.on('typing', async (data) => {
+    const handleTyping = async (data: unknown) => {
       const senderId = socket.data.userId;
       if (typeof senderId !== 'string' || senderId.length === 0) return;
       const validation = validateBody(typingSchema, data);
@@ -457,6 +458,11 @@ export function setupSocket(io: Server, options: SocketOptions) {
         return;
       }
       if (validation.data.groupId) {
+        io.to(`group:${validation.data.groupId}`).emit('presence:typing', {
+          senderId,
+          groupId: validation.data.groupId,
+          isTyping: validation.data.isTyping,
+        });
         socket.to(`group:${validation.data.groupId}`).emit('userTyping', {
           senderId,
           groupId: validation.data.groupId,
@@ -468,12 +474,21 @@ export function setupSocket(io: Server, options: SocketOptions) {
           senderId,
           isTyping: validation.data.isTyping,
         });
+        io.to(validation.data.recipientId).emit('presence:typing', {
+          senderId,
+          isTyping: validation.data.isTyping,
+        });
       }
-    });
+    };
+
+    socket.on('typing', handleTyping);
+    socket.on('presence:typing', handleTyping);
 
     socket.on('disconnect', () => {
       if (typeof socket.data.userId === 'string' && socket.data.userId.length > 0) {
-        markUserOffline(socket.data.userId);
+        void markUserOffline(socket.data.userId);
+        io.emit('presence:offline', { userId: socket.data.userId, at: new Date().toISOString() });
+        io.emit('presence:lastSeen', { userId: socket.data.userId, at: new Date().toISOString() });
       }
       activeConnections = Math.max(0, activeConnections - 1);
       setGauge('elahe_active_socket_connections', activeConnections);

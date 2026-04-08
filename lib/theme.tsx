@@ -6,16 +6,21 @@ import type { ReactNode } from 'react';
 export type Theme = 'light' | 'dark' | 'system';
 type ResolvedTheme = 'light' | 'dark';
 
+const STORAGE_KEY = 'elahe_theme';
+const COOKIE_KEY = 'elahe_theme';
+
 type ThemeContextValue = {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
+  toggleTheme: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: 'system',
   resolvedTheme: 'light',
   setTheme: () => {},
+  toggleTheme: () => {},
 });
 
 function getSystemTheme(): ResolvedTheme {
@@ -28,10 +33,11 @@ function resolveTheme(theme: Theme): ResolvedTheme {
 }
 
 function getInitialTheme(): Theme {
-  if (typeof document === 'undefined') return 'system';
-  const match = document.cookie.match(/elahe_theme=([^;]+)/);
-  const stored = match?.[1];
-  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+  if (typeof window === 'undefined') return 'system';
+  const localTheme = window.localStorage.getItem(STORAGE_KEY);
+  if (localTheme === 'light' || localTheme === 'dark' || localTheme === 'system') return localTheme;
+  const cookieTheme = document.cookie.match(/(?:^|; )elahe_theme=([^;]+)/)?.[1];
+  if (cookieTheme === 'light' || cookieTheme === 'dark' || cookieTheme === 'system') return cookieTheme;
   return 'system';
 }
 
@@ -43,43 +49,51 @@ function applyTheme(resolved: ResolvedTheme) {
   root.style.colorScheme = resolved;
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(getInitialTheme()));
+function persistTheme(theme: Theme) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(STORAGE_KEY, theme);
+  document.cookie = `${COOKIE_KEY}=${theme};path=/;max-age=${365 * 24 * 60 * 60};samesite=strict`;
+}
 
-  const setTheme = useCallback((newTheme: Theme) => {
-    setThemeState(newTheme);
-    const resolved = resolveTheme(newTheme);
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>('system');
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light');
+
+  useEffect(() => {
+    const initialTheme = getInitialTheme();
+    const resolved = resolveTheme(initialTheme);
+    setThemeState(initialTheme);
     setResolvedTheme(resolved);
     applyTheme(resolved);
-
-    // Persist to cookie
-    document.cookie = `elahe_theme=${newTheme};path=/;max-age=${365 * 24 * 60 * 60};samesite=strict`;
   }, []);
 
-  // Listen for system theme changes when in 'system' mode
+  const setTheme = useCallback((newTheme: Theme) => {
+    const resolved = resolveTheme(newTheme);
+    setThemeState(newTheme);
+    setResolvedTheme(resolved);
+    applyTheme(resolved);
+    persistTheme(newTheme);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((resolvedTheme === 'dark') ? 'light' : 'dark');
+  }, [resolvedTheme, setTheme]);
+
   useEffect(() => {
     if (theme !== 'system') return;
-
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
       const resolved = e.matches ? 'dark' : 'light';
-      setResolvedTheme(resolved as ResolvedTheme);
-      applyTheme(resolved as ResolvedTheme);
+      setResolvedTheme(resolved);
+      applyTheme(resolved);
     };
-
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, [theme]);
 
-  // Apply theme on mount
-  useEffect(() => {
-    applyTheme(resolvedTheme);
-  }, [resolvedTheme]);
-
   const value = useMemo<ThemeContextValue>(
-    () => ({ theme, resolvedTheme, setTheme }),
-    [theme, resolvedTheme, setTheme],
+    () => ({ theme, resolvedTheme, setTheme, toggleTheme }),
+    [theme, resolvedTheme, setTheme, toggleTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

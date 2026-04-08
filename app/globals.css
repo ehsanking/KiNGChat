@@ -6,61 +6,52 @@
   --color-brand-gold: #c49a45;
 }
 
-/* ── Dark mode color scheme ────────────────────────────────────
- * The .dark class is toggled by ThemeProvider on <html>.
- * Uses CSS custom properties for easy theming.
- */
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --bg-tertiary: #e9ecef;
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #9ca3af;
-  --border-color: #e5e7eb;
-  --surface: #ffffff;
-  --surface-hover: #f3f4f6;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #eef2f7;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --border: #dbe3ef;
+  --border-hover: #b8c3d6;
+  --chat-bg-self: #0f365b;
+  --chat-bg-other: #e5eaf3;
 }
 
 .dark {
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #111111;
-  --bg-tertiary: #1a1a1a;
-  --text-primary: #f9fafb;
-  --text-secondary: #d1d5db;
-  --text-muted: #6b7280;
-  --border-color: #27272a;
-  --surface: #18181b;
-  --surface-hover: #27272a;
+  --bg-primary: #090d14;
+  --bg-secondary: #111826;
+  --bg-tertiary: #1a2335;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent: #60a5fa;
+  --accent-hover: #3b82f6;
+  --danger: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --border: #293246;
+  --border-hover: #3d4a63;
+  --chat-bg-self: #1e3a8a;
+  --chat-bg-other: #1e293b;
 }
 
-/* ── RTL support ───────────────────────────────────────────────
- * Utility classes for RTL/LTR directional spacing.
- * These complement Tailwind's built-in RTL support (rtl: prefix).
- */
 [dir="rtl"] .rtl\:text-right { text-align: right; }
 [dir="rtl"] .rtl\:text-left  { text-align: left; }
 [dir="rtl"] .rtl\:flip       { transform: scaleX(-1); }
 
-/* Safe area padding for mobile devices (notch, home indicator) */
-.safe-area-pb {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
+.safe-area-pb { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.h-safe-area-b { height: env(safe-area-inset-bottom, 0px); }
 
-.h-safe-area-b {
-  height: env(safe-area-inset-bottom, 0px);
-}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Hide scrollbar for horizontal tab scrolling */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* ── Smooth transitions for theme switching ────────────────── */
 html.dark body,
 html.light body {
   transition: background-color 0.2s ease, color 0.2s ease;
