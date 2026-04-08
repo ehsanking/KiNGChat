@@ -1,9 +1,9 @@
 import argon2 from 'argon2';
 import crypto from 'crypto';
-import type { JWT } from 'next-auth/jwt';
-import Google from 'next-auth/providers/google';
-import GitHub from 'next-auth/providers/github';
-import type { Account, Profile } from 'next-auth';
+import type { JWT } from '@auth/core/jwt';
+import Google from '@auth/core/providers/google';
+import GitHub from '@auth/core/providers/github';
+import type { Account, Profile } from '@auth/core/types';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateAdminSettings } from '@/lib/admin-settings';
 
