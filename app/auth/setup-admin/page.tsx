@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shield, Loader2, AlertTriangle } from 'lucide-react';
-import { updateAdminCredentials } from '@/app/actions/auth';
+import { updateAdminCredentials } from '@/app/actions/auth.actions';
 import { useSession } from '@/hooks/useSession';
 
 export default function SetupAdminPage() {
