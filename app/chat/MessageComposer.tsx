@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import {
   decryptGroupMessage,
@@ -11,6 +11,9 @@ import {
   storeReceivedSenderKey,
   type GroupMemberKeyEnvelope,
 } from '@/lib/crypto/group-sender-keys';
+import { encryptFile } from '@/lib/crypto';
+import VoiceRecorder from '@/components/chat/VoiceRecorder';
+import { ALLOWED_TTL_SECONDS } from '@/lib/disappearing-messages';
 
 type GroupConversationMeta = {
   id: string;
@@ -22,7 +25,7 @@ type MessageComposerProps = {
   conversation?: GroupConversationMeta | null;
   identityWrappingKey?: string;
   groupMembers?: GroupMemberKeyEnvelope[];
-  onSend: (payload: { ciphertext: string; nonce: string; keyGeneration?: number; messageIndex?: number }) => Promise<void> | void;
+  onSend: (payload: { ciphertext: string; nonce: string; keyGeneration?: number; messageIndex?: number; ttlSeconds?: number | null; type?: number; fileUrl?: string | null; audioDuration?: number | null; waveformData?: string | null }) => Promise<void> | void;
   onDecryptPreview?: (payload: { senderId: string; text: string }) => void;
 };
 
@@ -35,6 +38,7 @@ export default function MessageComposer({
   onDecryptPreview,
 }: MessageComposerProps) {
   const [input, setInput] = useState('');
+  const [ttlSeconds, setTtlSeconds] = useState<number | null>(null);
 
   const processSenderKeyDistribution = useCallback(async (payload: {
     groupId?: string;
@@ -100,15 +104,33 @@ export default function MessageComposer({
         nonce: encrypted.nonce,
         keyGeneration: encrypted.keyGeneration,
         messageIndex: encrypted.messageIndex,
+        ttlSeconds,
       });
       setInput('');
       return;
     }
 
-    await onSend({ ciphertext: text, nonce: '' });
+    await onSend({ ciphertext: text, nonce: '', ttlSeconds });
     setInput('');
-  }, [conversation?.encrypted, conversation?.id, groupMembers, input, onSend, socket]);
+  }, [conversation?.encrypted, conversation?.id, groupMembers, input, onSend, socket, ttlSeconds]);
 
+
+  const ttlOptions = useMemo(() => [null, ...ALLOWED_TTL_SECONDS], []);
+
+  const sendVoiceMessage = useCallback(async (recording: { blob: Blob; durationSeconds: number; waveform: number[] }) => {
+    const audioFile = new File([recording.blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+    const encrypted = await encryptFile(audioFile);
+    const fileUrl = URL.createObjectURL(encrypted.ciphertext);
+    await onSend({
+      type: 3,
+      ciphertext: encrypted.key,
+      nonce: encrypted.iv,
+      fileUrl,
+      ttlSeconds,
+      audioDuration: recording.durationSeconds,
+      waveformData: JSON.stringify(recording.waveform),
+    });
+  }, [onSend, ttlSeconds]);
   // Optional helper for consumer tests / previews.
   const tryDecryptPreview = useCallback(async (payload: {
     groupId: string;
@@ -167,6 +189,19 @@ export default function MessageComposer({
         placeholder={conversation?.encrypted ? 'Write an encrypted group message…' : 'Write a message…'}
         className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
       />
+      <select
+        value={ttlSeconds ?? ''}
+        onChange={(event) => setTtlSeconds(event.target.value ? Number(event.target.value) : null)}
+        aria-label="Disappearing timer"
+        className="rounded-xl border border-zinc-700 bg-zinc-900 px-2 py-2 text-xs"
+      >
+        {ttlOptions.map((option) => (
+          <option key={String(option)} value={option ?? ''}>
+            {option === null ? 'Permanent' : `${option}s`}
+          </option>
+        ))}
+      </select>
+      <VoiceRecorder onRecorded={sendVoiceMessage} />
       <button type="submit" className="rounded-xl bg-brand-gold px-4 py-2 text-sm font-medium text-zinc-950">
         Send
       </button>
