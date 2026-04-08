@@ -1,6 +1,6 @@
 import { Auth } from '@auth/core';
 import type { AuthConfig } from '@auth/core';
-import type { Profile } from 'next-auth';
+import type { Profile } from '@auth/core/types';
 import type { NextRequest } from 'next/server';
 import { getRateLimitHeaders, rateLimit, rateLimitPreset } from '@/lib/rate-limit';
 import { getOAuthProviders, provisionOAuthUser, type OAuthBridgeToken } from '@/lib/oauth';
@@ -13,22 +13,23 @@ const buildAuthConfig = async (): Promise<AuthConfig> => ({
   providers: (await getOAuthProviders()) as AuthConfig['providers'],
   session: { strategy: 'jwt', maxAge: 10 * 60 },
   callbacks: {
-    async signIn({ account }: { account: { type?: string } | null }) {
+    async signIn({ account }) {
       return account?.type === 'oauth';
     },
-    async jwt({ token, account, profile, user }: { token: OAuthBridgeToken; account?: unknown; profile?: unknown; user?: unknown }) {
-      const oauthAccount = account as { type?: string } & Parameters<typeof provisionOAuthUser>[0]['account'];
+    async jwt({ token, account, profile, user }) {
+      const oauthAccount = account as ({ type?: string } & Parameters<typeof provisionOAuthUser>[0]['account']) | null;
       if (oauthAccount?.type === 'oauth') {
         const provisioned = await provisionOAuthUser({
           account: oauthAccount,
           profile: profile as Profile | undefined,
           user: user as { name?: string | null; email?: string | null; image?: string | null } | undefined,
         });
-        token.localUserId = provisioned.user.id;
-        token.localUserRole = provisioned.user.role;
-        token.localSessionVersion = provisioned.user.sessionVersion;
-        token.localNeedsPasswordChange = provisioned.user.needsPasswordChange;
-        token.localOAuthIsNewUser = provisioned.isNewUser;
+        const bridgeToken = token as OAuthBridgeToken;
+        bridgeToken.localUserId = provisioned.user.id;
+        bridgeToken.localUserRole = provisioned.user.role;
+        bridgeToken.localSessionVersion = provisioned.user.sessionVersion;
+        bridgeToken.localNeedsPasswordChange = provisioned.user.needsPasswordChange;
+        bridgeToken.localOAuthIsNewUser = provisioned.isNewUser;
       }
       return token;
     },

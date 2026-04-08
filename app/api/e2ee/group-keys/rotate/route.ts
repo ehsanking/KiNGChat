@@ -4,6 +4,10 @@ import { requireFreshAuthenticatedUser } from '@/lib/fresh-session';
 
 const ALLOWED_ROTATE_ROLES = new Set(['OWNER', 'ADMIN']);
 
+type GroupSenderKeyLookupDelegate = {
+  findFirst(args: unknown): Promise<{ keyGeneration?: number } | null>;
+};
+
 export async function POST(request: NextRequest) {
   const session = await requireFreshAuthenticatedUser(request);
   if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
@@ -21,7 +25,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Only group admins can rotate sender keys.' }, { status: 403 });
   }
 
-  const latest = await prisma.groupSenderKey.findFirst({
+  const prismaCompat = prisma as unknown as { groupSenderKey: GroupSenderKeyLookupDelegate };
+  const latest = await prismaCompat.groupSenderKey.findFirst({
     where: { groupId, userId: session.id },
     orderBy: { keyGeneration: 'desc' },
     select: { keyGeneration: true },
