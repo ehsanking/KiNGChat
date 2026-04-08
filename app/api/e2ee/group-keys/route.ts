@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireFreshAuthenticatedUser } from '@/lib/fresh-session';
 
+type GroupSenderKeyDelegate = {
+  upsert(args: unknown): Promise<unknown>;
+};
+
+type GroupSenderKeyDistributionDelegate = {
+  createMany(args: unknown): Promise<unknown>;
+  findMany(args: unknown): Promise<Array<{ id: string } & Record<string, unknown>>>;
+  updateMany(args: unknown): Promise<unknown>;
+};
+
 export async function POST(request: NextRequest) {
   const session = await requireFreshAuthenticatedUser(request);
   if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
@@ -33,13 +43,18 @@ export async function POST(request: NextRequest) {
   if (!membership) return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
 
   await prisma.$transaction(async (tx) => {
-    await tx.groupSenderKey.upsert({
+    const txCompat = tx as unknown as {
+      groupSenderKey: GroupSenderKeyDelegate;
+      groupSenderKeyDistribution: GroupSenderKeyDistributionDelegate;
+    };
+
+    await txCompat.groupSenderKey.upsert({
       where: { groupId_userId_deviceId: { groupId, userId: session.id, deviceId } },
       update: { chainKey, publicKey: senderPublicKey, keyGeneration },
       create: { groupId, userId: session.id, deviceId, chainKey, publicKey: senderPublicKey, keyGeneration },
     });
 
-    await tx.groupSenderKeyDistribution.createMany({
+    await txCompat.groupSenderKeyDistribution.createMany({
       data: wrappedKeys
         .filter((item) => item?.recipientUserId?.trim() && item?.wrappedKey?.trim() && item?.nonce?.trim())
         .map((item) => ({
@@ -60,13 +75,14 @@ export async function GET(request: NextRequest) {
   const session = await requireFreshAuthenticatedUser(request);
   if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 
-  const pending = await prisma.groupSenderKeyDistribution.findMany({
+  const prismaCompat = prisma as unknown as { groupSenderKeyDistribution: GroupSenderKeyDistributionDelegate };
+  const pending = await prismaCompat.groupSenderKeyDistribution.findMany({
     where: { recipientUserId: session.id, consumed: false },
     orderBy: { createdAt: 'asc' },
     take: 200,
   });
 
-  await prisma.groupSenderKeyDistribution.updateMany({
+  await prismaCompat.groupSenderKeyDistribution.updateMany({
     where: { id: { in: pending.map((item) => item.id) } },
     data: { consumed: true },
   });
