@@ -25,5 +25,9 @@ export type SocketMessagePayload = {
   reactions?: Array<{ emoji: string; userId: string; createdAt: string }> ;
   keyGeneration?: number | null;
   messageIndex?: number | null;
+  ttlSeconds?: number | null;
+  expiresAt?: string | null;
+  audioDuration?: number | null;
+  waveformData?: string | null;
   _self?: boolean;
 };

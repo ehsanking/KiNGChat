@@ -4,6 +4,7 @@ import { logger } from '../logger';
 import { incrementMetric } from '../observability';
 import { prisma } from '../prisma';
 import { runRetentionCleanup } from '../retention-policy';
+import { startExpiryCleanupJob } from '../disappearing-messages';
 
 
 const RETENTION_CLEANUP_LOCK_ID = 94642013;
@@ -163,6 +164,8 @@ export async function startRuntimeWorker() {
     void enqueueBackgroundJob({ name: 'retention_cleanup', payload: {} });
   }, retentionIntervalMs);
   logger.info('Retention cleanup scheduler enabled', { intervalMs: retentionIntervalMs });
+
+  startExpiryCleanupJob(60_000);
 }
 
 /** Stop the backup scheduler (useful for graceful shutdown). */

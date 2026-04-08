@@ -12,6 +12,7 @@ import { incrementMetric } from './observability';
 import { editMessage, syncConversation, toggleReaction, markMessagesDelivered } from './messaging-service';
 import { requireFreshSocketSession } from './fresh-session';
 import { normalizeConversationId } from './conversation-id';
+import { normalizeTtlSeconds, scheduleMessageExpiry } from './disappearing-messages';
 
 export type SocketOptions = {
   socketRateLimitWindowMs: number;
@@ -213,9 +214,19 @@ export function setupSocket(io: Server, options: SocketOptions) {
               fileNonce: data.fileNonce || null,
               idempotencyKey: data.idempotencyKey || null,
               replyToId: data.replyToId || null,
+              ttlSeconds: normalizeTtlSeconds(data.ttlSeconds),
+              expiresAt: normalizeTtlSeconds(data.ttlSeconds)
+                ? new Date(Date.now() + Number(normalizeTtlSeconds(data.ttlSeconds)) * 1000)
+                : null,
+              audioDuration: typeof data.audioDuration === 'number' ? data.audioDuration : null,
+              waveformData: typeof data.waveformData === 'string' ? data.waveformData : null,
               deliveryStatus: 'SENT',
             },
           });
+
+          if (normalizeTtlSeconds(data.ttlSeconds)) {
+            message = await scheduleMessageExpiry(message.id, data.ttlSeconds);
+          }
         }
 
         const messageData: SocketMessagePayload = {
@@ -241,6 +252,10 @@ export function setupSocket(io: Server, options: SocketOptions) {
           idempotencyKey: data.idempotencyKey || null,
           keyGeneration: data.keyGeneration ?? null,
           messageIndex: data.messageIndex ?? null,
+          ttlSeconds: message.ttlSeconds ?? data.ttlSeconds ?? null,
+          expiresAt: message.expiresAt ? new Date(message.expiresAt).toISOString() : null,
+          audioDuration: message.audioDuration ?? data.audioDuration ?? null,
+          waveformData: message.waveformData ?? data.waveformData ?? null,
         };
 
         if (data.groupId) {

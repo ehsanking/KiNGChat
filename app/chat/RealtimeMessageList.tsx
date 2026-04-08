@@ -1,12 +1,18 @@
 'use client';
 
-import { ShieldAlert } from 'lucide-react';
+import { Clock3, ShieldAlert } from 'lucide-react';
+import VoicePlayer from '@/components/chat/VoicePlayer';
 
 type RealtimeMessage = {
   id: string;
   text: string;
   sender?: 'me' | 'them' | 'system';
-  type?: 'text' | 'key_change';
+  type?: 'text' | 'key_change' | 'voice';
+  ttlSeconds?: number | null;
+  expiresAt?: string | null;
+  fileUrl?: string | null;
+  audioDuration?: number | null;
+  waveformData?: string | null;
 };
 
 type RealtimeMessageListProps = {
@@ -35,9 +41,24 @@ export default function RealtimeMessageList({ messages }: RealtimeMessageListPro
           );
         }
 
+        const countdown = message.expiresAt ? Math.max(0, Math.floor((new Date(message.expiresAt).getTime() - Date.now()) / 1000)) : null;
         return (
           <div key={message.id} className="rounded-2xl bg-zinc-800 px-3 py-2 text-sm text-zinc-100">
-            {message.text}
+            {message.type === 'voice' && message.fileUrl ? (
+              <VoicePlayer
+                fileUrl={message.fileUrl}
+                durationSeconds={message.audioDuration}
+                waveformData={message.waveformData}
+              />
+            ) : (
+              <span>{message.text}</span>
+            )}
+            {message.ttlSeconds ? (
+              <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-zinc-400" title={countdown !== null ? `${countdown}s remaining` : `${message.ttlSeconds}s disappearing timer`}>
+                <Clock3 className="h-3 w-3" />
+                {message.ttlSeconds}s
+              </span>
+            ) : null}
           </div>
         );
       })}
