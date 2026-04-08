@@ -5,8 +5,6 @@
  * across all server action modules.
  */
 
-'use server';
-
 import { cookies, headers } from 'next/headers';
 import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
 import { getFreshSessionUser } from '@/lib/session-auth';

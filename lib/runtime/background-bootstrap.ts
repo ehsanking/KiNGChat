@@ -41,7 +41,7 @@ export function registerRuntimeJobs() {
         prisma.report.findMany(),
         prisma.auditLog.findMany({ take: 10_000, orderBy: { createdAt: 'desc' } }),
         prisma.group.findMany({
-          select: { id: true, name: true, createdAt: true, ownerId: true },
+          select: { id: true, name: true, createdAt: true },
         }),
         prisma.message.count(),
       ]);

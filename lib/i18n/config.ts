@@ -7,7 +7,7 @@
  */
 
 export const LOCALES = [
-  'en', 'fa', 'ar', 'de', 'es', 'pt', 'ru', 'zh', 'tr', 'th', 'sv', 'da',
+  'en', 'fa', 'ar', 'zh', 'pt',
 ] as const;
 
 export type Locale = (typeof LOCALES)[number];
@@ -22,20 +22,17 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   en: 'English',
   fa: 'فارسی',
   ar: 'العربية',
-  de: 'Deutsch',
-  es: 'Español',
-  pt: 'Português',
-  ru: 'Русский',
   zh: '中文',
-  tr: 'Türkçe',
-  th: 'ไทย',
-  sv: 'Svenska',
-  da: 'Dansk',
+  pt: 'Português',
 };
 
 /** Return 'rtl' or 'ltr' based on the given locale. */
 export function getDirection(locale: Locale): 'rtl' | 'ltr' {
   return RTL_LOCALES.has(locale) ? 'rtl' : 'ltr';
+}
+
+export function isRtl(locale: Locale): boolean {
+  return RTL_LOCALES.has(locale);
 }
 
 /**
@@ -71,3 +68,8 @@ export function resolveLocale(
 
   return DEFAULT_LOCALE;
 }
+
+// Backward-compatible aliases (legacy tests and older imports).
+export const locales = LOCALES;
+export const defaultLocale = DEFAULT_LOCALE;
+export const localeNames = LOCALE_LABELS;
