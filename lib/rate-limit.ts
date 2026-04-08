@@ -8,6 +8,15 @@ type RateLimitOptions = {
   max?: number;
 };
 
+type RateLimitPresetOptions = Readonly<Required<RateLimitOptions>>;
+export type RateLimitPresetName =
+  | 'login'
+  | 'register'
+  | '2fa'
+  | 'password-recovery'
+  | 'upload'
+  | 'api-default';
+
 import { logger } from '@/lib/logger';
 import { getRedisClient } from '@/lib/redis-client';
 import { incrementMetric, setGauge } from '@/lib/observability';
@@ -79,6 +88,26 @@ const getDefaultMax = () => {
   const value = Number(process.env.RATE_LIMIT_MAX_REQUESTS);
   return Number.isFinite(value) && value > 0 ? value : 100;
 };
+
+export const rateLimitPresets: Record<RateLimitPresetName, RateLimitPresetOptions> = {
+  login: { windowMs: 15 * 60 * 1000, max: 5 },
+  register: { windowMs: 60 * 60 * 1000, max: 3 },
+  '2fa': { windowMs: 5 * 60 * 1000, max: 5 },
+  'password-recovery': { windowMs: 60 * 60 * 1000, max: 3 },
+  upload: { windowMs: 10 * 60 * 1000, max: 20 },
+  'api-default': { windowMs: 15 * 60 * 1000, max: 100 },
+};
+
+export function rateLimitPreset(name: RateLimitPresetName): RateLimitPresetOptions {
+  if (name === 'api-default') {
+    return {
+      windowMs: getDefaultWindowMs(),
+      max: getDefaultMax(),
+    };
+  }
+
+  return rateLimitPresets[name];
+}
 
 const getFailClosedPrefixes = () =>
   (process.env.RATE_LIMIT_FAIL_CLOSED_PREFIXES ?? '')

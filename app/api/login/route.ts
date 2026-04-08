@@ -3,6 +3,7 @@ import { loginUser } from '@/app/actions/auth';
 import { assertSameOrigin } from '@/lib/request-security';
 import { issueSession } from '@/lib/session';
 import { getRequestIdForRequest, respondWithInternalError, respondWithSafeError } from '@/lib/http-errors';
+import { getRateLimitHeaders, rateLimit, rateLimitPreset } from '@/lib/rate-limit';
 
 /**
  * Handles the login request. This endpoint accepts JSON with
@@ -16,6 +17,16 @@ export async function POST(request: Request) {
   const requestId = getRequestIdForRequest(request);
   try {
     assertSameOrigin(request);
+
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    const rateResult = await rateLimit(`login:${ip}`, rateLimitPreset('login'));
+    const rateHeaders = getRateLimitHeaders(rateResult);
+    if (!rateResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please try again later.' },
+        { status: 429, headers: rateHeaders },
+      );
+    }
 
     const body = await request.json();
     const result = await loginUser({
@@ -40,7 +51,7 @@ export async function POST(request: Request) {
         requires2FA: true,
         userId: result.userId,
         challengeId: result.challengeId,
-      });
+      }, { headers: rateHeaders });
     }
 
     if (
@@ -67,7 +78,7 @@ export async function POST(request: Request) {
       badge: result.badge,
       isVerified: result.isVerified,
       needsPasswordChange: result.needsPasswordChange,
-    });
+    }, { headers: rateHeaders });
 
     issueSession(response, {
       userId: result.userId!,

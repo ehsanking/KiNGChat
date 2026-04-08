@@ -2,11 +2,22 @@ import { NextResponse } from 'next/server';
 import { getRecoveryQuestion, recoverPassword } from '@/app/actions/auth';
 import { assertSameOrigin } from '@/lib/request-security';
 import { getRequestIdForRequest, respondWithInternalError, respondWithSafeError } from '@/lib/http-errors';
+import { getRateLimitHeaders, rateLimit, rateLimitPreset } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   const requestId = getRequestIdForRequest(request);
   try {
     assertSameOrigin(request);
+
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    const rateResult = await rateLimit(`password-recovery:${ip}`, rateLimitPreset('password-recovery'));
+    const rateHeaders = getRateLimitHeaders(rateResult);
+    if (!rateResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many password recovery attempts. Please try again later.' },
+        { status: 429, headers: rateHeaders },
+      );
+    }
 
     const body = await request.json();
     const action = typeof body?.action === 'string' ? body.action : '';
@@ -28,7 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         recoveryQuestion: 'recoveryQuestion' in result ? result.recoveryQuestion : '',
-      });
+      }, { headers: rateHeaders });
     }
 
     if (action === 'reset') {
@@ -48,7 +59,7 @@ export async function POST(request: Request) {
         });
       }
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true }, { headers: rateHeaders });
     }
 
     return respondWithSafeError({

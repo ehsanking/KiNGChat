@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { validate2FALogin } from '@/app/actions/auth';
 import { assertSameOrigin } from '@/lib/request-security';
 import { issueSession } from '@/lib/session';
-import { rateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
+import { rateLimit, getRateLimitHeaders, rateLimitPreset } from '@/lib/rate-limit';
 
 /**
  * Verifies the two-factor authentication token and issues a session cookie
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     // Rate limit 2FA verification attempts per IP and userId to mitigate brute force
     // attacks.  Limit to 5 attempts per five minutes.  A lockout response is
     // returned when the limit is exceeded.
-    const rateResult = await rateLimit(`2fa:${ip}:${userId}`, { windowMs: 5 * 60 * 1000, max: 5 });
+    const rateResult = await rateLimit(`2fa:${ip}:${userId}`, rateLimitPreset('2fa'));
     const rateHeaders = getRateLimitHeaders(rateResult);
     if (!rateResult.allowed) {
       return NextResponse.json(
