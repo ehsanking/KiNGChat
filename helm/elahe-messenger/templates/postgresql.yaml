@@ -1,0 +1,46 @@
+{{- if not .Values.database.external }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "elahe-messenger.fullname" . }}-postgresql
+spec:
+  serviceName: {{ include "elahe-messenger.fullname" . }}-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "elahe-messenger.name" . }}-postgresql
+  template:
+    metadata:
+      labels:
+        app: {{ include "elahe-messenger.name" . }}-postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.database.name | quote }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "elahe-messenger.fullname" . }}-secret
+                  key: DATABASE_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "elahe-messenger.fullname" . }}-secret
+                  key: DATABASE_PASSWORD
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.database.storage }}
+{{- end }}

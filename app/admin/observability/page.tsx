@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { getSessionFromCookieHeader } from '@/lib/session';
 import { getManagerKpis } from '@/app/actions/admin';
 import { getCacheStats } from '@/lib/cache';
+import { getBackupStatus } from '@/lib/backup/service';
 
 export default async function ObservabilityPage() {
   // Ensure only administrators can access observability data.  Without this guard,
@@ -31,6 +32,7 @@ export default async function ObservabilityPage() {
   const draftCount = await prisma.messageDraft.count().catch(() => 0);
   const shard = getShardingStrategy();
   const kpiResult = await getManagerKpis();
+  const backupStatus = getBackupStatus();
   const kpis = 'kpis' in kpiResult ? kpiResult.kpis : null;
 
   return (
@@ -80,6 +82,10 @@ export default async function ObservabilityPage() {
         <div className="rounded-xl border p-4">
           <h2 className="font-medium">Messaging</h2>
           <pre className="text-xs whitespace-pre-wrap">{JSON.stringify({ reactionCount, draftCount }, null, 2)}</pre>
+        </div>
+        <div className="rounded-xl border p-4">
+          <h2 className="font-medium">Backups</h2>
+          <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(backupStatus, null, 2)}</pre>
         </div>
       </section>
       <section className="rounded-xl border p-4">

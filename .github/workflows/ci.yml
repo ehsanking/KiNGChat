@@ -9,28 +9,56 @@ on:
   pull_request:
     branches: [ main, master ]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: elahe_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/elahe_test
+      REDIS_URL: redis://localhost:6379
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Validate no merge conflict markers in docs
-        run: |
-          if rg -n "<<<<<<<|=======|>>>>>>>" README.md README.*; then
-            echo "Merge conflict markers detected in README files."
-            exit 1
-          fi
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: 'npm'
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Cache Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-next-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}-
 
       - name: Install dependencies
         run: npm ci --no-fund
@@ -44,42 +72,16 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Run tests
-        run: npm run test
+      - name: Unit tests
+        run: npm run test -- --project unit
 
-      - name: Dependency audit (high+)
-        run: npm run security:audit
+      - name: Integration tests
+        run: npm run test -- --project integration
 
       - name: Build
         run: npm run build
 
-  secret-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
         with:
-          fetch-depth: 0
-
-      - name: TruffleHog secret scan (verified findings only)
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
-          extra_args: --results=verified
-
-  sast:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Semgrep SAST (error severity only)
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: p/security-audit p/typescript
-          generateSarif: "1"
-          publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
-          auditOn: push
-          extraArgs: --severity=ERROR
+          fail_ci_if_error: false

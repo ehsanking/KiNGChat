@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "elahe-messenger.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: {{ include "elahe-messenger.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "elahe-messenger.name" . }}
+    spec:
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: {{ include "elahe-messenger.fullname" . }}
+            - secretRef:
+                name: {{ include "elahe-messenger.fullname" . }}-secret
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health/live
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15

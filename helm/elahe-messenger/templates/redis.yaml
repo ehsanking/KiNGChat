@@ -1,0 +1,21 @@
+{{- if .Values.redis.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "elahe-messenger.fullname" . }}-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "elahe-messenger.name" . }}-redis
+  template:
+    metadata:
+      labels:
+        app: {{ include "elahe-messenger.name" . }}-redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          ports:
+            - containerPort: 6379
+{{- end }}

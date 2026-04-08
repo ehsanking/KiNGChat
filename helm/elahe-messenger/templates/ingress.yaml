@@ -1,0 +1,27 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "elahe-messenger.fullname" . }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.certManagerIssuer | quote }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "elahe-messenger.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+{{- end }}
