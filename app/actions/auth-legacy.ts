@@ -1006,7 +1006,7 @@ export async function getUserCommunities(_userId: string) {
   const sanitizedUserId = auth.userId;
 
   try {
-    const memberships = await prisma.groupMember.findMany({
+    const rawMemberships = await prisma.groupMember.findMany({
       where: { userId: sanitizedUserId },
       include: {
         group: {
@@ -1024,7 +1024,22 @@ export async function getUserCommunities(_userId: string) {
           },
         },
       },
-    });
+    } as unknown as never);
+
+    const memberships = rawMemberships as unknown as Array<{
+      role: string;
+      group: {
+        id: string;
+        name: string;
+        description: string | null;
+        avatar: string | null;
+        type: string;
+        e2eeEnabled: boolean;
+        isPublic: boolean;
+        inviteLink: string | null;
+        _count: { members: number };
+      };
+    }>;
 
     const communities = memberships.map((m) => ({
       id: m.group.id,
@@ -1077,7 +1092,7 @@ export async function createCommunity(
     const crypto = await import('crypto');
     const inviteLink = crypto.randomBytes(12).toString('base64url');
 
-    const group = await prisma.group.create({
+    const rawGroup = await prisma.group.create({
       data: {
         name: sanitizedName,
         description: sanitizedDesc || null,
@@ -1101,7 +1116,18 @@ export async function createCommunity(
         inviteLink: true,
         _count: { select: { members: true } },
       },
-    });
+    } as unknown as never);
+
+    const group = rawGroup as unknown as {
+      id: string;
+      name: string;
+      description: string | null;
+      type: string;
+      e2eeEnabled: boolean;
+      isPublic: boolean;
+      inviteLink: string | null;
+      _count: { members: number };
+    };
 
     return {
       success: true,
