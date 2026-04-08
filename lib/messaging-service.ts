@@ -156,6 +156,7 @@ export const markMessagesDelivered = async (userId: string, messageIds: string[]
     data: { deliveryStatus: 'DELIVERED', deliveredAt: new Date() },
   });
   incrementMetric('message_delivery_updates', result.count);
+  if (result.count > 0) incrementMetric('elahe_messages_delivered_total', result.count);
   return { success: true, count: result.count };
 };
 

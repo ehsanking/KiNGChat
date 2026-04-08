@@ -4,6 +4,7 @@ import { assertSameOrigin } from '@/lib/request-security';
 import { issueSession } from '@/lib/session';
 import { getRequestIdForRequest, respondWithInternalError, respondWithSafeError } from '@/lib/http-errors';
 import { getRateLimitHeaders, rateLimit, rateLimitPreset } from '@/lib/rate-limit';
+import { observeHistogram } from '@/lib/observability';
 
 /**
  * Handles the login request. This endpoint accepts JSON with
@@ -15,6 +16,7 @@ import { getRateLimitHeaders, rateLimit, rateLimitPreset } from '@/lib/rate-limi
  */
 export async function POST(request: Request) {
   const requestId = getRequestIdForRequest(request);
+  const startedAt = performance.now();
   try {
     assertSameOrigin(request);
 
@@ -93,5 +95,7 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     return respondWithInternalError('Login API', error, { requestId, action: 'Retry login shortly.' });
+  } finally {
+    observeHistogram('elahe_auth_login_duration_seconds', (performance.now() - startedAt) / 1000);
   }
 }

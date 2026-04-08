@@ -70,6 +70,7 @@ model User {
   @@index([isApproved])
   @@index([isBanned])
   @@index([e2eeVersion])
+  @@index([role, createdAt])
 }
 
 model PushSubscription {
@@ -125,6 +126,10 @@ model Message {
   @@index([recipientId, createdAt])
   @@index([senderId, createdAt])
   @@index([groupId, createdAt])
+  @@index([senderId, recipientId, createdAt])
+  @@index([recipientId, senderId, createdAt])
+  @@index([recipientId, isDeleted, createdAt])
+  @@index([groupId, isDeleted, createdAt])
   @@index([recipientId, deliveryStatus, createdAt])
   @@index([groupId, deliveryStatus, createdAt])
   @@unique([senderId, idempotencyKey])
@@ -316,6 +321,7 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([adminId, createdAt])
+  @@index([action, createdAt])
 }
 
 

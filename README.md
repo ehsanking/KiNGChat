@@ -383,6 +383,18 @@ Container names and services:
 - Treat both bootstrap and runtime DB secrets as sensitive; rotate and store with least access (prefer secret manager or Docker secrets over plaintext files where possible).
 - `SESSION_SECRET` is a dedicated session-signing secret and must not be reused as a fallback for unrelated security domains.
 
+#### Connection pooling (PgBouncer)
+
+- Elahe Messenger auto-detects PgBouncer and appends `pgbouncer=true` to Prisma's runtime URL when:
+  - `PGBOUNCER_ENABLED=true`, or
+  - `DATABASE_URL` host contains `pgbouncer`, or
+  - `DATABASE_URL` uses port `6432`.
+- Keep `PRISMA_CONNECTION_LIMIT` conservative when pooling is active to avoid queue buildup in transaction mode.
+- Practical starting points:
+  - app instances: 2 → set `PRISMA_CONNECTION_LIMIT=10` each
+  - app instances: 4 → set `PRISMA_CONNECTION_LIMIT=5-8` each
+  - reserve at least 20% of PostgreSQL `max_connections` for migrations, maintenance, and admin sessions.
+
 ### Backup & Host-Compromise Notes
 
 - Database dumps and volume backups can contain sensitive metadata and ciphertext payloads; protect backups with encryption-at-rest and strict access controls.

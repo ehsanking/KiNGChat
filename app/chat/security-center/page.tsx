@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
-import QRCode from 'qrcode';
+import Image from 'next/image';
 import { Shield, Smartphone, KeyRound, CheckCircle2, AlertTriangle, QrCode } from 'lucide-react';
 import { generateSafetyNumber } from '@/lib/e2ee-safety-number';
 import { markContactVerified } from '@/lib/e2ee-verification-store';
@@ -102,6 +102,7 @@ export default function SecurityCenterPage() {
         peerId: sanitized,
         safetyNumber: generated.digits,
       });
+      const QRCode = await import('qrcode');
       const qr = await QRCode.toDataURL(qrPayload, { errorCorrectionLevel: 'M', margin: 1, width: 220 });
       setQrDataUrl(qr);
     } catch {
@@ -191,7 +192,7 @@ export default function SecurityCenterPage() {
                     <QrCode className="h-3.5 w-3.5" />
                     QR Code
                   </div>
-                  <img src={qrDataUrl} alt="Safety number QR code" className="h-40 w-40 rounded bg-white p-2" />
+                  <Image src={qrDataUrl} alt="Safety number QR code" width={160} height={160} className="h-40 w-40 rounded bg-white p-2" />
                 </div>
               ) : null}
             </div>

@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { logger } from '@/lib/logger';
+import { observeHistogram } from '@/lib/observability';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
@@ -12,6 +14,33 @@ const applyConnectionLimit = (databaseUrl: string, limit?: string) => {
     const url = new URL(databaseUrl);
     if (!url.searchParams.has('connection_limit')) {
       url.searchParams.set('connection_limit', limit);
+    }
+    return url.toString();
+  } catch {
+    return databaseUrl;
+  }
+};
+
+const shouldUsePgBouncer = (databaseUrl: string): boolean => {
+  if (process.env.PGBOUNCER_ENABLED === 'true') return true;
+  if (!databaseUrl.startsWith('postgres')) return false;
+
+  try {
+    const url = new URL(databaseUrl);
+    const host = url.hostname.toLowerCase();
+    const port = url.port;
+    return host.includes('pgbouncer') || port === '6432';
+  } catch {
+    return false;
+  }
+};
+
+const applyPgBouncerParam = (databaseUrl: string) => {
+  if (!shouldUsePgBouncer(databaseUrl)) return databaseUrl;
+  try {
+    const url = new URL(databaseUrl);
+    if (!url.searchParams.has('pgbouncer')) {
+      url.searchParams.set('pgbouncer', 'true');
     }
     return url.toString();
   } catch {
@@ -60,16 +89,43 @@ const resolveDatabaseUrl = (): string => {
 };
 
 const databaseUrl = resolveDatabaseUrl();
+const configuredDatabaseUrl = applyPgBouncerParam(applyConnectionLimit(databaseUrl, process.env.PRISMA_CONNECTION_LIMIT));
+
+const prismaLogConfig = process.env.NODE_ENV === 'development'
+  ? [{ emit: 'event' as const, level: 'query' as const }, 'info' as const, 'warn' as const, 'error' as const]
+  : [{ emit: 'event' as const, level: 'query' as const }, 'warn' as const, 'error' as const];
 
 const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
+    log: prismaLogConfig,
     datasources: {
       db: {
-        url: applyConnectionLimit(databaseUrl, process.env.PRISMA_CONNECTION_LIMIT),
+        url: configuredDatabaseUrl,
       },
     },
   });
+
+if (process.env.NODE_ENV === 'development') {
+  (prisma as PrismaClient).$on('query' as never, (event: any) => {
+    logger.debug('Prisma query executed', {
+      durationMs: event.duration,
+      query: event.query,
+      target: event.target,
+    });
+  });
+} else {
+  (prisma as PrismaClient).$on('query' as never, (event: any) => {
+    const durationMs = Number(event.duration);
+    observeHistogram('elahe_db_query_duration_seconds', durationMs / 1000);
+    if (durationMs <= 100) return;
+    logger.warn('Slow Prisma query detected', {
+      durationMs,
+      query: event.query,
+      target: event.target,
+    });
+  });
+}
 
 export { prisma };
 

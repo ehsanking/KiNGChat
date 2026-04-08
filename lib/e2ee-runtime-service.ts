@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { attachSenderE2EEPayload } from '@/lib/e2ee-server-envelope';
 import { buildSessionBootstrapEnvelope, deriveForwardSecureStep, rotateRatchet } from '@/lib/e2ee-phase4';
+import { incrementMetric } from '@/lib/observability';
 
 export async function getRuntimePublicBundle(userId: string) {
   const normalizedUserId = typeof userId === 'string' ? userId.trim() : '';
@@ -148,6 +149,7 @@ export async function bootstrapDeviceSession(params: {
     });
     return created;
   });
+  incrementMetric('elahe_e2ee_sessions_established');
 
   return {
     sessionId: session.id,

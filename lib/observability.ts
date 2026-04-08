@@ -122,21 +122,31 @@ export const getPrometheusMetrics = (): string => {
   lines.push(`# TYPE process_uptime_seconds gauge`);
   lines.push(`process_uptime_seconds ${((Date.now() - startedAt) / 1000).toFixed(1)}`);
 
+  const toPromMetricName = (name: string, fallbackPrefix: 'counter' | 'gauge' | 'histogram') => {
+    const normalized = name.replace(/[^a-zA-Z0-9_]/g, '_');
+    if (normalized.startsWith('elahe_')) return normalized;
+    if (fallbackPrefix === 'counter') return `elahe_${normalized}`;
+    return `elahe_${fallbackPrefix}_${normalized}`;
+  };
+
   for (const [key, value] of metrics) {
-    const promKey = key.replace(/[^a-zA-Z0-9_{}=,]/g, '_');
-    lines.push(`elahe_${promKey} ${value}`);
+    const promKey = toPromMetricName(key, 'counter').replace(/\{.*\}/, '');
+    lines.push(`# TYPE ${promKey} counter`);
+    lines.push(`${promKey} ${value}`);
   }
 
   for (const [key, value] of gauges) {
-    const promKey = key.replace(/[^a-zA-Z0-9_{}=,]/g, '_');
-    lines.push(`elahe_gauge_${promKey} ${value}`);
+    const promKey = toPromMetricName(key, 'gauge').replace(/\{.*\}/, '');
+    lines.push(`# TYPE ${promKey} gauge`);
+    lines.push(`${promKey} ${value}`);
   }
 
   for (const [key, observations] of histograms) {
-    const promKey = key.replace(/[^a-zA-Z0-9_{}=,]/g, '_');
+    const promKey = toPromMetricName(key, 'histogram').replace(/\{.*\}/, '');
     const sum = observations.reduce((a, b) => a + b, 0);
-    lines.push(`elahe_histogram_${promKey}_count ${observations.length}`);
-    lines.push(`elahe_histogram_${promKey}_sum ${sum}`);
+    lines.push(`# TYPE ${promKey} histogram`);
+    lines.push(`${promKey}_count ${observations.length}`);
+    lines.push(`${promKey}_sum ${sum}`);
   }
 
   return lines.join('\n') + '\n';

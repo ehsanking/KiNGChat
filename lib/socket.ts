@@ -8,7 +8,8 @@ import { parseSendMessageDto } from './dto/messaging';
 import type { DeliveryState, SocketMessagePayload } from './contracts/socket';
 import { appendAuditLog } from './audit';
 import { authorizeConversationAction } from './conversation-access';
-import { incrementMetric } from './observability';
+import { incrementMetric, setGauge } from './observability';
+import { traceSocketOperation } from './otel';
 import { editMessage, syncConversation, toggleReaction, markMessagesDelivered } from './messaging-service';
 import { requireFreshSocketSession } from './fresh-session';
 import { normalizeConversationId } from './conversation-id';
@@ -28,6 +29,7 @@ const emitDeliveryUpdate = (
 
 export function setupSocket(io: Server, options: SocketOptions) {
   const { socketRateLimitWindowMs, socketRateLimitMax } = options;
+  let activeConnections = 0;
 
   io.on('connection', async (socket) => {
     const cookieHeader = socket.handshake?.headers?.cookie as string | undefined;
@@ -47,6 +49,8 @@ export function setupSocket(io: Server, options: SocketOptions) {
     socket.data.userId = session.userId;
     socket.join(session.userId);
     markUserOnline(session.userId);
+    activeConnections += 1;
+    setGauge('elahe_active_socket_connections', activeConnections);
     logger.info('Socket connection established', { socketId: socket.id, userId: session.userId });
     incrementMetric('socket_connections_accepted');
 
@@ -106,6 +110,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
     });
 
     socket.on('sendMessage', async (rawData) => {
+      await traceSocketOperation('socket.send_message', { socketId: socket.id }, async () => {
       const data = parseSendMessageDto(rawData);
       if (!data) {
         logger.warn('Invalid message payload received', { socketId: socket.id });
@@ -256,6 +261,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
         incrementMetric('socket_messages_persisted', 1, {
           target: data.groupId ? 'group' : 'direct',
         });
+        incrementMetric('elahe_messages_sent_total');
 
         if (data.recipientId) {
           try {
@@ -310,6 +316,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
           idempotencyKey: data.idempotencyKey ?? null,
         });
       }
+      });
     });
 
     socket.on('messageRead', async (payload) => {
@@ -438,6 +445,8 @@ export function setupSocket(io: Server, options: SocketOptions) {
       if (typeof socket.data.userId === 'string' && socket.data.userId.length > 0) {
         markUserOffline(socket.data.userId);
       }
+      activeConnections = Math.max(0, activeConnections - 1);
+      setGauge('elahe_active_socket_connections', activeConnections);
       logger.info('Socket disconnected', { socketId: socket.id });
     });
   });

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # ── Stage 1: Install dependencies ────────────────────────────────────
 # Separate dependency install from build for better layer caching.
 FROM node:20-alpine AS deps
@@ -22,7 +23,8 @@ COPY prisma ./prisma
 COPY scripts ./scripts
 COPY lib ./lib
 
-RUN node ./lockfile-check.js && \
+RUN --mount=type=cache,target=/root/.npm \
+    node ./lockfile-check.js && \
     npm ci --no-audit --no-fund --prefer-offline && \
     # Clean npm cache to reduce layer size
     npm cache clean --force
