@@ -20,6 +20,7 @@ vi.mock('@/lib/observability', () => ({
 
 vi.mock('@/lib/object-storage', () => ({
   getObjectStorageMode: vi.fn(() => 'local'),
+  checkObjectStorageReadiness: vi.fn(async () => ({ status: 'not_configured' })),
 }));
 
 vi.mock('@/lib/sharding', () => ({

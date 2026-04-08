@@ -78,6 +78,26 @@ services:
     networks:
       - elahe-net
 
+
+  api:
+    extends:
+      service: app
+    container_name: elahe-api
+    profiles: ["split"]
+    environment:
+      - RUNTIME_MODE=api
+
+  worker:
+    extends:
+      service: app
+    container_name: elahe-worker
+    profiles: ["split"]
+    environment:
+      - RUNTIME_MODE=worker
+    depends_on:
+      db:
+        condition: service_healthy
+
   caddy:
     image: caddy:2-alpine
     container_name: elahe-caddy

@@ -298,7 +298,7 @@ export async function registerUser(formData: RegisterUserInput) {
   // Get settings
   const settings = await getOrSetCache('adminSettings', async () => {
     return getOrCreateAdminSettings();
-  });
+  }, { namespace: 'admin-settings' });
 
   if (!settings.isRegistrationEnabled) {
     return { error: 'Registration is currently disabled by administrator.' };
@@ -433,7 +433,7 @@ export async function loginUser(formData: LoginUserInput) {
 
   const settings = await getOrSetCache('adminSettings', async () => {
     return getOrCreateAdminSettings();
-  });
+  }, { namespace: 'admin-settings' });
 
   const captchaCheck = await verifyCaptchaForAuthFlow(settings, ip, captchaToken, asTrimmedString((formData as Record<string, unknown>).captchaId));
   if (!captchaCheck.ok) {
@@ -838,7 +838,7 @@ export async function getPublicSettings() {
         isCaptchaEnabled: storedSettings.isCaptchaEnabled && Boolean(recaptchaSiteKey),
         recaptchaSiteKey,
       };
-    });
+    }, { namespace: 'admin-settings' });
 
     return {
       success: true,

@@ -11,7 +11,16 @@ export function bootstrapEnvironment() {
   });
 }
 
-export function getRuntimeConfig() {
+export type RuntimeConfig = {
+  dev: boolean;
+  hostname: string;
+  port: number;
+  corsOrigins: string[] | true;
+  socketRateLimitWindowMs: number;
+  socketRateLimitMax: number;
+};
+
+export function getRuntimeConfig(): RuntimeConfig {
   const dev = process.env.NODE_ENV !== 'production';
   const hostname = '0.0.0.0';
   const port = Number.parseInt(process.env.PORT || '3000', 10);

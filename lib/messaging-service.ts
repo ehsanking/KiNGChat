@@ -45,8 +45,8 @@ const ensureConversationAccess = async (
 
 export const invalidateConversationCaches = (userId: string, recipientId?: string | null, groupId?: string | null) => {
   const key = getConversationKey(userId, recipientId, groupId);
-  invalidateCacheByPrefix(`conversation:${userId}:${key}:`);
-  if (recipientId) invalidateCacheByPrefix(`conversation:${recipientId}:${getConversationKey(recipientId, userId, null)}:`);
+  invalidateCacheByPrefix(`conversation:${userId}:${key}:`, 'conversation-metadata');
+  if (recipientId) invalidateCacheByPrefix(`conversation:${recipientId}:${getConversationKey(recipientId, userId, null)}:`, 'conversation-metadata');
 };
 
 /**
@@ -101,7 +101,7 @@ export const getMessageHistoryExtended = async (
     const hasMore = messages.length > effectiveLimit;
     const result = hasMore ? messages.slice(0, effectiveLimit) : messages;
     return { success: true as const, messages: result.reverse(), nextCursor: hasMore ? result[0]?.id ?? null : null };
-  }, { ttlMs: 5_000 });
+  }, { ttlMs: 5_000, namespace: 'conversation-metadata' });
 };
 
 export const syncConversation = async (

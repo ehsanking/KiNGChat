@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
 import { requireFreshAuthenticatedUser } from '@/lib/fresh-session';
 import { appendAuditLog } from '@/lib/audit';
 import { authorizeConversationAction } from '@/lib/conversation-access';
 import { resolveSecureAttachmentPath, verifySecureDownloadToken } from '@/lib/secure-attachments';
 import { incrementMetric } from '@/lib/observability';
+import { getPrivateObject } from '@/lib/object-storage';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ fileId: string }> }) {
   const user = await requireFreshAuthenticatedUser(req);
@@ -54,8 +54,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ fileId:
   });
   incrementMetric('secure_downloads_granted', 1, { kind: access.access.kind });
 
-  const fileBuffer = await readFile(resolved.filePath);
-  return new NextResponse(fileBuffer, {
+  const fileBuffer = await getPrivateObject(resolved.objectKey);
+  return new NextResponse(new Uint8Array(fileBuffer), {
     status: 200,
     headers: {
       'Content-Type': 'application/octet-stream',

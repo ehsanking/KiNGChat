@@ -19,7 +19,10 @@ if (!existsSync(tsxBin)) {
 }
 
 // Use the pinned local tsx binary for deterministic startup.
-const child = spawn(tsxBin, ['server.ts'], {
+const runtimeMode = (env.RUNTIME_MODE || 'all').toLowerCase();
+const entry = runtimeMode === 'api' ? 'server-api.ts' : runtimeMode === 'worker' ? 'server-worker.ts' : 'server.ts';
+
+const child = spawn(tsxBin, [entry], {
   stdio: 'inherit',
   env,
 });

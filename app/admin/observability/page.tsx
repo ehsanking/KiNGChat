@@ -7,6 +7,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSessionFromCookieHeader } from '@/lib/session';
 import { getManagerKpis } from '@/app/actions/admin';
+import { getCacheStats } from '@/lib/cache';
 
 export default async function ObservabilityPage() {
   // Ensure only administrators can access observability data.  Without this guard,
@@ -24,6 +25,7 @@ export default async function ObservabilityPage() {
     getBackgroundQueueSnapshot(),
     Promise.resolve(getMetricsSnapshot()),
   ]);
+  const cacheStats = getCacheStats();
   const latestAudit = await prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 10 });
   const reactionCount = await prisma.messageReaction.count().catch(() => 0);
   const draftCount = await prisma.messageDraft.count().catch(() => 0);
@@ -60,6 +62,10 @@ export default async function ObservabilityPage() {
         <div className="rounded-xl border p-4">
           <h2 className="font-medium">Metrics</h2>
           <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(metrics, null, 2)}</pre>
+        </div>
+        <div className="rounded-xl border p-4">
+          <h2 className="font-medium">Cache</h2>
+          <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(cacheStats, null, 2)}</pre>
         </div>
         <div className="rounded-xl border p-4">
           <h2 className="font-medium">Storage</h2>

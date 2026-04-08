@@ -1,147 +1,68 @@
-import { createServer } from 'http';
-import { parse } from 'node:url';
-import next from 'next';
-import { Server } from 'socket.io';
 import { logger } from './lib/logger';
-import { bootstrapEnvironment, getRuntimeConfig } from './lib/runtime/env-bootstrap';
+import { bootstrapEnvironment } from './lib/runtime/env-bootstrap';
 import { runAdminBootstrapOrExit } from './lib/runtime/admin-bootstrap';
-import { registerRuntimeJobs, startRuntimeWorker } from './lib/runtime/background-bootstrap';
-import { attachSocketHandlers, initializeRedisAdapter } from './lib/runtime/socket-bootstrap';
+import { createHttpServer } from './lib/server/http-server';
+import { createSocketServer } from './lib/server/socket-server';
+import { startWorkerServer, stopWorkerServer } from './lib/server/worker-server';
 
 bootstrapEnvironment();
-const runtime = getRuntimeConfig();
 
-const app = next({ dev: runtime.dev, hostname: runtime.hostname, port: runtime.port });
-const handle = app.getRequestHandler();
-
-registerRuntimeJobs();
-
-// Graceful shutdown state
 let isShuttingDown = false;
 const GRACEFUL_SHUTDOWN_TIMEOUT = Number(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS) || 30000;
 
-app.prepare().then(async () => {
-  logger.info('Preparing application server bootstrap.');
-
+const start = async () => {
   await runAdminBootstrapOrExit();
 
-  const server = createServer((req, res) => {
-    // Reject new requests during shutdown
-    if (isShuttingDown) {
-      res.writeHead(503, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Server is shutting down' }));
-      return;
-    }
-    const parsedUrl = parse(req.url!, true);
-    handle(req, res, parsedUrl);
-  });
+  const runtimeMode = (process.env.RUNTIME_MODE || 'all').toLowerCase();
+  const runApi = runtimeMode === 'all' || runtimeMode === 'api';
+  const runWorker = runtimeMode === 'all' || runtimeMode === 'worker';
 
-  const io = new Server(server, {
-    cors: {
-      origin: runtime.corsOrigins,
-      methods: ['GET', 'POST'],
-    },
-    pingTimeout: 60000,
-    pingInterval: 25000,
-  });
+  const http = runApi ? await createHttpServer(() => isShuttingDown) : null;
+  const io = http ? await createSocketServer(http.server, http.runtime) : null;
 
-  await initializeRedisAdapter(io);
-  logger.info('Socket server initialized.', {
-    corsMode: runtime.corsOrigins === true ? 'allow-all' : 'allow-list',
-    rateLimitWindowMs: runtime.socketRateLimitWindowMs,
-    rateLimitMax: runtime.socketRateLimitMax,
-  });
+  if (runWorker) {
+    await startWorkerServer();
+  }
 
-  await startRuntimeWorker();
+  if (http) {
+    http.server.listen(http.runtime.port, http.runtime.hostname, () => {
+      logger.info(`> Ready on http://${http.runtime.hostname}:${http.runtime.port}`);
+    });
+  }
 
-  attachSocketHandlers(io, {
-    socketRateLimitWindowMs: runtime.socketRateLimitWindowMs,
-    socketRateLimitMax: runtime.socketRateLimitMax,
-  });
-
-  server.listen(runtime.port, runtime.hostname, () => {
-    logger.info(`> Ready on http://${runtime.hostname}:${runtime.port}`);
-  });
-
-  // Graceful shutdown handler
   const gracefulShutdown = async (signal: string) => {
-    if (isShuttingDown) {
-      logger.warn('Shutdown already in progress, ignoring signal', { signal });
-      return;
-    }
-
-    logger.info('Graceful shutdown initiated', { signal });
+    if (isShuttingDown) return;
     isShuttingDown = true;
 
-    // Set a timeout to force exit if graceful shutdown takes too long
-    const forceExitTimer = setTimeout(() => {
-      logger.error('Graceful shutdown timeout exceeded, forcing exit');
-      process.exit(1);
-    }, GRACEFUL_SHUTDOWN_TIMEOUT);
+    const forceExitTimer = setTimeout(() => process.exit(1), GRACEFUL_SHUTDOWN_TIMEOUT);
 
     try {
-      // Stop accepting new connections
-      logger.info('Closing HTTP server');
-      await new Promise<void>((resolve, reject) => {
-        server.close((err) => {
-          if (err) {
-            logger.error('Error closing HTTP server', { error: err.message });
-            reject(err);
-          } else {
-            logger.info('HTTP server closed');
-            resolve();
-          }
+      if (http) {
+        await new Promise<void>((resolve, reject) => {
+          http.server.close((err) => (err ? reject(err) : resolve()));
         });
-      });
-
-      // Close all socket connections
-      logger.info('Closing Socket.IO server');
-      await new Promise<void>((resolve) => {
-        io.close(() => {
-          logger.info('Socket.IO server closed');
-          resolve();
-        });
-      });
-
-      // Wait for any pending background jobs
-      logger.info('Waiting for background jobs to complete');
-      // Add any additional cleanup here (database connections, Redis, etc.)
-
+      }
+      if (io) {
+        await new Promise<void>((resolve) => io.close(() => resolve()));
+      }
+      if (runWorker) {
+        await stopWorkerServer();
+      }
       clearTimeout(forceExitTimer);
-      logger.info('Graceful shutdown completed successfully');
+      logger.info('Graceful shutdown complete', { signal });
       process.exit(0);
     } catch (error) {
       clearTimeout(forceExitTimer);
-      logger.error('Error during graceful shutdown', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Graceful shutdown failed', { signal, error: error instanceof Error ? error.message : String(error) });
       process.exit(1);
     }
   };
 
-  // Register shutdown handlers
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-  
-  // Handle uncaught errors gracefully
-  process.on('uncaughtException', (error) => {
-    logger.error('Uncaught exception', {
-      error: error.message,
-      stack: error.stack,
-    });
-    gracefulShutdown('uncaughtException');
-  });
+  process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
+};
 
-  process.on('unhandledRejection', (reason) => {
-    logger.error('Unhandled rejection', {
-      reason: reason instanceof Error ? reason.message : String(reason),
-      stack: reason instanceof Error ? reason.stack : undefined,
-    });
-    gracefulShutdown('unhandledRejection');
-  });
-}).catch((error) => {
-  logger.error('Failed to prepare application', {
-    error: error instanceof Error ? error.message : String(error),
-  });
+start().catch((error) => {
+  logger.error('Failed to start server', { error: error instanceof Error ? error.message : String(error) });
   process.exit(1);
 });

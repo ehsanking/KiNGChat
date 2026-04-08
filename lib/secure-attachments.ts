@@ -144,5 +144,5 @@ export const readSecureAttachment = async (conversationId: string, fileId: strin
 export const resolveSecureAttachmentPath = async (fileId: string) => {
   const metadata = await getAttachmentMetadata(fileId);
   if (!metadata) return null;
-  return { ...metadata, filePath: getPrivateObjectPath(metadata.objectKey) };
+  return { ...metadata, filePath: getPrivateObjectPath(metadata.objectKey), objectKey: metadata.objectKey };
 };

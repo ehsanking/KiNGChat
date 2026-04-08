@@ -63,8 +63,8 @@ export async function updateFileUploadSettings(maxSize: number, formats: string)
       maxAttachmentSize: sanitizedMaxSize,
       allowedFileFormats: sanitizedFormats,
     });
-    invalidateCache('adminSettings');
-    invalidateCache('publicSettings');
+    invalidateCache('adminSettings', 'admin-settings');
+    invalidateCache('publicSettings', 'admin-settings');
     revalidatePath('/admin/settings');
     return { success: true };
   } catch (error) {
@@ -98,8 +98,8 @@ export async function updateFirebaseSettings(config: string | null) {
 
   try {
     await upsertAdminSettings({ firebaseConfig: config });
-    invalidateCache('adminSettings');
-    invalidateCache('publicSettings');
+    invalidateCache('adminSettings', 'admin-settings');
+    invalidateCache('publicSettings', 'admin-settings');
     revalidatePath('/admin/settings');
     return { success: true };
   } catch (error) {
@@ -388,7 +388,7 @@ export async function getAdminSettings() {
   try {
     const settings = await getOrSetCache('adminSettings', async () => {
       return getOrCreateAdminSettings();
-    });
+    }, { namespace: 'admin-settings' });
     return { success: true, settings };
   } catch (error) {
     logger.error('Failed to fetch admin settings.', {
@@ -474,9 +474,9 @@ export async function updateAdminSettings(settingsData: Record<string, unknown>)
 
     await upsertAdminSettings(update);
 
-    invalidateCache('adminSettings');
-    invalidateCache('publicSettings');
-    invalidateCache('systemOverview');
+    invalidateCache('adminSettings', 'admin-settings');
+    invalidateCache('publicSettings', 'admin-settings');
+    invalidateCache('systemOverview', 'admin-settings');
 
     await logAdminAudit('SETTINGS_UPDATED', adminId, undefined, update);
 

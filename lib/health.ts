@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { pingRedis } from '@/lib/redis-client';
 import { getBackgroundQueueSnapshot } from '@/lib/task-queue';
 import { getMetricsSnapshot } from '@/lib/observability';
-import { getObjectStorageMode } from '@/lib/object-storage';
+import { checkObjectStorageReadiness, getObjectStorageMode } from '@/lib/object-storage';
 import { getShardingStrategy } from '@/lib/sharding';
 import { statfs } from 'node:fs/promises';
 
@@ -43,6 +43,7 @@ export async function getReadinessSnapshot() {
 
   const queue = await getBackgroundQueueSnapshot();
   const metrics = getMetricsSnapshot();
+  const storageReadiness = await checkObjectStorageReadiness();
   const status = databaseHealthy ? (redisHealthy ? 'ok' : 'degraded') : 'down';
   const memory = process.memoryUsage();
   const totalMemory = Math.max(1, memory.heapTotal);
@@ -86,7 +87,7 @@ export async function getReadinessSnapshot() {
         },
       },
       queue,
-      storage: { mode: getObjectStorageMode() },
+      storage: { mode: getObjectStorageMode(), readiness: storageReadiness },
       sharding: getShardingStrategy(),
       observability: {
         counters: metrics.counters.slice(-20),
