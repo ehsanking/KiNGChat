@@ -172,12 +172,45 @@ export const invalidateCache = async (key: string) => {
   }
 };
 
-export const invalidateCacheByPrefix = (prefix: string) => {
+export const invalidateCacheByPrefix = async (prefix: string) => {
+  // Clear local cache
   for (const key of Array.from(store.keys())) {
     if (key.startsWith(prefix)) store.delete(key);
   }
-  // Note: Redis prefix invalidation happens asynchronously if needed;
-  // for production, consider using Redis SCAN in a background job.
+  
+  // Clear Redis cache using SCAN for safe prefix deletion
+  const redis = await getRedisForCache();
+  if (redis) {
+    try {
+      const redisPrefix = `cache:${prefix}`;
+      let cursor = '0';
+      const matchPattern = `${redisPrefix}*`;
+      const scanBatchSize = 100; // Process 100 keys at a time
+      
+      do {
+        // Use SCAN to iterate through keys matching the pattern
+        const result = await redis.scan(cursor, {
+          MATCH: matchPattern,
+          COUNT: scanBatchSize,
+        });
+        
+        cursor = result.cursor.toString();
+        const keys = result.keys;
+        
+        // Delete matched keys in batches
+        if (keys.length > 0) {
+          await redis.del(...keys);
+        }
+      } while (cursor !== '0');
+      
+      logger.debug('Redis prefix invalidation completed', { prefix, matchPattern });
+    } catch (err) {
+      logger.warn('Redis prefix invalidation failed', {
+        prefix,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 };
 
 export const conversationCacheKey = (userId: string, conversationKey: string, cursor = 'head') =>

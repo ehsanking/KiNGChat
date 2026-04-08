@@ -12,13 +12,13 @@
 import {
   registerUser as authRegisterUser,
   loginUser as authLoginUser,
-  searchUsers as authSearchUsers,
-  getPublicSettings as authGetPublicSettings,
-  getUserPublicKeys as authGetUserPublicKeys,
-  validate2FALogin as authValidate2FALogin,
   getRecoveryQuestion as authGetRecoveryQuestion,
   recoverPassword as authRecoverPassword,
+  getPublicSettings as authGetPublicSettings,
+  validate2FALogin as authValidate2FALogin,
 } from './auth-legacy';
+import { searchUsers as authSearchUsers } from './search.actions';
+import { getUserPublicKeys as authGetUserPublicKeys } from './keys.actions';
 
 export async function registerUser(...args: Parameters<typeof authRegisterUser>) {
   return authRegisterUser(...args);

@@ -33,11 +33,12 @@ export {
 
 // ── Profile ──────────────────────────────────────────────────────
 export { getUserProfile, getPublicUserProfile, updateUserProfile } from './profile.actions';
-export { getSelfUserProfile, getUserPublicKeys } from './auth-legacy';
+export { getSelfUserProfile } from './profile.actions';
+export { getUserPublicKeys } from './keys.actions';
 
 // ── Contacts ─────────────────────────────────────────────────────
 export { getContacts, addContact, removeContact } from './contacts.actions';
-export { searchUsers } from './auth-legacy';
+export { searchUsers } from './search.actions';
 
 // ── Communities / Groups ─────────────────────────────────────────
 export {

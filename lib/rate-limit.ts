@@ -13,14 +13,20 @@ import { getRedisClient } from '@/lib/redis-client';
 import { incrementMetric, setGauge } from '@/lib/observability';
 
 /**
- * In-memory rate limit store with automatic cleanup.
+ * In-memory rate limit store with automatic cleanup and queue size limits.
  *
- * Fixes: Memory leak caused by expired entries never being removed.
+ * Fixes: 
+ * - Memory leak caused by expired entries never being removed.
+ * - Unbounded memory growth from unlimited queue size.
+ * 
+ * Features:
  * - Periodic cleanup runs every 60 seconds to prune expired entries.
  * - Hard cap (MAX_STORE_SIZE) prevents unbounded memory growth even
  *   under high cardinality (many unique IPs).
+ * - Queue size limit (MAX_QUEUE_SIZE) to reject new entries when system is overloaded.
  */
 const MAX_STORE_SIZE = Number(process.env.RATE_LIMIT_MAX_STORE_SIZE) || 50_000;
+const MAX_QUEUE_SIZE = Number(process.env.RATE_LIMIT_MAX_QUEUE_SIZE) || 100_000;
 const CLEANUP_INTERVAL_MS = 60_000;
 
 const store = new Map<string, RateLimitEntry>();
@@ -142,6 +148,17 @@ export async function rateLimit(key: string, options: RateLimitOptions = {}): Pr
   }
 
   // Fallback to in-memory implementation when Redis is not configured or on error.
+  // Check queue size limit before processing
+  if (store.size >= MAX_QUEUE_SIZE) {
+    incrementMetric('rate_limit_queue_full', 1, { store: 'memory' });
+    logger.warn('Rate limit queue is full, rejecting request', {
+      queueSize: store.size,
+      maxQueueSize: MAX_QUEUE_SIZE,
+      key,
+    });
+    return { allowed: false, remaining: 0, resetAt: now + windowMs };
+  }
+  
   const entry = store.get(scopedKey);
   if (!entry || entry.resetAt <= now) {
     const resetAt = now + windowMs;
@@ -171,4 +188,6 @@ export function getRateLimitHeaders(result: RateLimitResult) {
 export const getRateLimitStoreStats = () => ({
   size: store.size,
   maxSize: MAX_STORE_SIZE,
+  maxQueueSize: MAX_QUEUE_SIZE,
+  utilizationPercent: Math.round((store.size / MAX_QUEUE_SIZE) * 100),
 });
