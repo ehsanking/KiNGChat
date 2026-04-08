@@ -11,7 +11,7 @@ describe('privacy and authorization regressions', () => {
   });
 
   it('group member listing is session-derived and authorization-gated', () => {
-    const communityActions = fs.readFileSync('app/actions/community.actions.ts', 'utf8');
+    const communityActions = fs.readFileSync('app/actions/groups.actions.ts', 'utf8');
     const authActions = fs.readFileSync('app/actions/auth-legacy.ts', 'utf8');
 
     expect(communityActions).toContain('const session = await getSession();');

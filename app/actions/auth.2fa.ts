@@ -3,7 +3,7 @@
 /**
  * @deprecated Legacy 2FA entrypoint.
  * Migration guide:
- * - Import from `auth.2fa.actions.ts`.
+ * - Import from `security-2fa.actions.ts`.
  */
 
 import {
@@ -11,7 +11,7 @@ import {
   setup2FA as origSetup2FA,
   validate2FALogin as origValidate2FALogin,
   verify2FA as origVerify2FA,
-} from './auth.2fa.actions';
+} from './security-2fa.actions';
 
 export async function setup2FA(...args: Parameters<typeof origSetup2FA>) {
   return origSetup2FA(...args);
