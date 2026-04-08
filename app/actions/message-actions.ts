@@ -1,3 +1,10 @@
+'use server';
+
+/**
+ * @deprecated Legacy messaging barrel.
+ * Migration guide:
+ * - Import from `messaging.actions.ts`.
+ */
 
 export {
   getMessageHistory,
@@ -9,4 +16,4 @@ export {
   listConversationDrafts,
   deleteConversationDraft,
   searchConversationMessages,
-} from './auth-legacy';
+} from './messaging.actions';

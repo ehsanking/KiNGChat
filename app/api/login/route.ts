@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { loginUser } from '@/app/actions/auth';
+import { loginUser } from '@/app/actions/auth.actions';
 import { assertSameOrigin } from '@/lib/request-security';
 import { issueSession } from '@/lib/session';
 import { getRequestIdForRequest, respondWithInternalError, respondWithSafeError } from '@/lib/http-errors';

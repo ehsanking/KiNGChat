@@ -1,6 +1,11 @@
-"use server";
+'use server';
 
-// Compatibility layer for legacy imports. Re-export session-safe wrappers.
+/**
+ * @deprecated Legacy auth-groups shim.
+ * Migration guide:
+ * - Import from `groups.actions.ts`.
+ */
+
 export {
   getUserCommunities,
   createCommunity,
@@ -9,4 +14,5 @@ export {
   removeMemberFromGroup,
   getGroupMembers,
   leaveGroup,
-} from './community.actions';
+  getMessageHistory,
+} from './groups.actions';

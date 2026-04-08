@@ -1,3 +1,10 @@
+'use server';
+
+/**
+ * @deprecated Legacy community barrel.
+ * Migration guide:
+ * - Import from `groups.actions.ts` for group/community operations.
+ */
 
 export {
   getUserCommunities,
@@ -7,4 +14,5 @@ export {
   removeMemberFromGroup,
   getGroupMembers,
   leaveGroup,
-} from './auth-legacy';
+  getMessageHistory,
+} from './groups.actions';

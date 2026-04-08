@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validate2FALogin } from '@/app/actions/auth';
+import { validate2FALogin } from '@/app/actions/auth.2fa.actions';
 import { assertSameOrigin } from '@/lib/request-security';
 import { issueSession } from '@/lib/session';
 import { rateLimit, getRateLimitHeaders, rateLimitPreset } from '@/lib/rate-limit';

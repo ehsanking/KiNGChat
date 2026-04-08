@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { registerUser } from '@/app/actions/auth';
+import { registerUser } from '@/app/actions/auth.actions';
 import { assertSameOrigin } from '@/lib/request-security';
 import { verifySignedPreKey } from '@/lib/e2ee-signing';
 

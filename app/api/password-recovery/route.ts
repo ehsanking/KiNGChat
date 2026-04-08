@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getRecoveryQuestion, recoverPassword } from '@/app/actions/auth';
+import { getRecoveryQuestion, recoverPassword } from '@/app/actions/auth.recovery.actions';
 import { assertSameOrigin } from '@/lib/request-security';
 import { getRequestIdForRequest, respondWithInternalError, respondWithSafeError } from '@/lib/http-errors';
 import { getRateLimitHeaders, rateLimit, rateLimitPreset } from '@/lib/rate-limit';

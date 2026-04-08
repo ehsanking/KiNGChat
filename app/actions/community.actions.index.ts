@@ -1,5 +1,11 @@
 'use server';
 
+/**
+ * @deprecated Legacy community index.
+ * Migration guide:
+ * - Import from `groups.actions.ts`.
+ */
+
 export {
   getUserCommunities,
   createCommunity,
@@ -8,4 +14,5 @@ export {
   removeMemberFromGroup,
   getGroupMembers,
   leaveGroup,
-} from './community.actions';
+  getMessageHistory,
+} from './groups.actions';

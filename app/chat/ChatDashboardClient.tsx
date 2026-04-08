@@ -14,7 +14,7 @@ import {
 import { getTextDirection } from '@/lib/utils';
 import { useRouter, useSearchParams } from 'next/navigation';
 // Import session‑independent actions (search, public key lookup) from the new auth‑session module.
-import { searchUsers, getUserPublicKeys } from '@/app/actions/auth-session.actions';
+import { searchUsers, getUserPublicKeys } from '@/app/actions/index';
 // Import profile actions that infer the user from the session.
 import {
   getPublicUserProfile,
@@ -26,7 +26,7 @@ import {
   getUserCommunities,
   createCommunity,
   getMessageHistory,
-} from '@/app/actions/community.actions';
+} from '@/app/actions/groups.actions';
 // Import admin actions which automatically enforce the admin session.  These
 // functions should be called without passing a userId.
 import {
