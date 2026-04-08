@@ -121,7 +121,6 @@ describe('Session Management', () => {
   });
 
   it('should determine secure flag from APP_URL', async () => {
-    const { getSessionCookieSecureFlag } = await import('@/lib/session');
     vi.stubEnv('APP_URL', 'https://example.com');
     vi.stubEnv('COOKIE_SECURE', '');
     // Re-import after env change

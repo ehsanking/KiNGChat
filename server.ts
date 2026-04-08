@@ -1,5 +1,5 @@
 import { createServer } from 'http';
-import { parse } from 'url';
+import { parse } from 'node:url';
 import next from 'next';
 import { Server } from 'socket.io';
 import { logger } from './lib/logger';
