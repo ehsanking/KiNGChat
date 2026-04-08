@@ -33,7 +33,7 @@ export type SessionUserLike = Pick<SessionData, 'userId' | 'role' | 'needsPasswo
 // Derive separate encryption and signing keys from SESSION_SECRET using
 // HKDF to avoid using the raw secret directly for two different purposes.
 
-const getSessionSecret = () => {
+const getSessionSecret = (): string => {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) {
     throw new Error('SESSION_SECRET with at least 32 characters is required.');
@@ -58,16 +58,16 @@ function getSigningKey(): Buffer {
 
 // ── Helpers ──────────────────────────────────────────────────
 
-const base64UrlEncode = (value: Buffer) =>
+const base64UrlEncode = (value: Buffer): string =>
   value.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 
-const base64UrlDecode = (value: string) => {
+const base64UrlDecode = (value: string): Buffer => {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
   const padding = '='.repeat((4 - (normalized.length % 4)) % 4);
   return Buffer.from(`${normalized}${padding}`, 'base64');
 };
 
-const hashOptionalValue = (value: string | null | undefined) =>
+const hashOptionalValue = (value: string | null | undefined): string | null =>
   value ? crypto.createHash('sha256').update(value).digest('hex') : null;
 
 // ── Encrypt-then-Sign ─────────────────────────────────────
@@ -124,7 +124,10 @@ function verifySignature(data: string, signatureB64: string): boolean {
 
 // ── Token creation / verification ────────────────────────────
 
-export const createSessionToken = (user: SessionUserLike, requestContext?: { userAgent?: string | null; ip?: string | null }) => {
+/**
+ * Create an encrypted-and-signed session token from authenticated user data.
+ */
+export const createSessionToken = (user: SessionUserLike, requestContext?: { userAgent?: string | null; ip?: string | null }): string => {
   const session: SessionData = {
     ...user,
     csrfToken: crypto.randomBytes(24).toString('hex'),
@@ -226,7 +229,10 @@ function validateSessionData(
 
 // ── Cookie helpers ───────────────────────────────────────────
 
-export const getSessionCookieSecureFlag = () => {
+/**
+ * Resolve whether session cookies must be marked as Secure.
+ */
+export const getSessionCookieSecureFlag = (): boolean => {
   if (process.env.COOKIE_SECURE === 'true') return true;
   if (process.env.COOKIE_SECURE === 'false') return false;
   const appUrl = process.env.APP_URL?.trim();
@@ -240,7 +246,13 @@ export const getSessionCookieSecureFlag = () => {
   return process.env.NODE_ENV === 'production';
 };
 
-const getCookieOptions = (expiresAt: number) => ({
+const getCookieOptions = (expiresAt: number): {
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'strict';
+  path: string;
+  expires: Date;
+} => ({
   httpOnly: true,
   secure: getSessionCookieSecureFlag(),
   sameSite: 'strict' as const,
@@ -248,7 +260,10 @@ const getCookieOptions = (expiresAt: number) => ({
   expires: new Date(expiresAt),
 });
 
-export const issueSession = (response: NextResponse, user: SessionUserLike, requestContext?: { userAgent?: string | null; ip?: string | null }) => {
+/**
+ * Issue a new session cookie and return the validated session payload.
+ */
+export const issueSession = (response: NextResponse, user: SessionUserLike, requestContext?: { userAgent?: string | null; ip?: string | null }): SessionData => {
   const token = createSessionToken(user, requestContext);
   const session = verifySessionToken(token, requestContext);
   if (!session) throw new Error('Failed to create session.');
@@ -266,10 +281,9 @@ export const shouldRotateSession = (session: SessionData): boolean => {
 };
 
 /**
- * Rotate a session: issue a fresh token with new issuedAt, csrfToken, and
- * extended expiry.  The old token becomes invalid after rotation.
+ * Rotate the current session by issuing a fresh token and cookie.
  */
-export const rotateSession = (response: NextResponse, session: SessionData, requestContext?: { userAgent?: string | null; ip?: string | null }) => {
+export const rotateSession = (response: NextResponse, session: SessionData, requestContext?: { userAgent?: string | null; ip?: string | null }): SessionData => {
   const user: SessionUserLike = {
     userId: session.userId,
     role: session.role,
@@ -279,7 +293,10 @@ export const rotateSession = (response: NextResponse, session: SessionData, requ
   return issueSession(response, user, requestContext);
 };
 
-export const clearSession = (response: NextResponse) => {
+/**
+ * Clear the session cookie by expiring it immediately.
+ */
+export const clearSession = (response: NextResponse): void => {
   response.cookies.set(SESSION_COOKIE_NAME, '', {
     httpOnly: true,
     secure: getSessionCookieSecureFlag(),
@@ -289,7 +306,10 @@ export const clearSession = (response: NextResponse) => {
   });
 };
 
-export const getSessionFromCookieHeader = (cookieHeader: string | undefined | null, requestContext?: { userAgent?: string | null; ip?: string | null }) => {
+/**
+ * Parse and verify session data from a raw Cookie header value.
+ */
+export const getSessionFromCookieHeader = (cookieHeader: string | undefined | null, requestContext?: { userAgent?: string | null; ip?: string | null }): SessionData | null => {
   if (!cookieHeader) return null;
   const cookieValue = cookieHeader
     .split(';')
@@ -300,7 +320,10 @@ export const getSessionFromCookieHeader = (cookieHeader: string | undefined | nu
   return verifySessionToken(cookieValue, requestContext);
 };
 
-export const getSessionFromRequest = (request: Request | NextRequest) => {
+/**
+ * Resolve session data directly from a Request/NextRequest object.
+ */
+export const getSessionFromRequest = (request: Request | NextRequest): SessionData | null => {
   const cookieHeader =
     'headers' in request && typeof request.headers?.get === 'function'
       ? request.headers.get('cookie')

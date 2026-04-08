@@ -575,7 +575,14 @@ function ChatDashboardContent() {
         getSystemOverview(),
       ]);
       if ('success' in usersRes && usersRes.success) setAdminUsers(usersRes.users);
-      if ('success' in settingsRes && settingsRes.success) setAdminSettings(settingsRes.settings);
+      if ('success' in settingsRes && settingsRes.success) {
+        setAdminSettings((prev) => ({
+          oauthGoogleEnabled: prev?.oauthGoogleEnabled ?? false,
+          oauthGithubEnabled: prev?.oauthGithubEnabled ?? false,
+          oauthOidcEnabled: prev?.oauthOidcEnabled ?? false,
+          ...settingsRes.settings,
+        }));
+      }
       if ('success' in reportsRes && reportsRes.success) setAdminReports(reportsRes.reports);
       if ('success' in auditRes && auditRes.success) setAdminAuditLogs(auditRes.logs);
       if ('success' in overviewRes && overviewRes.success) setAdminOverview(overviewRes.stats);

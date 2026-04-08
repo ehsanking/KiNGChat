@@ -151,6 +151,15 @@ function concatBuffers(a: ArrayBuffer, b: ArrayBuffer): ArrayBuffer {
   return result.buffer;
 }
 
+/**
+ * Derive the deterministic initial X3DH root key material from concatenated
+ * DH outputs. Both initiator and responder must compute this identically.
+ */
+async function deriveInitialRootKeyMaterial(combinedDhOutput: ArrayBuffer): Promise<ArrayBuffer> {
+  const zeroSalt = new Uint8Array(32).buffer;
+  return hkdfDerive(combinedDhOutput, zeroSalt, HKDF_INFO_ROOT);
+}
+
 // ── HKDF helpers (Double Ratchet KDF chains) ────────────────
 
 const HKDF_INFO_ROOT = new TextEncoder().encode('elahe-e2ee-v3-root');
@@ -365,10 +374,9 @@ export async function initRatchetSession(
   // Step 3: Ephemeral DH
   const dh2 = await dhExchange(dhSendingKeyPair.privateKey, recipientPreKey);
 
-  // Step 4: Combine both DH outputs → initial root key
+  // Step 4: Combine both DH outputs → deterministic initial root key
   const combinedDH = concatBuffers(dh1, dh2);
-  const initialSalt = window.crypto.getRandomValues(new Uint8Array(32)).buffer;
-  const initialRootKeyBytes = await hkdfDerive(combinedDH, initialSalt, HKDF_INFO_ROOT);
+  const initialRootKeyBytes = await deriveInitialRootKeyMaterial(combinedDH);
 
   // Step 5: DH ratchet step to derive the first sending chain key
   const dh3 = await dhExchange(dhSendingKeyPair.privateKey, recipientPreKey);
@@ -412,8 +420,7 @@ export async function initRatchetSessionResponder(
   const dh2 = await dhExchange(mySignedPreKeyPrivate, senderRatchetKey);
 
   const combinedDH = concatBuffers(dh1, dh2);
-  const initialSalt = window.crypto.getRandomValues(new Uint8Array(32)).buffer;
-  const initialRootKeyBytes = await hkdfDerive(combinedDH, initialSalt, HKDF_INFO_ROOT);
+  const initialRootKeyBytes = await deriveInitialRootKeyMaterial(combinedDH);
 
   // Bob's DH ratchet step (receiving side)
   const dh3 = await dhExchange(mySignedPreKeyPrivate, senderRatchetKey);
@@ -625,7 +632,10 @@ export async function decryptMessage(
 
 // ── File Encryption ─────────────────────────────────────────
 
-export async function encryptFile(file: File) {
+/**
+ * Encrypt a file payload with a fresh AES-256-GCM content key.
+ */
+export async function encryptFile(file: File): Promise<{ ciphertext: Blob; key: string; iv: string }> {
   const arrayBuffer = await file.arrayBuffer();
   // Per-file key: extractable ONLY to transmit wrapped to recipient
   const key = await window.crypto.subtle.generateKey(
