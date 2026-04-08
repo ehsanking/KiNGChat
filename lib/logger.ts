@@ -1,3 +1,6 @@
+import { getCurrentRequestId } from '@/lib/request-context';
+import { buildTransportTargets, pruneOldLogFiles, resolveLogFormat } from '@/lib/logger/transports';
+
 type LogContext = Record<string, unknown>;
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -23,6 +26,12 @@ const resolveLogLevel = () => {
     return envLevel;
   }
   return process.env.NODE_ENV === 'production' ? 'info' : 'debug';
+};
+
+const withRequestId = (context?: LogContext): LogContext | undefined => {
+  const requestId = typeof context?.requestId === 'string' ? context.requestId : getCurrentRequestId();
+  if (!requestId) return context;
+  return { requestId, ...context };
 };
 
 const createBaseLogger = () => {
@@ -54,48 +63,22 @@ const createBaseLogger = () => {
     return fallbackLogger;
   }
 
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  if (!isProduction) {
-    return pinoFactory({
-      level: resolveLogLevel(),
-      transport: {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'SYS:standard',
-          ignore: 'pid,hostname',
-        },
-      },
-    });
-  }
+  const transportTargets = buildTransportTargets();
+  void pruneOldLogFiles();
+  const format = resolveLogFormat();
 
   return pinoFactory({
     level: resolveLogLevel(),
+    ...(process.env.NODE_ENV === 'production' || format === 'json' ? { formatters: { level: (label: string) => ({ level: label }) } } : {}),
+    ...(transportTargets ? { transport: transportTargets.length === 1 ? transportTargets[0] : { targets: transportTargets } } : {}),
   });
 };
 
-const withRequestIdFirst = (context?: LogContext): LogContext | undefined => {
-  if (!context) return undefined;
-  const requestId = typeof context.requestId === 'string' ? context.requestId : undefined;
-  if (!requestId) return context;
-
-  const rest = { ...context };
-  delete rest.requestId;
-  return {
-    requestId,
-    ...rest,
-  };
-};
-
 const bindLogger = (base: PinoLikeLogger): LoggerApi => {
-  const log = (level: 'debug' | 'info' | 'warn' | 'error', message: string, context?: LogContext) => {
-    const payload = withRequestIdFirst(context);
-    if (payload) {
-      base[level](payload, message);
-      return;
-    }
-    base[level](message);
+  const log = (level: LogLevel, message: string, context?: LogContext) => {
+    const payload = withRequestId(context);
+    if (payload) return base[level](payload, message);
+    return base[level](message);
   };
 
   return {
@@ -103,8 +86,13 @@ const bindLogger = (base: PinoLikeLogger): LoggerApi => {
     info: (message, context) => log('info', message, context),
     warn: (message, context) => log('warn', message, context),
     error: (message, context) => log('error', message, context),
-    child: (bindings = {}) => bindLogger(base.child(withRequestIdFirst(bindings) ?? {})),
+    child: (bindings = {}) => bindLogger(base.child(withRequestId(bindings) ?? {})),
   };
 };
 
 export const logger = bindLogger(createBaseLogger());
+export const authLogger = logger.child({ module: 'auth' });
+export const messagingLogger = logger.child({ module: 'messaging' });
+export const e2eeLogger = logger.child({ module: 'e2ee' });
+export const adminLogger = logger.child({ module: 'admin' });
+export const socketLogger = logger.child({ module: 'socket' });

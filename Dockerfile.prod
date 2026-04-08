@@ -1,40 +1,43 @@
-FROM node:20-alpine AS builder
+# syntax=docker/dockerfile:1.7
+
+FROM node:20-alpine AS deps
 WORKDIR /app
-RUN apk add --no-cache \
-    openssl~3 \
-    libc6-compat~1
-ENV NPM_CONFIG_LOGLEVEL=warn \
-    NPM_CONFIG_REGISTRY=https://registry.npmjs.org \
-    NEXT_TELEMETRY_DISABLED=1
-COPY package.json package-lock.json ./
+RUN apk add --no-cache openssl~3 libc6-compat~1
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY package.json package-lock.json lockfile-check.js ./
 COPY prisma ./prisma
-COPY lockfile-check.js ./
-RUN node ./lockfile-check.js
-RUN npm ci --no-audit --no-fund
-RUN npx prisma generate
+RUN --mount=type=cache,target=/root/.npm \
+    node ./lockfile-check.js && npm ci --no-audit --no-fund
+
+FROM node:20-alpine AS build
+WORKDIR /app
+RUN apk add --no-cache openssl~3 libc6-compat~1
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
-RUN npm prune --production
+RUN npx prisma generate && npm run build && npm prune --omit=dev && rm -rf .next/cache
 
 FROM node:20-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production APP_ENV=production NEXT_TELEMETRY_DISABLED=1
-RUN apk add --no-cache \
-    openssl~3 \
-    libc6-compat~1 \
-    wget~1
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/server.ts ./
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/tsconfig.json ./
-COPY --from=builder /app/instrumentation.ts ./
-COPY --from=builder /app/lib ./lib
-COPY --from=builder /app/package.json ./
-COPY entrypoint.prod.sh /entrypoint.prod.sh
-RUN chmod +x /entrypoint.prod.sh
+RUN apk add --no-cache openssl~3 libc6-compat~1 wget~1
+ENV NODE_ENV=production APP_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+COPY --from=build --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=build --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=build --chown=nextjs:nodejs /app/server.ts ./server.ts
+COPY --from=build --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
+COPY --from=build --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
+COPY --from=build --chown=nextjs:nodejs /app/instrumentation.ts ./instrumentation.ts
+COPY --from=build --chown=nextjs:nodejs /app/lib ./lib
+COPY --from=build --chown=nextjs:nodejs /app/scripts ./scripts
+COPY --chmod=755 entrypoint.prod.sh /entrypoint.prod.sh
+
 EXPOSE 3000
+HEALTHCHECK CMD wget -qO- http://localhost:3000/api/health/live || exit 1
 ENTRYPOINT ["/entrypoint.prod.sh"]

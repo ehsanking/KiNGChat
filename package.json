@@ -65,7 +65,8 @@
     "workbox-routing": "^7.4.0",
     "workbox-strategies": "^7.4.0",
     "workbox-webpack-plugin": "^7.4.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "node-cron": "^4.2.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.11",

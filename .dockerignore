@@ -73,3 +73,9 @@ backups
 
 # Uploads (handled by volumes)
 public/uploads
+
+.github/
+
+tests/
+
+docs/

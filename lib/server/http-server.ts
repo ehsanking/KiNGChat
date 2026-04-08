@@ -2,6 +2,8 @@ import { createServer } from 'http';
 import { parse } from 'node:url';
 import next from 'next';
 import { getRuntimeConfig } from '@/lib/runtime/env-bootstrap';
+import { withRequestContext } from '@/lib/request-context';
+import { createRequestId } from '@/lib/observability';
 
 export const createHttpServer = async (isShuttingDown: () => boolean) => {
   const runtime = getRuntimeConfig();
@@ -16,7 +18,10 @@ export const createHttpServer = async (isShuttingDown: () => boolean) => {
       return;
     }
     const parsedUrl = parse(req.url!, true);
-    handle(req, res, parsedUrl);
+    const requestId = Array.isArray(req.headers['x-request-id']) ? req.headers['x-request-id'][0] : req.headers['x-request-id'];
+    withRequestContext({ requestId: requestId || createRequestId() }, () => {
+      handle(req, res, parsedUrl);
+    });
   });
 
   return { app, server, runtime };

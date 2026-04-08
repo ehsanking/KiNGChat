@@ -1,0 +1,25 @@
+name: E2E
+
+on:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-fund
+      - run: npx playwright install --with-deps
+      - name: Start docker compose stack
+        run: docker compose up -d --build
+      - name: Run Playwright E2E
+        run: npx playwright test tests/e2e/auth.spec.ts tests/e2e/messaging.spec.ts tests/e2e/admin.spec.ts
+      - name: Shutdown stack
+        if: always()
+        run: docker compose down -v
