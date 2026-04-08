@@ -12,13 +12,19 @@ const buildConnectSrc = () => {
   if (!isProduction) return "'self' ws: wss: https:";
 
   const configuredOrigins = new Set<string>(["'self'"]);
+  const addOriginWithSocketVariant = (origin: string) => {
+    configuredOrigins.add(origin);
+    if (origin.startsWith('https://')) {
+      configuredOrigins.add(`wss://${origin.slice('https://'.length)}`);
+    }
+  };
   const appOrigin = process.env.APP_URL ? toOrigin(process.env.APP_URL) : null;
-  if (appOrigin) configuredOrigins.add(appOrigin);
+  if (appOrigin) addOriginWithSocketVariant(appOrigin);
 
   if (process.env.ALLOWED_ORIGINS) {
     for (const value of process.env.ALLOWED_ORIGINS.split(',').map((item) => item.trim()).filter(Boolean)) {
       const origin = toOrigin(value);
-      if (origin) configuredOrigins.add(origin);
+      if (origin) addOriginWithSocketVariant(origin);
     }
   }
 

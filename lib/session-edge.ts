@@ -73,14 +73,6 @@ const decodeBase64UrlText = (value: string) =>
 
 // ── Crypto operations (Edge-compatible WebCrypto) ───────────
 
-async function hmacSign(key: ArrayBuffer, data: string): Promise<string> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, textEncoder.encode(data));
-  return toBase64Url(signature);
-}
-
 async function hmacVerify(key: ArrayBuffer, data: string, signatureB64: string): Promise<boolean> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'],
