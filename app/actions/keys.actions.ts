@@ -36,3 +36,29 @@ export async function getUserPublicKeys(targetUserId: string) {
     return { error: 'Failed to fetch keys.' };
   }
 }
+
+export async function getRecipientE2eeStatus(recipientId: string): Promise<{ enrolled: boolean; e2eeVersion: string }> {
+  const sanitizedId = asTrimmedString(recipientId);
+  if (!sanitizedId) return { enrolled: false, e2eeVersion: 'legacy' };
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: sanitizedId },
+      select: {
+        identityKeyPublic: true,
+        signedPreKey: true,
+        e2eeVersion: true,
+      },
+    });
+
+    if (!user) return { enrolled: false, e2eeVersion: 'legacy' };
+
+    const enrolled = Boolean(user.identityKeyPublic.trim() && user.signedPreKey.trim());
+    return { enrolled, e2eeVersion: user.e2eeVersion ?? 'legacy' };
+  } catch (error) {
+    logger.error('Get recipient E2EE status error.', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { enrolled: false, e2eeVersion: 'legacy' };
+  }
+}

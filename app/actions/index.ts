@@ -47,5 +47,5 @@ export {
   deleteConversationDraft,
   searchConversationMessages,
 } from './messaging.actions';
-export { getUserPublicKeys } from './keys.actions';
+export { getUserPublicKeys, getRecipientE2eeStatus } from './keys.actions';
 export { searchUsers } from './search.actions';

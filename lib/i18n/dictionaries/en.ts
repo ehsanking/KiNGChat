@@ -52,6 +52,11 @@ const en = {
     failed: 'Failed to send',
     retry: 'Tap to retry',
     connectionLost: 'Connection lost. Reconnecting...',
+    e2eeEncrypted: 'End-to-end encrypted',
+    e2eeKeysPending: 'Encryption keys not yet exchanged',
+    e2eeGroupNotSupported: 'Group messages are not yet end-to-end encrypted',
+    verifyContact: 'Verify contact',
+    safetyNumberChanged: 'Security keys for this contact have changed. Verify their identity.',
   },
   admin: {
     dashboard: 'Admin Dashboard',

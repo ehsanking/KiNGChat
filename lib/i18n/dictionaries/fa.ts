@@ -47,6 +47,11 @@ const fa: TranslationDictionary = {
     failed: 'ارسال ناموفق',
     retry: 'برای تلاش مجدد ضربه بزنید',
     connectionLost: 'اتصال قطع شد. در حال اتصال مجدد...',
+    e2eeEncrypted: 'رمزنگاری سرتاسری فعال است',
+    e2eeKeysPending: 'کلیدهای رمزنگاری هنوز تبادل نشده‌اند',
+    e2eeGroupNotSupported: 'پیام‌های گروهی هنوز رمزنگاری سرتاسری ندارند',
+    verifyContact: 'تأیید مخاطب',
+    safetyNumberChanged: 'کلیدهای امنیتی این مخاطب تغییر کرده‌اند. هویت او را تأیید کنید.',
   },
   admin: {
     dashboard: 'داشبورد مدیر',

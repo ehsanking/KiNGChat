@@ -10,11 +10,12 @@ import {
   Download, Loader2, Copy, Check, BadgeCheck, Wrench, Megaphone,
   ShoppingBag, Headset, X, Plus, Users, UserPlus, MessageSquare,
   ChevronLeft, Lock,
+  ShieldAlert, ShieldOff,
 } from 'lucide-react';
 import { getTextDirection } from '@/lib/utils';
 import { useRouter, useSearchParams } from 'next/navigation';
 // Import session‑independent actions (search, public key lookup) from the new auth‑session module.
-import { searchUsers, getUserPublicKeys } from '@/app/actions/index';
+import { searchUsers, getRecipientE2eeStatus, getUserPublicKeys } from '@/app/actions/index';
 // Import profile actions that infer the user from the session.
 import {
   getPublicUserProfile,
@@ -49,6 +50,8 @@ import { parseSecureAttachmentFromLegacyMessage } from '@/lib/e2ee-legacy-bridge
 import { createSecureAttachmentMessage } from '@/lib/e2ee-chat-runtime';
 import { E2EE_UNAVAILABLE_WARNING, prepareDirectMessagePayload } from '@/app/chat/message-send-security';
 import { fetchWithCsrf, HttpAuthError } from '@/lib/http/fetchWithCsrf';
+import { detectKeyChange } from '@/lib/e2ee-key-change-detector';
+import { isContactVerified } from '@/lib/e2ee-verification-store';
 import {
   buildConversationId,
   buildDraftStorageKey,
@@ -155,6 +158,8 @@ function ChatDashboardContent() {
   // Mobile-specific state
   const [mobileTab, setMobileTab] = useState<MobileTab>('chats');
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [recipientE2eeEnrolled, setRecipientE2eeEnrolled] = useState<boolean | null>(null);
+  const [isContactLocallyVerified, setIsContactLocallyVerified] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -180,6 +185,64 @@ function ChatDashboardContent() {
   });
 
   usePushNotifications(currentUser?.id);
+
+  useEffect(() => {
+    let active = true;
+    if (selectedGroup) {
+      setRecipientE2eeEnrolled(null);
+      return;
+    }
+    if (!selectedRecipient?.id) {
+      setRecipientE2eeEnrolled(false);
+      return;
+    }
+    getRecipientE2eeStatus(selectedRecipient.id).then((result) => {
+      if (!active) return;
+      setRecipientE2eeEnrolled(result.enrolled);
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedGroup, selectedRecipient?.id]);
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedRecipient?.id) {
+      setIsContactLocallyVerified(false);
+      return;
+    }
+    isContactVerified(selectedRecipient.id).then((value) => {
+      if (active) {
+        setIsContactLocallyVerified(value);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedRecipient?.id]);
+
+  useEffect(() => {
+    if (!selectedRecipient?.id || !selectedRecipient.identityKeyPublic) return;
+    try {
+      const key = 'dmIdentityFingerprints';
+      const stored = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, string>;
+      const previous = stored[selectedRecipient.id];
+      const current = selectedRecipient.identityKeyPublic.trim();
+      if (previous && detectKeyChange(selectedRecipient.id, previous, current)) {
+        setMessages((prev) => [...prev, {
+          id: `key-change-${selectedRecipient.id}-${Date.now()}`,
+          text: 'Security keys for this contact have changed. Verify their identity.',
+          sender: 'them',
+          type: 99,
+          createdAt: new Date().toISOString(),
+        }]);
+      }
+      stored[selectedRecipient.id] = current;
+      localStorage.setItem(key, JSON.stringify(stored));
+    } catch {
+      // ignore storage parsing errors and continue chat rendering
+    }
+  }, [selectedRecipient?.id, selectedRecipient?.identityKeyPublic]);
 
   // Admin view routing
   useEffect(() => {
@@ -1076,7 +1139,20 @@ function ChatDashboardContent() {
               ) : (
                 <p className="font-medium truncate">{selectedGroup?.name}</p>
               )}
-              {selectedRecipient?.isVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />}
+              {selectedGroup ? (
+                <span title="Group messages are not yet end-to-end encrypted">
+                  <ShieldOff className="w-4 h-4 text-zinc-400 shrink-0" />
+                </span>
+              ) : recipientE2eeEnrolled ? (
+                <span title="End-to-end encrypted">
+                  <Lock className="w-4 h-4 text-emerald-500 shrink-0" />
+                </span>
+              ) : (
+                <span title="Encryption keys not yet exchanged">
+                  <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
+                </span>
+              )}
+              {(selectedRecipient?.isVerified || isContactLocallyVerified) && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />}
               {renderBadgeIcon(selectedRecipient?.badge)}
             </div>
             <ConversationStatus
@@ -1114,7 +1190,12 @@ function ChatDashboardContent() {
                       : 'bg-zinc-800 text-zinc-100 rounded-bl-none'
                   }`}
                 >
-                  {msg.type === 2 ? (
+                  {msg.type === 99 ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/20 px-3 py-2 text-xs text-amber-100">
+                      <ShieldAlert className="w-4 h-4 shrink-0 text-amber-300" />
+                      <p>Security keys for this contact have changed. Verify their identity.</p>
+                    </div>
+                  ) : msg.type === 2 ? (
                     <div className="flex items-center gap-3 bg-zinc-900/50 p-2 md:p-3 rounded-xl border border-zinc-800">
                       <div className="p-2 bg-brand-gold/10 rounded-lg">
                         <FileIcon className="w-5 h-5 md:w-6 md:h-6 text-brand-gold" />
@@ -1696,4 +1777,3 @@ export default function ChatDashboard() {
     </Suspense>
   );
 }
-

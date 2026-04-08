@@ -47,6 +47,11 @@ const ar: TranslationDictionary = {
     failed: 'فشل الإرسال',
     retry: 'انقر لإعادة المحاولة',
     connectionLost: 'انقطع الاتصال. جاري إعادة الاتصال...',
+    e2eeEncrypted: 'التشفير من طرف إلى طرف مفعّل',
+    e2eeKeysPending: 'لم يتم تبادل مفاتيح التشفير بعد',
+    e2eeGroupNotSupported: 'رسائل المجموعات ليست مشفرة طرفاً لطرف بعد',
+    verifyContact: 'التحقق من جهة الاتصال',
+    safetyNumberChanged: 'تغيرت مفاتيح الأمان لجهة الاتصال هذه. تحقق من هويته.',
   },
   admin: {
     dashboard: 'لوحة التحكم',
