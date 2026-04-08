@@ -30,6 +30,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   const localeCookie = cookieStore.get('elahe_locale')?.value ?? null;
   const acceptLang = headerStore.get('accept-language') ?? null;
+  const cspNonce = headerStore.get('x-csp-nonce') ?? undefined;
   const locale = resolveLocale(localeCookie, acceptLang) as Locale;
   const direction = getDirection(locale);
 
@@ -37,7 +38,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} dir={direction} suppressHydrationWarning>
       {/* Inline script to prevent FOUC (flash of unstyled content) for dark mode */}
       <head>
-        <script
+        <script nonce={cspNonce}
           dangerouslySetInnerHTML={{
             __html: `
               (function() {

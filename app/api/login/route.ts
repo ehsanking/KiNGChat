@@ -5,6 +5,8 @@ import { issueSession } from '@/lib/session';
 import { getRequestIdForRequest, respondWithInternalError, respondWithSafeError } from '@/lib/http-errors';
 import { getRateLimitHeaders, rateLimit, rateLimitPreset } from '@/lib/rate-limit';
 import { observeHistogram } from '@/lib/observability';
+import { loginSchema } from '@/lib/validation/auth';
+import { toValidationErrorResponse, validateBody } from '@/lib/validation/middleware';
 
 /**
  * Handles the login request. This endpoint accepts JSON with
@@ -31,11 +33,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+    const validation = validateBody(loginSchema, body);
+    if (!validation.success) {
+      return NextResponse.json(toValidationErrorResponse(validation), { status: 400, headers: rateHeaders });
+    }
+
     const result = await loginUser({
-      username: typeof body?.username === 'string' ? body.username : '',
-      password: typeof body?.password === 'string' ? body.password : '',
-      captchaToken: typeof body?.captchaToken === 'string' ? body.captchaToken : '',
-      captchaId: typeof body?.captchaId === 'string' ? body.captchaId : '',
+      username: validation.data.username,
+      password: validation.data.password,
+      captchaToken: validation.data.captchaToken ?? validation.data.localCaptchaToken ?? '',
+      captchaId: validation.data.captchaId ?? validation.data.localCaptchaAnswer ?? '',
     });
 
     if (result.error) {

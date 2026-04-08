@@ -11,9 +11,10 @@ import { authorizeConversationAction } from './conversation-access';
 import { incrementMetric, setGauge } from './observability';
 import { traceSocketOperation } from './otel';
 import { editMessage, syncConversation, toggleReaction, markMessagesDelivered } from './messaging-service';
-import { requireFreshSocketSession } from './fresh-session';
 import { normalizeConversationId } from './conversation-id';
 import { normalizeTtlSeconds, scheduleMessageExpiry } from './disappearing-messages';
+import { validateBody } from './validation/middleware';
+import { editMessageSchema, reactionSchema, sendMessageSchema, typingSchema } from './validation/messaging';
 
 export type SocketOptions = {
   socketRateLimitWindowMs: number;
@@ -33,19 +34,13 @@ export function setupSocket(io: Server, options: SocketOptions) {
   let activeConnections = 0;
 
   io.on('connection', async (socket) => {
-    const cookieHeader = socket.handshake?.headers?.cookie as string | undefined;
-    const fresh = await requireFreshSocketSession({
-      cookieHeader,
-      userAgent: socket.handshake?.headers?.['user-agent'] as string | undefined,
-      ip: socket.handshake.address,
-    });
-    if (!fresh) {
-      logger.warn('Socket connection rejected due to missing or invalid session', { socketId: socket.id });
+    const session = socket.data.session as { userId?: string } | undefined;
+    if (!session?.userId) {
+      logger.warn('Socket connection missing authenticated session', { socketId: socket.id });
       incrementMetric('socket_connections_rejected', 1, { reason: 'invalid_session' });
       socket.disconnect();
       return;
     }
-    const { session } = fresh;
 
     socket.data.userId = session.userId;
     socket.join(session.userId);
@@ -67,28 +62,30 @@ export function setupSocket(io: Server, options: SocketOptions) {
     });
 
     socket.on('joinGroup', async (groupId) => {
-      if (typeof groupId !== 'string' || groupId.length === 0) return;
+      const joinInput = validateBody(typingSchema.pick({ groupId: true }), { groupId });
+      if (!joinInput.success || !joinInput.data.groupId) return;
+      const parsedGroupId = joinInput.data.groupId;
       const userId = socket.data.userId;
       if (typeof userId !== 'string' || userId.length === 0) return;
 
-      const access = await authorizeConversationAction(userId, { groupId }, 'conversation.join');
+      const access = await authorizeConversationAction(userId, { groupId: parsedGroupId }, 'conversation.join');
       if (!access.allowed || access.access.kind !== 'group') {
         await appendAuditLog({
           action: 'SOCKET_GROUP_JOIN_REJECTED',
           actorUserId: userId,
-          targetId: groupId,
-          conversationId: groupId,
+          targetId: parsedGroupId,
+          conversationId: parsedGroupId,
           outcome: 'blocked',
           details: { reason: access.reason, socketId: socket.id },
         });
         incrementMetric('socket_joins_rejected', 1, { reason: access.reason });
-        logger.warn('Socket group join rejected due to missing membership', { userId, groupId, reason: access.reason });
+        logger.warn('Socket group join rejected due to missing membership', { userId, groupId: parsedGroupId, reason: access.reason });
         return;
       }
 
-      socket.join(`group:${groupId}`);
+      socket.join(`group:${parsedGroupId}`);
       incrementMetric('socket_group_joins_allowed');
-      logger.info('User joined group room', { userId, groupId });
+      logger.info('User joined group room', { userId, groupId: parsedGroupId });
     });
 
     socket.on('groupKeyRotated', async (payload: { groupId?: string; keyGeneration?: number } | undefined) => {
@@ -112,7 +109,12 @@ export function setupSocket(io: Server, options: SocketOptions) {
 
     socket.on('sendMessage', async (rawData) => {
       await traceSocketOperation('socket.send_message', { socketId: socket.id }, async () => {
-      const data = parseSendMessageDto(rawData);
+      const validation = validateBody(sendMessageSchema, rawData);
+      if (!validation.success) {
+        socket.emit('messageRejected', { reason: 'validation_error', errorCode: 'VALIDATION_ERROR', details: validation.details });
+        return;
+      }
+      const data = parseSendMessageDto(validation.data);
       if (!data) {
         logger.warn('Invalid message payload received', { socketId: socket.id });
         incrementMetric('socket_messages_rejected', 1, { reason: 'invalid_payload' });
@@ -399,8 +401,12 @@ export function setupSocket(io: Server, options: SocketOptions) {
     socket.on('toggleReaction', async (payload) => {
       const userId = socket.data.userId;
       if (typeof userId !== 'string') return;
-      const messageId = typeof payload?.messageId === 'string' ? payload.messageId : '';
-      const emoji = typeof payload?.emoji === 'string' ? payload.emoji : '';
+      const validation = validateBody(reactionSchema, payload);
+      if (!validation.success) {
+        socket.emit('messageReactionRejected', { error: 'Request validation failed.', errorCode: 'VALIDATION_ERROR', details: validation.details });
+        return;
+      }
+      const { messageId, emoji } = validation.data;
       const result = await toggleReaction(userId, messageId, emoji);
       if (!('success' in result) || !result.success) {
         socket.emit('messageReactionRejected', result);
@@ -415,9 +421,12 @@ export function setupSocket(io: Server, options: SocketOptions) {
     socket.on('editMessage', async (payload) => {
       const userId = socket.data.userId;
       if (typeof userId !== 'string') return;
-      const messageId = typeof payload?.messageId === 'string' ? payload.messageId : '';
-      const ciphertext = typeof payload?.ciphertext === 'string' ? payload.ciphertext : '';
-      const nonce = typeof payload?.nonce === 'string' ? payload.nonce : '';
+      const validation = validateBody(editMessageSchema, payload);
+      if (!validation.success) {
+        socket.emit('messageEditRejected', { error: 'Request validation failed.', errorCode: 'VALIDATION_ERROR', details: validation.details });
+        return;
+      }
+      const { messageId, ciphertext, nonce } = validation.data;
       const result = await editMessage(userId, messageId, ciphertext, nonce);
       if (!('success' in result) || !result.success) {
         socket.emit('messageEditRejected', result);
@@ -433,8 +442,13 @@ export function setupSocket(io: Server, options: SocketOptions) {
     socket.on('typing', async (data) => {
       const senderId = socket.data.userId;
       if (typeof senderId !== 'string' || senderId.length === 0) return;
-      const requestedGroupId = typeof data?.groupId === 'string' ? data.groupId : null;
-      const requestedRecipientId = typeof data?.recipientId === 'string' ? data.recipientId : null;
+      const validation = validateBody(typingSchema, data);
+      if (!validation.success) {
+        socket.emit('typingRejected', { error: 'Request validation failed.', errorCode: 'VALIDATION_ERROR', details: validation.details });
+        return;
+      }
+      const requestedGroupId = validation.data.groupId ?? null;
+      const requestedRecipientId = validation.data.recipientId ?? null;
       const conversationId = requestedGroupId || (requestedRecipientId ? (normalizeConversationId(requestedRecipientId, senderId) ?? requestedRecipientId) : null);
       if (!conversationId) return;
       const access = await authorizeConversationAction(senderId, { conversationId }, 'conversation.read');
@@ -442,16 +456,17 @@ export function setupSocket(io: Server, options: SocketOptions) {
         socket.emit('typingRejected', { reason: access.reason });
         return;
       }
-      if (data.groupId) {
-        socket.to(`group:${data.groupId}`).emit('userTyping', {
+      if (validation.data.groupId) {
+        socket.to(`group:${validation.data.groupId}`).emit('userTyping', {
           senderId,
-          groupId: data.groupId,
-          isTyping: data.isTyping,
+          groupId: validation.data.groupId,
+          isTyping: validation.data.isTyping,
         });
       } else {
-        io.to(data.recipientId).emit('userTyping', {
+        if (!validation.data.recipientId) return;
+        io.to(validation.data.recipientId).emit('userTyping', {
           senderId,
-          isTyping: data.isTyping,
+          isTyping: validation.data.isTyping,
         });
       }
     });

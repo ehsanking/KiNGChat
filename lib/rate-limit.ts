@@ -15,8 +15,11 @@ export type RateLimitPresetName =
   | '2fa'
   | 'password-recovery'
   | 'upload'
-  | 'api-default';
+  | 'api-default'
+  | 'e2ee'
+  | 'admin';
 
+import { NextResponse, type NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
 import { getRedisClient } from '@/lib/redis-client';
 import { incrementMetric, setGauge } from '@/lib/observability';
@@ -96,6 +99,8 @@ export const rateLimitPresets: Record<RateLimitPresetName, RateLimitPresetOption
   'password-recovery': { windowMs: 60 * 60 * 1000, max: 3 },
   upload: { windowMs: 10 * 60 * 1000, max: 20 },
   'api-default': { windowMs: 15 * 60 * 1000, max: 100 },
+  e2ee: { windowMs: 60_000, max: 30 },
+  admin: { windowMs: 60_000, max: 60 },
 };
 
 export function rateLimitPreset(name: RateLimitPresetName): RateLimitPresetOptions {
@@ -231,3 +236,27 @@ export const getRateLimitStoreStats = (): {
   maxQueueSize: MAX_QUEUE_SIZE,
   utilizationPercent: Math.round((store.size / MAX_QUEUE_SIZE) * 100),
 });
+
+
+export type RateLimitedHandler = (request: NextRequest) => Promise<Response>;
+
+export async function withRateLimit(presetName: RateLimitPresetName, handler: RateLimitedHandler): Promise<(request: NextRequest) => Promise<Response>> {
+  const preset = rateLimitPreset(presetName);
+  return async (request: NextRequest): Promise<Response> => {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? 'unknown';
+    const key = `${presetName}:${ip}:${request.nextUrl.pathname}`;
+    const result = await rateLimit(key, preset);
+    const headers = {
+      ...getRateLimitHeaders(result),
+      'Retry-After': String(Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))),
+    };
+
+    if (!result.allowed) {
+      return NextResponse.json({ error: 'Too many requests.' }, { status: 429, headers });
+    }
+
+    const response = await handler(request);
+    Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
+    return response;
+  };
+}

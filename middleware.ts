@@ -14,12 +14,13 @@ export async function middleware(request: NextRequest) {
     ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip'),
   });
   const { pathname } = request.nextUrl;
+  const cspNonce = crypto.randomUUID().replace(/-/g, '');
 
   if (pathname === LEGACY_CHAT_ROUTE || pathname.startsWith(`${LEGACY_CHAT_ROUTE}/`)) {
     const response = NextResponse.redirect(new URL(CHAT_ROUTE, request.url), 308);
     response.headers.set('x-request-id', request.headers.get('x-request-id') || crypto.randomUUID());
     response.headers.set('x-legacy-route-retired', 'chat-v2');
-    applySecurityHeaders(response.headers);
+    applySecurityHeaders(response.headers, cspNonce);
     return response;
   }
 
@@ -30,21 +31,21 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set('next', CHAT_ROUTE);
     }
     const response = NextResponse.redirect(loginUrl);
-    applySecurityHeaders(response.headers);
+    applySecurityHeaders(response.headers, cspNonce);
     return response;
   }
 
   // If session exists but user needs to change password, enforce setup-admin page
   if (session?.needsPasswordChange && (pathname === CHAT_ROUTE || pathname === SETUP_ADMIN_ROUTE)) {
     const response = NextResponse.redirect(new URL(SETUP_ADMIN_ROUTE, request.url));
-    applySecurityHeaders(response.headers);
+    applySecurityHeaders(response.headers, cspNonce);
     return response;
   }
 
   // If session exists and user visits auth routes, redirect to chat
   if (session && AUTH_ROUTES.includes(pathname) && !session.needsPasswordChange) {
     const response = NextResponse.redirect(new URL(CHAT_ROUTE, request.url));
-    applySecurityHeaders(response.headers);
+    applySecurityHeaders(response.headers, cspNonce);
     return response;
   }
 
@@ -54,12 +55,12 @@ export async function middleware(request: NextRequest) {
   if (pathname === ADMIN_ROUTE || pathname.startsWith(`${ADMIN_ROUTE}/`)) {
     if (!session) {
       const response = NextResponse.redirect(new URL('/auth/login', request.url));
-      applySecurityHeaders(response.headers);
+      applySecurityHeaders(response.headers, cspNonce);
       return response;
     }
     if (session.role !== 'ADMIN') {
       const response = NextResponse.redirect(new URL('/', request.url));
-      applySecurityHeaders(response.headers);
+      applySecurityHeaders(response.headers, cspNonce);
       return response;
     }
   }
@@ -119,7 +120,7 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
   response.headers.set('x-request-id', request.headers.get('x-request-id') || crypto.randomUUID());
-  applySecurityHeaders(response.headers);
+  applySecurityHeaders(response.headers, cspNonce);
   return response;
 }
 

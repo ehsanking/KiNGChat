@@ -3,6 +3,8 @@ import { validate2FALogin } from '@/app/actions/security-2fa.actions';
 import { assertSameOrigin } from '@/lib/request-security';
 import { issueSession } from '@/lib/session';
 import { rateLimit, getRateLimitHeaders, rateLimitPreset } from '@/lib/rate-limit';
+import { toValidationErrorResponse, validateBody } from '@/lib/validation/middleware';
+import { z } from 'zod';
 
 /**
  * Verifies the two-factor authentication token and issues a session cookie
@@ -13,8 +15,12 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
 
     const body = await request.json();
+    const validation = validateBody(z.object({ userId: z.string().trim().min(1), token: z.string().trim().min(1), challengeId: z.string().trim().min(1) }), body);
+    if (!validation.success) {
+      return NextResponse.json(toValidationErrorResponse(validation), { status: 400 });
+    }
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-    const userId = typeof body?.userId === 'string' ? body.userId : 'anonymous';
+    const userId = validation.data.userId || 'anonymous';
 
     // Rate limit 2FA verification attempts per IP and userId to mitigate brute force
     // attacks.  Limit to 5 attempts per five minutes.  A lockout response is
@@ -29,9 +35,9 @@ export async function POST(request: Request) {
     }
 
     const result = await validate2FALogin(
-      typeof body?.userId === 'string' ? body.userId : '',
-      typeof body?.token === 'string' ? body.token : '',
-      typeof body?.challengeId === 'string' ? body.challengeId : '',
+      validation.data.userId,
+      validation.data.token,
+      validation.data.challengeId,
     );
 
     if (result.error) {

@@ -3,6 +3,8 @@ import { getRecoveryQuestion, recoverPassword } from '@/app/actions/auth.recover
 import { assertSameOrigin } from '@/lib/request-security';
 import { getRequestIdForRequest, respondWithInternalError, respondWithSafeError } from '@/lib/http-errors';
 import { getRateLimitHeaders, rateLimit, rateLimitPreset } from '@/lib/rate-limit';
+import { toValidationErrorResponse, validateBody } from '@/lib/validation/middleware';
+import { z } from 'zod';
 
 export async function POST(request: Request) {
   const requestId = getRequestIdForRequest(request);
@@ -20,11 +22,15 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const action = typeof body?.action === 'string' ? body.action : '';
+    const validation = validateBody(z.object({ action: z.enum(['question', 'reset']), username: z.string().trim().min(1), recoveryAnswer: z.string().trim().optional(), newPassword: z.string().min(8).optional(), confirmPassword: z.string().min(8).optional() }), body);
+    if (!validation.success) {
+      return NextResponse.json(toValidationErrorResponse(validation), { status: 400, headers: rateHeaders });
+    }
+    const action = validation.data.action;
 
     if (action === 'question') {
       const result = await getRecoveryQuestion({
-        username: typeof body?.username === 'string' ? body.username : '',
+        username: validation.data.username,
       });
 
       if (result.error) {
@@ -44,7 +50,7 @@ export async function POST(request: Request) {
 
     if (action === 'reset') {
       const result = await recoverPassword({
-        username: typeof body?.username === 'string' ? body.username : '',
+        username: validation.data.username,
         recoveryAnswer: typeof body?.recoveryAnswer === 'string' ? body.recoveryAnswer : '',
         newPassword: typeof body?.newPassword === 'string' ? body.newPassword : '',
         confirmPassword: typeof body?.confirmPassword === 'string' ? body.confirmPassword : '',

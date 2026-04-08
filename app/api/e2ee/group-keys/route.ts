@@ -1,26 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireFreshAuthenticatedUser } from '@/lib/fresh-session';
+import { toValidationErrorResponse, validateBody } from '@/lib/validation/middleware';
+import { z } from 'zod';
 
 export async function POST(request: NextRequest) {
   const session = await requireFreshAuthenticatedUser(request);
   if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 
-  const body = await request.json().catch(() => null) as {
-    groupId?: string;
-    keyGeneration?: number;
-    senderPublicKey?: string;
-    wrappedKeys?: Array<{ recipientUserId: string; wrappedKey: string; nonce: string }>;
-    chainKey?: string;
-    deviceId?: string;
-  } | null;
+  const body = await request.json().catch(() => null);
+  const validation = validateBody(z.object({
+    groupId: z.string().trim().min(1),
+    keyGeneration: z.number().int().min(0).optional(),
+    senderPublicKey: z.string().trim().min(1),
+    chainKey: z.string().trim().min(1),
+    deviceId: z.string().trim().min(1).optional(),
+    wrappedKeys: z.array(z.object({ recipientUserId: z.string().trim().min(1), wrappedKey: z.string().trim().min(1), nonce: z.string().trim().min(1) })).min(1),
+  }), body);
+  if (!validation.success) {
+    return NextResponse.json(toValidationErrorResponse(validation), { status: 400 });
+  }
 
-  const groupId = body?.groupId?.trim();
-  const wrappedKeys = Array.isArray(body?.wrappedKeys) ? body.wrappedKeys : [];
-  const senderPublicKey = body?.senderPublicKey?.trim();
-  const chainKey = body?.chainKey?.trim();
-  const deviceId = body?.deviceId?.trim() || 'default-device';
-  const keyGeneration = Number.isInteger(body?.keyGeneration) ? Number(body?.keyGeneration) : 0;
+  const groupId = validation.data.groupId;
+  const wrappedKeys = validation.data.wrappedKeys;
+  const senderPublicKey = validation.data.senderPublicKey;
+  const chainKey = validation.data.chainKey;
+  const deviceId = validation.data.deviceId || 'default-device';
+  const keyGeneration = validation.data.keyGeneration ?? 0;
 
   if (!groupId || !senderPublicKey || !chainKey || wrappedKeys.length === 0) {
     return NextResponse.json({ error: 'Invalid sender key distribution payload.' }, { status: 400 });
