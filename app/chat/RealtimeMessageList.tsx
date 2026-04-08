@@ -8,7 +8,12 @@ type RealtimeMessage = {
   id: string;
   text: string;
   sender?: 'me' | 'them' | 'system';
-  type?: 'text' | 'key_change';
+  type?: 'text' | 'key_change' | 'voice';
+  ttlSeconds?: number | null;
+  expiresAt?: string | null;
+  fileUrl?: string | null;
+  audioDuration?: number | null;
+  waveformData?: string | null;
 };
 
 type RealtimeMessageListProps = {
@@ -59,6 +64,7 @@ export default function RealtimeMessageList({ messages }: RealtimeMessageListPro
           );
         }
 
+        const countdown = message.expiresAt ? Math.max(0, Math.floor((new Date(message.expiresAt).getTime() - Date.now()) / 1000)) : null;
         return (
           <div
             key={message.id}

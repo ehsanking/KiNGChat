@@ -3,24 +3,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ShieldCheck } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createRegistrationBundleV2, persistRegistrationBundleV2 } from '@/lib/e2ee-registration';
 import { registerUserWithBundleV2 } from '@/lib/e2ee-register-runtime';
 import GoogleRecaptcha from '@/components/auth/google-recaptcha';
-import { sanitizeNextPath } from '@/lib/auth-next-path';
 
 type PublicSettings = {
   isRegistrationEnabled: boolean;
   isCaptchaEnabled: boolean;
   recaptchaSiteKey: string | null;
+  oauthProviders?: { google: boolean; github: boolean; oidc: boolean };
 };
 
 type RegistrationStage = 'idle' | 'preparing-keys' | 'creating-account';
 
-export default function RegisterPageClient() {
+type RegisterPageClientProps = {
+  nextPath: string;
+};
+
+export default function RegisterPageClient({ nextPath }: RegisterPageClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextPath = useMemo(() => sanitizeNextPath(searchParams.get('next')), [searchParams]);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [recoveryQuestion, setRecoveryQuestion] = useState('');
@@ -29,6 +31,7 @@ export default function RegisterPageClient() {
     isRegistrationEnabled: true,
     isCaptchaEnabled: false,
     recaptchaSiteKey: null,
+    oauthProviders: { google: false, github: false, oidc: false },
   });
   const [captchaToken, setCaptchaToken] = useState('');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -75,6 +78,11 @@ export default function RegisterPageClient() {
             isRegistrationEnabled: Boolean(data.settings.isRegistrationEnabled),
             isCaptchaEnabled: Boolean(data.settings.isCaptchaEnabled),
             recaptchaSiteKey: typeof data.settings.recaptchaSiteKey === 'string' ? data.settings.recaptchaSiteKey : null,
+            oauthProviders: {
+              google: Boolean(data.settings.oauthProviders?.google),
+              github: Boolean(data.settings.oauthProviders?.github),
+              oidc: Boolean(data.settings.oauthProviders?.oidc),
+            },
           });
           setSettingsLoadFailed(false);
           setSettingsLoaded(true);
@@ -210,6 +218,20 @@ export default function RegisterPageClient() {
             {!publicSettings.isRegistrationEnabled && <p className="text-amber-400">New sign-ups are currently paused by the administrator.</p>}
           </div>
         </div>
+        {(publicSettings.oauthProviders?.google || publicSettings.oauthProviders?.github || publicSettings.oauthProviders?.oidc) && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-zinc-500 text-center">Prefer SSO?</p>
+            {publicSettings.oauthProviders?.google && (
+              <Link href="/api/auth/signin/google?callbackUrl=%2Fapi%2Fauth%2Foauth%2Ffinalize" className="block w-full text-center bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 font-medium py-2.5 rounded-xl transition-colors">Continue with Google</Link>
+            )}
+            {publicSettings.oauthProviders?.github && (
+              <Link href="/api/auth/signin/github?callbackUrl=%2Fapi%2Fauth%2Foauth%2Ffinalize" className="block w-full text-center bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 font-medium py-2.5 rounded-xl transition-colors">Continue with GitHub</Link>
+            )}
+            {publicSettings.oauthProviders?.oidc && (
+              <Link href="/api/auth/signin/oidc?callbackUrl=%2Fapi%2Fauth%2Foauth%2Ffinalize" className="block w-full text-center bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 font-medium py-2.5 rounded-xl transition-colors">Continue with SSO</Link>
+            )}
+          </div>
+        )}
         <p className="text-center text-zinc-500 text-sm mt-6">Already have an account? <Link href={`/auth/login?next=${encodeURIComponent(nextPath)}`} className="text-emerald-400 hover:underline">Sign in</Link></p>
       </div>
     </div>

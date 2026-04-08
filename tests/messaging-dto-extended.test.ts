@@ -148,3 +148,20 @@ describe('parseSendMessageDto', () => {
     expect(result!.ciphertext).toBe('legacy-data');
   });
 });
+
+
+  it('parses ttl and voice metadata', () => {
+    const result = parseSendMessageDto({
+      recipientId: 'user-123',
+      ciphertext: 'data',
+      nonce: 'n',
+      type: 3,
+      ttlSeconds: 60,
+      audioDuration: 3.2,
+      waveformData: '[0.1,0.2]',
+    });
+    expect(result).not.toBeNull();
+    expect(result!.ttlSeconds).toBe(60);
+    expect(result!.audioDuration).toBe(3.2);
+    expect(result!.waveformData).toBe('[0.1,0.2]');
+  });

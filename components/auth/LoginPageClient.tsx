@@ -11,6 +11,7 @@ type PublicSettings = {
   captchaProvider?: 'recaptcha' | 'local' | string;
   recaptchaSiteKey: string | null;
   localCaptcha?: { prompt: string; captchaId: string } | null;
+  oauthProviders?: { google: boolean; github: boolean; oidc: boolean };
 };
 
 const toFriendlyError = (error: unknown) => {
@@ -44,6 +45,7 @@ export default function LoginPageClient({ nextPath }: LoginPageClientProps) {
     captchaProvider: 'recaptcha',
     recaptchaSiteKey: null,
     localCaptcha: null,
+    oauthProviders: { google: false, github: false, oidc: false },
   });
   const router = useRouter();
 
@@ -61,6 +63,11 @@ export default function LoginPageClient({ nextPath }: LoginPageClientProps) {
               ? data.settings.recaptchaSiteKey
               : null,
             localCaptcha: data.settings.localCaptcha ?? null,
+            oauthProviders: {
+              google: Boolean(data.settings.oauthProviders?.google),
+              github: Boolean(data.settings.oauthProviders?.github),
+              oidc: Boolean(data.settings.oauthProviders?.oidc),
+            },
           });
         }
       } catch {
@@ -178,6 +185,37 @@ export default function LoginPageClient({ nextPath }: LoginPageClientProps) {
             </div>
           )}
         </form>
+        {(publicSettings.oauthProviders?.google || publicSettings.oauthProviders?.github || publicSettings.oauthProviders?.oidc) && (
+          <div className="mt-5 space-y-2">
+            <p className="text-xs text-zinc-500 text-center">Or continue with</p>
+            <div className="grid grid-cols-1 gap-2">
+              {publicSettings.oauthProviders?.google && (
+                <a
+                  href={`/api/auth/signin/google?callbackUrl=${encodeURIComponent('/api/auth/oauth/finalize')}`}
+                  className="w-full text-center bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 font-medium py-2.5 rounded-xl transition-colors"
+                >
+                  Sign in with Google
+                </a>
+              )}
+              {publicSettings.oauthProviders?.github && (
+                <a
+                  href={`/api/auth/signin/github?callbackUrl=${encodeURIComponent('/api/auth/oauth/finalize')}`}
+                  className="w-full text-center bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 font-medium py-2.5 rounded-xl transition-colors"
+                >
+                  Sign in with GitHub
+                </a>
+              )}
+              {publicSettings.oauthProviders?.oidc && (
+                <a
+                  href={`/api/auth/signin/oidc?callbackUrl=${encodeURIComponent('/api/auth/oauth/finalize')}`}
+                  className="w-full text-center bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 font-medium py-2.5 rounded-xl transition-colors"
+                >
+                  Sign in with SSO
+                </a>
+              )}
+            </div>
+          </div>
+        )}
         <p className="text-center text-zinc-500 text-sm mt-8">Don&apos;t have an account? <Link href={`/auth/register?next=${encodeURIComponent(nextPath)}`} className="text-emerald-400 hover:underline">Create one</Link></p>
       </div>
     </div>

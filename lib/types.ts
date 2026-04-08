@@ -29,6 +29,9 @@ export type AdminSettings = {
   id: string;
   isSetupCompleted: boolean;
   isRegistrationEnabled: boolean;
+  oauthGoogleEnabled: boolean;
+  oauthGithubEnabled: boolean;
+  oauthOidcEnabled: boolean;
   maxRegistrations?: number | null;
   isCaptchaEnabled: boolean;
   recaptchaSiteKey?: string | null;

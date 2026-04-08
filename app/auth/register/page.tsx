@@ -9,6 +9,7 @@ type RegisterPageProps = {
 
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const params = (await searchParams) ?? {};
+  const nextPath = sanitizeNextPath(params.next);
   const session = await getServerSession();
 
   if (session?.needsPasswordChange) {
@@ -16,8 +17,8 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   }
 
   if (session) {
-    redirect(sanitizeNextPath(params.next));
+    redirect(nextPath);
   }
 
-  return <RegisterPageClient />;
+  return <RegisterPageClient nextPath={nextPath} />;
 }

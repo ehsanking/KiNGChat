@@ -70,6 +70,7 @@ model User {
   devices          UserDevice[]
   oneTimePreKeys   OneTimePreKey[]
   keyEvents        E2EEKeyEvent[]
+  oauthAccounts    OAuthAccount[]
 
   @@index([createdAt])
   @@index([isApproved])
@@ -96,12 +97,14 @@ model Message {
   senderId    String
   recipientId String?  // Null if group message
   groupId     String?  // Null if 1:1 message
-  type        Int      // 0: text, 1: image, 2: file
+  type        Int      // 0: text, 1: image, 2: file, 3: voice
   ciphertext  String   // Encrypted payload
   nonce       String   // IV for encryption
   fileUrl     String?  // URL to the encrypted file
   fileName    String?  // Original file name
   fileSize    Int?     // File size in bytes
+  audioDuration Float? // Duration in seconds for voice messages
+  waveformData  String? // JSON-encoded waveform samples
 
   /// WrappedFileKey stores the encrypted file encryption key for phase 3 secure attachments.
   wrappedFileKey      String?
@@ -117,6 +120,8 @@ model Message {
   idempotencyKey String?
   editedAt      DateTime?
   replyToId     String?
+  expiresAt     DateTime? // When the message should expire
+  ttlSeconds    Int?      // TTL value selected at send time
   createdAt   DateTime @default(now())
   isDeleted   Boolean  @default(false)
 
@@ -191,6 +196,7 @@ model Group {
   e2eeEnabled Boolean  @default(false)
   isPublic    Boolean  @default(false)
   inviteLink  String?  @unique
+  defaultTtlSeconds Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -284,10 +290,33 @@ model LoginAttempt {
   @@index([username, createdAt])
 }
 
+model OAuthAccount {
+  id                String   @id @default(uuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
 model AdminSettings {
   id                 String  @id @default("1")
   isSetupCompleted   Boolean @default(false)
   isRegistrationEnabled Boolean @default(true)
+  oauthGoogleEnabled Boolean @default(false)
+  oauthGithubEnabled Boolean @default(false)
+  oauthOidcEnabled   Boolean @default(false)
   maxRegistrations   Int?    // Null means infinite
   isCaptchaEnabled    Boolean @default(false)
   recaptchaSiteKey   String?

@@ -15,6 +15,9 @@ export type SendMessageDto = {
   replyToId?: string | null;
   keyGeneration?: number | null;
   messageIndex?: number | null;
+  ttlSeconds?: number | null;
+  audioDuration?: number | null;
+  waveformData?: string | null;
 };
 
 const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
@@ -47,6 +50,13 @@ export const parseSendMessageDto = (value: unknown): SendMessageDto | null => {
   const messageIndex = typeof data.messageIndex === 'number' && Number.isInteger(data.messageIndex)
     ? data.messageIndex
     : null;
+  const ttlSeconds = typeof data.ttlSeconds === 'number' && Number.isInteger(data.ttlSeconds)
+    ? data.ttlSeconds
+    : null;
+  const audioDuration = typeof data.audioDuration === 'number' && Number.isFinite(data.audioDuration)
+    ? data.audioDuration
+    : null;
+  const waveformData = typeof data.waveformData === 'string' ? data.waveformData.trim() : null;
 
   if ((!recipientId && !groupId) || !ciphertext) return null;
   if (ciphertext.length > 64_000) return null;
@@ -68,5 +78,8 @@ export const parseSendMessageDto = (value: unknown): SendMessageDto | null => {
     replyToId,
     keyGeneration,
     messageIndex,
+    ttlSeconds,
+    audioDuration,
+    waveformData,
   };
 };

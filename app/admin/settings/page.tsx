@@ -10,6 +10,9 @@ export default function AdminSettingsPage() {
   const [firebaseConfig, setFirebaseConfig] = useState('');
   const [isFirebaseEnabled, setIsFirebaseEnabled] = useState(false);
   const [isCaptchaEnabled, setIsCaptchaEnabled] = useState(false);
+  const [oauthGoogleEnabled, setOauthGoogleEnabled] = useState(false);
+  const [oauthGithubEnabled, setOauthGithubEnabled] = useState(false);
+  const [oauthOidcEnabled, setOauthOidcEnabled] = useState(false);
   const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
   const [recaptchaSecretKey, setRecaptchaSecretKey] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -27,6 +30,9 @@ export default function AdminSettingsPage() {
         setFirebaseConfig(settings.firebaseConfig || '');
         setIsFirebaseEnabled(!!settings.firebaseConfig && settings.firebaseConfig.length > 10);
         setIsCaptchaEnabled(Boolean(settings.isCaptchaEnabled));
+        setOauthGoogleEnabled(Boolean(dynamicSettings.oauthGoogleEnabled));
+        setOauthGithubEnabled(Boolean(dynamicSettings.oauthGithubEnabled));
+        setOauthOidcEnabled(Boolean(dynamicSettings.oauthOidcEnabled));
         setRecaptchaSiteKey(typeof dynamicSettings.recaptchaSiteKey === 'string' ? dynamicSettings.recaptchaSiteKey : '');
         setRecaptchaSecretKey(typeof dynamicSettings.recaptchaSecretKey === 'string' ? dynamicSettings.recaptchaSecretKey : '');
       }
@@ -48,6 +54,9 @@ export default function AdminSettingsPage() {
       isCaptchaEnabled,
       recaptchaSiteKey: recaptchaSiteKey.trim() || null,
       recaptchaSecretKey: recaptchaSecretKey.trim() || null,
+      oauthGoogleEnabled,
+      oauthGithubEnabled,
+      oauthOidcEnabled,
     });
 
     if (success && !fbSuccess.error && !captchaResult.error) {
@@ -182,6 +191,23 @@ export default function AdminSettingsPage() {
                 className="w-full h-32 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-gold transition-colors font-mono text-sm"
               />
             )}
+          </div>
+
+          <div className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-3xl space-y-4">
+            <h2 className="font-bold text-brand-gold">OAuth / SSO Providers</h2>
+            <p className="text-sm text-zinc-400">Enable provider buttons on login/register. Provider credentials still come from environment variables.</p>
+            <label className="flex items-center justify-between gap-2 text-sm">
+              <span>Google OAuth</span>
+              <input type="checkbox" checked={oauthGoogleEnabled} onChange={(e) => setOauthGoogleEnabled(e.target.checked)} className="w-4 h-4 rounded border-zinc-800 text-brand-gold focus:ring-brand-gold bg-zinc-950" />
+            </label>
+            <label className="flex items-center justify-between gap-2 text-sm">
+              <span>GitHub OAuth</span>
+              <input type="checkbox" checked={oauthGithubEnabled} onChange={(e) => setOauthGithubEnabled(e.target.checked)} className="w-4 h-4 rounded border-zinc-800 text-brand-gold focus:ring-brand-gold bg-zinc-950" />
+            </label>
+            <label className="flex items-center justify-between gap-2 text-sm">
+              <span>OIDC SSO</span>
+              <input type="checkbox" checked={oauthOidcEnabled} onChange={(e) => setOauthOidcEnabled(e.target.checked)} className="w-4 h-4 rounded border-zinc-800 text-brand-gold focus:ring-brand-gold bg-zinc-950" />
+            </label>
           </div>
 
           {message.text && (
