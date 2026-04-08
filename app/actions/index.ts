@@ -22,7 +22,7 @@ export {
 } from './admin.actions';
 
 export { registerUser, loginUser, getPublicSettings, updateAdminCredentials } from './auth.actions';
-export { setup2FA, verify2FA, disable2FA, validate2FALogin } from './auth.2fa.actions';
+export { setup2FA, verify2FA, disable2FA, validate2FALogin } from './security-2fa.actions';
 export { getRecoveryQuestion, recoverPassword } from './auth.recovery.actions';
 
 export { getUserProfile, getSelfUserProfile, getPublicUserProfile, updateUserProfile } from './profile.actions';
