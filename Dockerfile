@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:20-alpine AS deps
+FROM node:25-alpine AS deps
 WORKDIR /app
 
 RUN apk add --no-cache openssl~3 libc6-compat~1
@@ -11,7 +11,7 @@ COPY prisma ./prisma
 RUN --mount=type=cache,target=/root/.npm \
     node ./lockfile-check.js && npm ci --no-audit --no-fund --ignore-scripts
 
-FROM node:20-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 
 RUN apk add --no-cache openssl~3 libc6-compat~1
@@ -22,7 +22,7 @@ COPY . .
 
 RUN npx prisma generate && npm run build && npm prune --omit=dev && rm -rf .next/cache
 
-FROM node:20-alpine AS runner
+FROM node:25-alpine AS runner
 WORKDIR /app
 
 RUN apk add --no-cache openssl~3 libc6-compat~1 wget~1 tini~0.19 su-exec~0.3
