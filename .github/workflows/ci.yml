@@ -53,7 +53,7 @@ jobs:
           cache: npm
 
       - name: Cache Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .next/cache
           key: ${{ runner.os }}-next-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
