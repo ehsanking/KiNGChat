@@ -9,7 +9,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json lockfile-check.js .npmrc ./
 COPY prisma ./prisma
 RUN --mount=type=cache,target=/root/.npm \
-    node ./lockfile-check.js && npm ci --no-audit --no-fund
+    node ./lockfile-check.js && npm ci --no-audit --no-fund --ignore-scripts
 
 FROM node:20-alpine AS build
 WORKDIR /app
