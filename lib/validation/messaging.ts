@@ -12,6 +12,7 @@ export const sendMessageSchema = z.object({
   messageIndex: z.number().int().min(0).optional(),
   ttlSeconds: z.number().int().min(1).max(60 * 60 * 24 * 30).optional().nullable(),
   replyToId: z.string().trim().min(1).optional().nullable(),
+  forwardedFrom: z.string().trim().max(120).optional().nullable(),
   fileUrl: z.string().trim().max(3000).optional().nullable(),
   fileName: z.string().trim().max(255).optional().nullable(),
   fileSize: z.number().int().min(0).optional().nullable(),

@@ -13,6 +13,8 @@ export type PendingQueueItem = {
   fileSize?: number;
   keyGeneration?: number;
   messageIndex?: number;
+  replyToId?: string;
+  forwardedFrom?: string;
 };
 
 export const buildConversationId = (currentUserId?: string, recipientId?: string | null, groupId?: string | null) => {

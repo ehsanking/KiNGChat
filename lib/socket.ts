@@ -14,6 +14,8 @@ import { editMessage, syncConversation, toggleReaction, markMessagesDelivered } 
 import { normalizeConversationId } from './conversation-id';
 import { normalizeTtlSeconds, scheduleMessageExpiry } from './disappearing-messages';
 import { validateBody } from './validation/middleware';
+import { routeBotCommand } from './bot/bot-manager';
+import { postToBotWebhook } from './bot/bot-api';
 import { editMessageSchema, reactionSchema, sendMessageSchema, typingSchema } from './validation/messaging';
 
 export type SocketOptions = {
@@ -205,6 +207,27 @@ export function setupSocket(io: Server, options: SocketOptions) {
           }
         }
 
+        if (!message && !data.nonce && data.ciphertext.trim().startsWith('/')) {
+          const conversationId = data.groupId || data.recipientId || '';
+          const routed = await routeBotCommand({
+            commandText: data.ciphertext,
+            conversationId,
+            senderId,
+          });
+          if (routed?.bot?.webhookUrl) {
+            await postToBotWebhook(routed.bot.webhookUrl, {
+              event: 'command',
+              payload: {
+                botId: routed.bot.id,
+                command: routed.command,
+                args: routed.args,
+                senderId,
+                conversationId,
+              },
+            }).catch(() => undefined);
+          }
+        }
+
         if (!message) {
           message = await prisma.message.create({
             data: {
@@ -222,6 +245,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
               fileNonce: data.fileNonce || null,
               idempotencyKey: data.idempotencyKey || null,
               replyToId: data.replyToId || null,
+              forwardedFrom: data.forwardedFrom || null,
               ttlSeconds: normalizeTtlSeconds(data.ttlSeconds),
               expiresAt: normalizeTtlSeconds(data.ttlSeconds)
                 ? new Date(Date.now() + Number(normalizeTtlSeconds(data.ttlSeconds)) * 1000)
@@ -254,6 +278,7 @@ export function setupSocket(io: Server, options: SocketOptions) {
           createdAt: message.createdAt.toISOString(),
           editedAt: message.editedAt ? new Date(message.editedAt).toISOString() : null,
           replyToId: message.replyToId ?? data.replyToId ?? null,
+          forwardedFrom: message.forwardedFrom ?? data.forwardedFrom ?? null,
           deliveryStatus: (message.deliveryStatus ?? 'SENT') as DeliveryState,
           readAt: message.readAt ? new Date(message.readAt).toISOString() : null,
           tempId: data.tempId,
@@ -273,6 +298,23 @@ export function setupSocket(io: Server, options: SocketOptions) {
           io.to(data.recipientId).emit('receiveMessage', messageData);
           if (data.recipientId !== senderId) {
             socket.emit('messageSent', { id: message.id, tempId: data.tempId, idempotencyKey: data.idempotencyKey });
+          }
+        }
+
+        if (message.replyToId) {
+          const threadPayload = {
+            rootMessageId: message.replyToId,
+            replyId: message.id,
+            senderId,
+            recipientId: data.recipientId || null,
+            groupId: data.groupId || null,
+            createdAt: message.createdAt.toISOString(),
+          };
+          if (data.groupId) {
+            io.to(`group:${data.groupId}`).emit('thread:updated', threadPayload);
+          } else if (data.recipientId) {
+            io.to(data.recipientId).emit('thread:updated', threadPayload);
+            io.to(senderId).emit('thread:updated', threadPayload);
           }
         }
 
@@ -335,6 +377,149 @@ export function setupSocket(io: Server, options: SocketOptions) {
         });
       }
       });
+    });
+
+
+    socket.on('message:forward', async (payload) => {
+      const senderId = socket.data.userId;
+      if (typeof senderId !== 'string') return;
+      const sourceMessageId = typeof payload?.messageId === 'string' ? payload.messageId.trim() : '';
+      const recipientId = typeof payload?.recipientId === 'string' ? payload.recipientId.trim() : null;
+      const groupId = typeof payload?.groupId === 'string' ? payload.groupId.trim() : null;
+      if (!sourceMessageId || (!recipientId && !groupId)) {
+        socket.emit('messageForwardRejected', { reason: 'validation_error' });
+        return;
+      }
+      const source = await prisma.message.findUnique({ where: { id: sourceMessageId } });
+      if (!source || source.isDeleted) {
+        socket.emit('messageForwardRejected', { reason: 'message_not_found' });
+        return;
+      }
+      const sourceAccess = await authorizeConversationAction(senderId, { recipientId: source.recipientId, groupId: source.groupId }, 'conversation.read');
+      if (!sourceAccess.allowed) {
+        socket.emit('messageForwardRejected', { reason: 'access_denied' });
+        return;
+      }
+      const targetAccess = await authorizeConversationAction(senderId, { recipientId, groupId }, 'message.send');
+      if (!targetAccess.allowed) {
+        socket.emit('messageForwardRejected', { reason: targetAccess.reason });
+        return;
+      }
+      const sender = await prisma.user.findUnique({ where: { id: source.senderId }, select: { displayName: true, username: true } });
+      const forwardedFrom = sender?.displayName?.trim() || sender?.username || 'Unknown';
+      const forwarded = await prisma.message.create({
+        data: {
+          senderId,
+          recipientId,
+          groupId,
+          type: source.type,
+          ciphertext: source.ciphertext,
+          nonce: source.nonce,
+          fileUrl: source.fileUrl,
+          fileName: source.fileName,
+          fileSize: source.fileSize,
+          wrappedFileKey: source.wrappedFileKey,
+          wrappedFileKeyNonce: source.wrappedFileKeyNonce,
+          fileNonce: source.fileNonce,
+          audioDuration: source.audioDuration,
+          waveformData: source.waveformData,
+          deliveryStatus: 'SENT',
+          forwardedFrom,
+        },
+      });
+      const forwardPayload: SocketMessagePayload = {
+        id: forwarded.id,
+        senderId,
+        recipientId,
+        groupId,
+        type: forwarded.type,
+        ciphertext: forwarded.ciphertext,
+        nonce: forwarded.nonce,
+        fileUrl: forwarded.fileUrl,
+        fileName: forwarded.fileName,
+        fileSize: forwarded.fileSize,
+        wrappedFileKey: forwarded.wrappedFileKey,
+        wrappedFileKeyNonce: forwarded.wrappedFileKeyNonce,
+        fileNonce: forwarded.fileNonce,
+        createdAt: forwarded.createdAt.toISOString(),
+        deliveryStatus: 'SENT',
+        forwardedFrom,
+      };
+      if (groupId) {
+        io.to(`group:${groupId}`).emit('receiveMessage', forwardPayload);
+      } else if (recipientId) {
+        io.to(recipientId).emit('receiveMessage', forwardPayload);
+        io.to(senderId).emit('receiveMessage', { ...forwardPayload, _self: true });
+      }
+      socket.emit('message:forwarded', { sourceMessageId, forwardedMessageId: forwarded.id });
+    });
+
+    socket.on('call:initiate', async (payload) => {
+      const fromUserId = socket.data.userId;
+      const toUserId = typeof payload?.toUserId === 'string' ? payload.toUserId.trim() : '';
+      const callId = typeof payload?.callId === 'string' ? payload.callId.trim() : '';
+      const type = payload?.type === 'video' ? 'video' : 'voice';
+      if (typeof fromUserId !== 'string' || !toUserId || !callId || fromUserId === toUserId) return;
+      const access = await authorizeConversationAction(fromUserId, { recipientId: toUserId }, 'conversation.read');
+      if (!access.allowed) {
+        socket.emit('call:rejected', { callId, reason: access.reason });
+        return;
+      }
+      await prisma.callLog.create({ data: { id: callId, callerId: fromUserId, recipientId: toUserId, type, status: 'ringing' } }).catch(() => undefined);
+      io.to(toUserId).emit('call:ring', { callId, fromUserId, toUserId, type });
+    });
+
+    socket.on('call:accept', async (payload) => {
+      const toUserId = socket.data.userId;
+      const fromUserId = typeof payload?.fromUserId === 'string' ? payload.fromUserId.trim() : '';
+      const callId = typeof payload?.callId === 'string' ? payload.callId.trim() : '';
+      const type = payload?.type === 'video' ? 'video' : 'voice';
+      if (typeof toUserId !== 'string' || !fromUserId || !callId) return;
+      await prisma.callLog.updateMany({ where: { id: callId }, data: { status: 'connected', startedAt: new Date() } }).catch(() => undefined);
+      io.to(fromUserId).emit('call:accept', { callId, fromUserId, toUserId, type });
+    });
+
+    socket.on('call:reject', async (payload) => {
+      const toUserId = socket.data.userId;
+      const fromUserId = typeof payload?.fromUserId === 'string' ? payload.fromUserId.trim() : '';
+      const callId = typeof payload?.callId === 'string' ? payload.callId.trim() : '';
+      const type = payload?.type === 'video' ? 'video' : 'voice';
+      if (typeof toUserId !== 'string' || !fromUserId || !callId) return;
+      await prisma.callLog.updateMany({ where: { id: callId }, data: { status: 'rejected', endedAt: new Date() } }).catch(() => undefined);
+      io.to(fromUserId).emit('call:reject', { callId, fromUserId, toUserId, type });
+    });
+
+    socket.on('call:offer', (payload) => {
+      const fromUserId = socket.data.userId;
+      const toUserId = typeof payload?.toUserId === 'string' ? payload.toUserId.trim() : '';
+      if (typeof fromUserId !== 'string' || !toUserId) return;
+      io.to(toUserId).emit('call:offer', { ...payload, fromUserId });
+    });
+
+    socket.on('call:answer', (payload) => {
+      const fromUserId = socket.data.userId;
+      const toUserId = typeof payload?.toUserId === 'string' ? payload.toUserId.trim() : '';
+      if (typeof fromUserId !== 'string' || !toUserId) return;
+      io.to(toUserId).emit('call:answer', { ...payload, fromUserId });
+    });
+
+    socket.on('call:ice-candidate', (payload) => {
+      const fromUserId = socket.data.userId;
+      const toUserId = typeof payload?.toUserId === 'string' ? payload.toUserId.trim() : '';
+      if (typeof fromUserId !== 'string' || !toUserId) return;
+      io.to(toUserId).emit('call:ice-candidate', { ...payload, fromUserId });
+    });
+
+    socket.on('call:end', async (payload) => {
+      const fromUserId = socket.data.userId;
+      const toUserId = typeof payload?.toUserId === 'string' ? payload.toUserId.trim() : '';
+      const callId = typeof payload?.callId === 'string' ? payload.callId.trim() : '';
+      if (typeof fromUserId !== 'string' || !toUserId || !callId) return;
+      const endedAt = new Date();
+      const existing = await prisma.callLog.findUnique({ where: { id: callId } }).catch(() => null);
+      const duration = existing?.startedAt ? Math.max(0, Math.floor((endedAt.getTime() - new Date(existing.startedAt).getTime()) / 1000)) : null;
+      await prisma.callLog.updateMany({ where: { id: callId }, data: { status: 'ended', endedAt, duration } }).catch(() => undefined);
+      io.to(toUserId).emit('call:end', { callId, fromUserId, toUserId });
     });
 
     socket.on('messageRead', async (payload) => {
