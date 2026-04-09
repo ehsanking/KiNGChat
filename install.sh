@@ -434,55 +434,52 @@ resolve_install_ref() {
 }
 
 choose_source_ref() {
-  log_step "Source trust / git ref selection"
+  log_step "Source ref selection (main or release tag)"
 
   if [ -n "$INSTALL_REF_INPUT" ]; then
-    if resolve_install_ref "$INSTALL_REF_INPUT"; then
+    if [ "$INSTALL_REF_INPUT" = "$DEFAULT_BRANCH" ]; then
+      INSTALL_REF_RESOLVED="$DEFAULT_BRANCH"
+      INSTALL_REF_TYPE="branch"
       log_info "Using INSTALL_REF from environment: ${INSTALL_REF_RESOLVED} (${INSTALL_REF_TYPE})"
       return 0
     fi
-    log_error "INSTALL_REF '${INSTALL_REF_INPUT}' was not found (tag/branch/commit)."
+    if git ls-remote --exit-code --tags "$REPO_URL" "refs/tags/${INSTALL_REF_INPUT}" >/dev/null 2>&1; then
+      INSTALL_REF_RESOLVED="$INSTALL_REF_INPUT"
+      INSTALL_REF_TYPE="tag"
+      log_info "Using INSTALL_REF from environment: ${INSTALL_REF_RESOLVED} (${INSTALL_REF_TYPE})"
+      return 0
+    fi
+    log_error "INSTALL_REF must be '${DEFAULT_BRANCH}' or a valid release tag."
     exit 1
   fi
 
-  local latest_tag
-  latest_tag="$(detect_latest_tag_ref || true)"
-  if [ -n "$latest_tag" ]; then
-    if [ "$NONINTERACTIVE" = true ]; then
-      INSTALL_REF_RESOLVED="$latest_tag"
-      INSTALL_REF_TYPE="tag"
-      log_info "Non-interactive mode: using latest tag ${latest_tag}."
-      return 0
-    fi
-    echo -e "${CYAN}Select source ref:${NC}"
-    echo "  1) Use latest tag (${latest_tag}) [recommended]"
-    echo "  2) Enter a specific tag/commit/branch"
-    echo "  3) Use mutable branch head (${DEFAULT_BRANCH})"
-    local choice custom_ref
-    choice=$(read_tty_input "${YELLOW}Enter choice [1-3]:${NC} " "1")
-    case "$choice" in
-      2)
-        custom_ref=$(trim_space "$(read_tty_input "${CYAN}Enter tag/commit/branch:${NC} " "")")
-        if ! resolve_install_ref "$custom_ref"; then
-          log_error "Ref '${custom_ref}' not found."
-          exit 1
-        fi
-        ;;
-      3)
-        INSTALL_REF_RESOLVED="$DEFAULT_BRANCH"
-        INSTALL_REF_TYPE="branch"
-        log_warn "Using mutable branch head (${DEFAULT_BRANCH}). Prefer a pinned tag/commit for production trust."
-        ;;
-      *)
-        INSTALL_REF_RESOLVED="$latest_tag"
-        INSTALL_REF_TYPE="tag"
-        ;;
-    esac
-  else
-    log_warn "Could not detect remote tags. Falling back to branch head '${DEFAULT_BRANCH}'."
+  if [ "$NONINTERACTIVE" = true ]; then
     INSTALL_REF_RESOLVED="$DEFAULT_BRANCH"
     INSTALL_REF_TYPE="branch"
+    log_info "Non-interactive mode: using branch head ${DEFAULT_BRANCH}."
+    return 0
   fi
+
+  local choice release_tag
+  echo -e "${CYAN}Select source ref:${NC}"
+  echo "  1) Use mutable branch head (${DEFAULT_BRANCH}) [recommended]"
+  echo "  2) Enter a release tag (for example: v1.0.0)"
+  choice=$(read_tty_input "${YELLOW}Enter choice [1-2]:${NC} " "1")
+  case "$choice" in
+    2)
+      release_tag=$(trim_space "$(read_tty_input "${CYAN}Enter release tag:${NC} " "")")
+      if ! git ls-remote --exit-code --tags "$REPO_URL" "refs/tags/${release_tag}" >/dev/null 2>&1; then
+        log_error "Release tag '${release_tag}' not found."
+        exit 1
+      fi
+      INSTALL_REF_RESOLVED="$release_tag"
+      INSTALL_REF_TYPE="tag"
+      ;;
+    *)
+      INSTALL_REF_RESOLVED="$DEFAULT_BRANCH"
+      INSTALL_REF_TYPE="branch"
+      ;;
+  esac
 
   log_info "Resolved install ref: ${INSTALL_REF_RESOLVED} (${INSTALL_REF_TYPE})"
 }
