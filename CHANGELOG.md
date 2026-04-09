@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Bug fixes and code quality
+- Fixed TypeScript deprecation warning `TS5101` in `tsconfig.json` by adding `"ignoreDeprecations": "6.0"` to silence the `baseUrl` deprecation for TypeScript 7.0 compatibility.
+- Fixed `withRateLimit` in `lib/rate-limit.ts`: removed unnecessary `async` keyword from the outer function since it performs no async work itself. Callers no longer need to `await` the wrapper — it now directly returns the handler function as expected.
 
 ### Authz consistency
 - Added centralized conversation action policy (`authorizeConversationAction`) to enforce one policy path for socket join/send/sync/typing and secure attachment read/write authorization checks.

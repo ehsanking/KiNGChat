@@ -240,7 +240,7 @@ export const getRateLimitStoreStats = (): {
 
 export type RateLimitedHandler = (request: NextRequest) => Promise<Response>;
 
-export async function withRateLimit(presetName: RateLimitPresetName, handler: RateLimitedHandler): Promise<(request: NextRequest) => Promise<Response>> {
+export function withRateLimit(presetName: RateLimitPresetName, handler: RateLimitedHandler): (request: NextRequest) => Promise<Response> {
   const preset = rateLimitPreset(presetName);
   return async (request: NextRequest): Promise<Response> => {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? 'unknown';
