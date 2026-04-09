@@ -4,7 +4,6 @@ import { appendAuditLog } from '@/lib/audit';
 import { incrementMetric } from '@/lib/observability';
 import { conversationCacheKey, getOrSetCache, invalidateCacheByPrefix } from '@/lib/cache';
 import { canonicalizeDirectConversationId } from '@/lib/conversation-id';
-import type { Prisma, Message, MessageReaction, MessageDraft } from '@prisma/client';
 
 const MAX_EDIT_WINDOW_MS = Number(process.env.MESSAGE_EDIT_WINDOW_MS || 15 * 60 * 1000);
 const MAX_SYNC_BATCH = Number(process.env.OFFLINE_SYNC_BATCH || 200);
@@ -13,9 +12,25 @@ const MAX_SYNC_BATCH = Number(process.env.OFFLINE_SYNC_BATCH || 200);
  * Prisma result types for queries that include relations.
  * Replaces all `as any` casts with proper typing.
  */
-type MessageWithRelations = Message & {
-  replyTo?: Pick<Message, 'id' | 'senderId' | 'ciphertext' | 'nonce' | 'createdAt' | 'isDeleted'> | null;
-  reactions?: Pick<MessageReaction, 'emoji' | 'userId' | 'createdAt'>[];
+type MessageWithRelations = {
+  id: string;
+  senderId: string;
+  recipientId?: string | null;
+  groupId?: string | null;
+  type?: number;
+  ciphertext?: string;
+  nonce?: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  deliveredAt?: Date | null;
+  readAt?: Date | null;
+  deliveryStatus?: string;
+  createdAt: Date;
+  isDeleted?: boolean;
+  replyToId?: string | null;
+  replyTo?: { id: string; senderId: string; ciphertext: string; nonce: string; createdAt: Date; isDeleted?: boolean } | null;
+  reactions?: Array<{ emoji: string; userId: string; createdAt: Date }>;
   forwardedFrom?: string | null;
 };
 
@@ -55,16 +70,16 @@ export const invalidateConversationCaches = (userId: string, recipientId?: strin
  */
 const messageReplySelect = {
   id: true, senderId: true, ciphertext: true, nonce: true, createdAt: true, isDeleted: true,
-} satisfies Prisma.MessageSelect;
+};
 
 const messageReactionSelect = {
   emoji: true, userId: true, createdAt: true,
-} satisfies Prisma.MessageReactionSelect;
+};
 
 const messageInclude = {
   replyTo: { select: messageReplySelect },
   reactions: { select: messageReactionSelect },
-} satisfies Prisma.MessageInclude;
+};
 
 export const getMessageHistoryExtended = async (
   userId: string,
@@ -79,7 +94,7 @@ export const getMessageHistoryExtended = async (
     if (!access.allowed) return { error: 'Access denied.' };
 
     const effectiveLimit = Math.min(limit, 100);
-    const where: Prisma.MessageWhereInput = { isDeleted: false, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] };
+    const where: Record<string, unknown> = { isDeleted: false, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] };
     if (groupId) {
       where.groupId = groupId;
     } else if (recipientId) {
@@ -112,7 +127,7 @@ export const syncConversation = async (
   const access = await ensureConversationAccess(userId, args.recipientId, args.groupId);
   if (!access.allowed) return { error: 'Access denied.' };
 
-  const where: Prisma.MessageWhereInput = { isDeleted: false, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] };
+  const where: Record<string, unknown> = { isDeleted: false, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] };
   if (args.groupId) {
     where.groupId = args.groupId;
   } else if (args.recipientId) {
@@ -207,7 +222,7 @@ export const saveDraft = async (
   if (conversationKey === 'unknown') return { error: 'Conversation is required.' };
   const access = await ensureConversationAccess(userId, args.recipientId, args.groupId);
   if (!access.allowed) return { error: 'Access denied.' };
-  const draft: MessageDraft = await prisma.messageDraft.upsert({
+  const draft = await prisma.messageDraft.upsert({
     where: { userId_conversationKey: { userId, conversationKey } },
     create: {
       userId,
@@ -245,11 +260,11 @@ export const searchMessages = async (
   args: { query: string; recipientId?: string | null; groupId?: string | null; limit?: number },
 ) => {
   const query = args.query.trim();
-  if (!query) return { success: true, messages: [] as Message[], mode: 'metadata_only' as const };
+  if (!query) return { success: true, messages: [] as MessageWithRelations[], mode: 'metadata_only' as const };
   const access = await ensureConversationAccess(userId, args.recipientId, args.groupId);
   if (!access.allowed) return { error: 'Access denied.' };
 
-  const where: Prisma.MessageWhereInput = {
+  const where: Record<string, unknown> = {
     isDeleted: false,
     OR: [
       { fileName: { contains: query } },
@@ -274,7 +289,7 @@ export const searchMessages = async (
     include: messageInclude,
   });
   incrementMetric('message_searches');
-  const threadRoots = messages.map((message) => message.replyToId).filter((value): value is string => typeof value === 'string' && value.length > 0);
+  const threadRoots = messages.map((message: MessageWithRelations) => message.replyToId).filter((value: unknown): value is string => typeof value === 'string' && value.length > 0);
   const uniqueRoots = [...new Set(threadRoots)];
   const threadContext = uniqueRoots.length === 0 ? [] : await prisma.message.findMany({
     where: { id: { in: uniqueRoots } },

@@ -48,7 +48,7 @@ export async function getContacts() {
 
     return {
       success: true,
-      contacts: contacts.map((c) => c.contact),
+      contacts: contacts.map((c: (typeof contacts)[number]) => c.contact),
     };
   } catch (error) {
     logger.error('Get contacts error.', {

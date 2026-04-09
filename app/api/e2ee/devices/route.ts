@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const devices = await listUserDevices(session.userId);
     return NextResponse.json({
       success: true,
-      devices: devices.map((device) => ({
+      devices: devices.map((device: (typeof devices)[number]) => ({
         deviceId: device.deviceId,
         label: device.label,
         isPrimary: device.isPrimary,

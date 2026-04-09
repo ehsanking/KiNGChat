@@ -81,6 +81,21 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Docker compose config validation
+        run: docker compose config >/dev/null
+
+      - name: Docker build validation
+        run: docker build -t elahe-messenger-ci .
+
+      - name: Shell script lint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          shellcheck install.sh docker-entrypoint.sh
+
+      - name: Deployment and installer smoke checks
+        run: npm run test -- tests/deployment-topology-regressions.test.ts tests/install-script-guardrails.test.ts
+
       - name: Upload coverage
         uses: codecov/codecov-action@v5
         with:

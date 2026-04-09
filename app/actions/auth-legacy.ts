@@ -1026,7 +1026,7 @@ export async function getUserCommunities(_userId: string) {
       },
     });
 
-    const communities = memberships.map((m) => ({
+    const communities = memberships.map((m: (typeof memberships)[number]) => ({
       id: m.group.id,
       name: m.group.name,
       description: m.group.description,
@@ -1216,7 +1216,7 @@ export async function getContacts(ownerId: string) {
 
     return {
       success: true,
-      contacts: contacts.map((c) => c.contact),
+      contacts: contacts.map((c: (typeof contacts)[number]) => c.contact),
     };
   } catch (error) {
     logger.error('Get contacts error.', {
@@ -1433,7 +1433,7 @@ export async function getGroupMembers(requesterId: string, groupId: string) {
 
     return {
       success: true,
-      members: members.map((m) => ({
+      members: members.map((m: (typeof members)[number]) => ({
         ...m.user,
         groupRole: m.role,
         joinedAt: m.joinedAt,

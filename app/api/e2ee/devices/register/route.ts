@@ -58,7 +58,11 @@ export async function POST(request: Request) {
 
     const normalizedOneTimePreKeys = normalizeOneTimePreKeys(oneTimePreKeys);
 
-    const device = await prisma.$transaction(async (tx) => {
+    const device = await prisma.$transaction(async (tx: {
+      userDevice: typeof prisma.userDevice;
+      oneTimePreKey: typeof prisma.oneTimePreKey;
+      e2EEKeyEvent: typeof prisma.e2EEKeyEvent;
+    }) => {
       if (isPrimary) {
         await tx.userDevice.updateMany({ where: { userId: session.userId }, data: { isPrimary: false } });
       }

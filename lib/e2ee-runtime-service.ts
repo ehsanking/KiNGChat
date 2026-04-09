@@ -22,7 +22,7 @@ export async function getRuntimePublicBundle(userId: string) {
       signedPreKey: primaryDevice.signedPreKey,
       signedPreKeySig: primaryDevice.signedPreKeySig,
       ratchetPublicKey: primaryDevice.ratchetPublicKey,
-      oneTimePreKeys: primaryDevice.oneTimePreKeys.map((item) => ({ keyId: item.keyId, publicKey: item.publicKey, signature: item.signature ?? undefined })),
+      oneTimePreKeys: primaryDevice.oneTimePreKeys.map((item: (typeof primaryDevice.oneTimePreKeys)[number]) => ({ keyId: item.keyId, publicKey: item.publicKey, signature: item.signature ?? undefined })),
       e2eeVersion: 'phase4',
     };
   }
@@ -59,7 +59,9 @@ export async function getRuntimePreKeyBundle(userId: string, preferredDeviceId?:
   });
   if (!device) return getRuntimePublicBundle(normalizedUserId);
 
-  const reservation = await prisma.$transaction(async (tx) => {
+  const reservation = await prisma.$transaction(async (tx: {
+    oneTimePreKey: typeof prisma.oneTimePreKey;
+  }) => {
     const key = await tx.oneTimePreKey.findFirst({
       where: { deviceId: device.id, status: 'AVAILABLE' },
       orderBy: { createdAt: 'asc' },
@@ -110,7 +112,11 @@ export async function bootstrapDeviceSession(params: {
   const recipientDevice = await prisma.userDevice.findFirstOrThrow({ where: { userId: bundle.userId, deviceId: bundle.deviceId, isRevoked: false } });
   const consumedKeyId = bundle.oneTimePreKeys[0]?.keyId ?? null;
 
-  const session = await prisma.$transaction(async (tx) => {
+  const session = await prisma.$transaction(async (tx: {
+    oneTimePreKey: typeof prisma.oneTimePreKey;
+    e2EESession: typeof prisma.e2EESession;
+    e2EEKeyEvent: typeof prisma.e2EEKeyEvent;
+  }) => {
     if (consumedKeyId) {
       const selected = await tx.oneTimePreKey.findFirst({ where: { deviceId: recipientDevice.id, keyId: consumedKeyId } });
       if (selected && selected.status !== 'CONSUMED') {

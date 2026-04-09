@@ -17,9 +17,9 @@ const tryAcquireRetentionLock = async () => {
     return true;
   }
 
-  const rows = await prisma.$queryRawUnsafe<Array<{ locked: boolean }>>(
+  const rows = await prisma.$queryRawUnsafe(
     `SELECT pg_try_advisory_lock(${RETENTION_CLEANUP_LOCK_ID}) AS locked`,
-  );
+  ) as Array<{ locked: boolean }>;
 
   return Boolean(rows?.[0]?.locked);
 };

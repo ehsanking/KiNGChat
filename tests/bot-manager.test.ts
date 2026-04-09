@@ -1,4 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    bot: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+  },
+}));
+
 import { routeBotCommand } from '@/lib/bot/bot-manager';
 
 // This only validates command pre-processing behavior via null fallback.

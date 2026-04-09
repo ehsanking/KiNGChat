@@ -34,7 +34,7 @@ export async function listBots() {
     where: { isActive: true },
     orderBy: { createdAt: 'desc' },
   });
-  return bots.map((bot) => ({ ...bot, permissions: parsePermissions(bot.permissions) }));
+  return bots.map((bot: (typeof bots)[number]) => ({ ...bot, permissions: parsePermissions(bot.permissions) }));
 }
 
 export async function getBotByToken(botId: string, apiToken: string) {

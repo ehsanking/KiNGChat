@@ -573,7 +573,7 @@ Contributions are welcome. Please follow these steps:
 ```bash
 npm run dev          # Start dev server with hot-reload
 npm run build        # Production build
-npm run lint         # ESLint check
+npm run lint         # ESLint check (warnings fail the command)
 npm run format       # Prettier auto-format
 npm test             # Run Vitest test suite
 npm run db:init:dev   # SQLite/dev bootstrap

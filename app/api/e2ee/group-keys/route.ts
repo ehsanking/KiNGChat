@@ -38,7 +38,10 @@ export async function POST(request: NextRequest) {
   });
   if (!membership) return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: {
+    groupSenderKey: typeof prisma.groupSenderKey;
+    groupSenderKeyDistribution: typeof prisma.groupSenderKeyDistribution;
+  }) => {
     await tx.groupSenderKey.upsert({
       where: { groupId_userId_deviceId: { groupId, userId: session.id, deviceId } },
       update: { chainKey, publicKey: senderPublicKey, keyGeneration },
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
   });
 
   await prisma.groupSenderKeyDistribution.updateMany({
-    where: { id: { in: pending.map((item) => item.id) } },
+    where: { id: { in: pending.map((item: (typeof pending)[number]) => item.id) } },
     data: { consumed: true },
   });
 

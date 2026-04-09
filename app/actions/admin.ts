@@ -535,7 +535,7 @@ export async function exportSystemData() {
       prisma.report.findMany(),
     ]);
     const data = {
-      users: users.map((user) => ({
+      users: users.map((user: (typeof users)[number]) => ({
         id: user.id,
         numericId: user.numericId,
         username: user.username,

@@ -95,36 +95,80 @@ const prismaLogConfig = process.env.NODE_ENV === 'development'
   ? [{ emit: 'event' as const, level: 'query' as const }, 'info' as const, 'warn' as const, 'error' as const]
   : [{ emit: 'event' as const, level: 'query' as const }, 'warn' as const, 'error' as const];
 
-const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: prismaLogConfig,
-    datasources: {
-      db: {
-        url: configuredDatabaseUrl,
-      },
+const createUnavailablePrismaClient = (reason: string): PrismaClient => {
+  const throwUnavailable = () => {
+    throw new Error(reason);
+  };
+
+  const callableProxy = new Proxy(throwUnavailable, {
+    get(_target, prop) {
+      if (prop === 'then') return undefined;
+      return callableProxy;
+    },
+    apply() {
+      throwUnavailable();
     },
   });
 
-if (process.env.NODE_ENV === 'development') {
-  (prisma as PrismaClient).$on('query' as never, (event: any) => {
-    logger.debug('Prisma query executed', {
-      durationMs: event.duration,
-      query: event.query,
-      target: event.target,
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === '$on') {
+          return () => undefined;
+        }
+        return callableProxy;
+      },
+    },
+  ) as PrismaClient;
+};
+
+const initializePrismaClient = () => {
+  try {
+    return new PrismaClient({
+      log: prismaLogConfig,
+      datasources: {
+        db: {
+          url: configuredDatabaseUrl,
+        },
+      },
     });
-  });
-} else {
-  (prisma as PrismaClient).$on('query' as never, (event: any) => {
-    const durationMs = Number(event.duration);
-    observeHistogram('elahe_db_query_duration_seconds', durationMs / 1000);
-    if (durationMs <= 100) return;
-    logger.warn('Slow Prisma query detected', {
-      durationMs,
-      query: event.query,
-      target: event.target,
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const missingGeneratedClient = message.includes('@prisma/client did not initialize yet');
+    if (missingGeneratedClient && isBuildPhase()) {
+      logger.warn('Prisma Client is unavailable during build phase; using guarded placeholder client.');
+      return createUnavailablePrismaClient(
+        'Prisma Client is unavailable during build phase. Run `npm run prisma:generate` before runtime operations.',
+      );
+    }
+    throw error;
+  }
+};
+
+const prisma = globalForPrisma.prisma || initializePrismaClient();
+
+if (typeof (prisma as PrismaClient).$on === 'function') {
+  if (process.env.NODE_ENV === 'development') {
+    (prisma as PrismaClient).$on('query' as never, (event: any) => {
+      logger.debug('Prisma query executed', {
+        durationMs: event.duration,
+        query: event.query,
+        target: event.target,
+      });
     });
-  });
+  } else {
+    (prisma as PrismaClient).$on('query' as never, (event: any) => {
+      const durationMs = Number(event.duration);
+      observeHistogram('elahe_db_query_duration_seconds', durationMs / 1000);
+      if (durationMs <= 100) return;
+      logger.warn('Slow Prisma query detected', {
+        durationMs,
+        query: event.query,
+        target: event.target,
+      });
+    });
+  }
 }
 
 export { prisma };

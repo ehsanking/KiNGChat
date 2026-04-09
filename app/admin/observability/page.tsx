@@ -91,7 +91,7 @@ export default async function ObservabilityPage() {
       <section className="rounded-xl border p-4">
         <h2 className="font-medium mb-3">Latest audit events</h2>
         <div className="space-y-2">
-          {latestAudit.map((entry) => (
+          {latestAudit.map((entry: (typeof latestAudit)[number]) => (
             <div key={entry.id} className="border-b pb-2 text-sm">
               <div className="font-medium">{entry.action}</div>
               <div>{entry.createdAt.toISOString()}</div>

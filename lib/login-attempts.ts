@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -14,7 +14,7 @@ import { logger } from '@/lib/logger';
  */
 
 const isMissingLoginAttemptTableError = (error: unknown) => {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (!(error instanceof PrismaClientKnownRequestError)) return false;
   if (error.code !== 'P2021') return false;
   const table = (error.meta as { table?: unknown } | undefined)?.table;
   return typeof table === 'string' && table.includes('LoginAttempt');

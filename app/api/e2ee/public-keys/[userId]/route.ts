@@ -38,7 +38,7 @@ export async function GET(_request: Request, context: { params: Promise<{ userId
         signedPreKey: user.signedPreKey,
         signedPreKeySig: user.signedPreKeySig,
         e2eeVersion: user.devices.length ? 'phase4' : (user.e2eeVersion ?? 'v2'),
-        devices: user.devices.map((device) => ({
+        devices: user.devices.map((device: (typeof user.devices)[number]) => ({
           deviceId: device.deviceId,
           label: device.label,
           isPrimary: device.isPrimary,

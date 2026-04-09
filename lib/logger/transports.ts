@@ -27,20 +27,14 @@ export const buildTransportTargets = (): PinoTransportTarget[] | undefined => {
   }
 
   if (destinations.includes('loki')) {
-    try {
-      // optional dependency
-      require.resolve('pino-loki');
-      targets.push({
-        target: 'pino-loki',
-        options: {
-          host: process.env.LOKI_URL,
-          labels: { app: 'elahe-messenger', env: process.env.NODE_ENV ?? 'development' },
-          interval: 5,
-        },
-      });
-    } catch {
-      // ignore missing optional transport
-    }
+    targets.push({
+      target: 'pino-loki',
+      options: {
+        host: process.env.LOKI_URL,
+        labels: { app: 'elahe-messenger', env: process.env.NODE_ENV ?? 'development' },
+        interval: 5,
+      },
+    });
   }
 
   return targets.length > 0 ? targets : undefined;
