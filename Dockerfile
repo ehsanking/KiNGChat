@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache openssl~3 libc6-compat~1
 ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY package.json package-lock.json lockfile-check.js ./
+COPY package.json package-lock.json lockfile-check.js .npmrc ./
 COPY prisma ./prisma
 RUN --mount=type=cache,target=/root/.npm \
     node ./lockfile-check.js && npm ci --no-audit --no-fund
