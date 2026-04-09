@@ -10,7 +10,7 @@ import {
   Download, Loader2, Copy, Check, BadgeCheck, Wrench, Megaphone,
   ShoppingBag, Headset, X, Plus, Users, UserPlus, MessageSquare,
   ChevronLeft, Lock,
-  ShieldAlert, ShieldOff,
+  ShieldAlert, ShieldOff, Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Forward, Reply, XCircle,
 } from 'lucide-react';
 import { getTextDirection } from '@/lib/utils';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -63,6 +63,9 @@ import { usePendingQueue } from '@/app/chat/hooks/usePendingQueue';
 import { ChatEmptyState, ConversationSecurityBanner, ConversationStatus, DraftAndConnectionStatus } from '@/app/chat/components/ChatFeedback';
 import ThemeToggleButton from '@/components/ThemeToggleButton';
 import LanguageSelector from '@/components/LanguageSelector';
+import { CallStateMachine, type CallType } from '@/lib/webrtc/call-state';
+import { getCallMediaStream, stopMediaStream } from '@/lib/webrtc/media-manager';
+import { PeerConnectionManager } from '@/lib/webrtc/peer-connection';
 
 // Import shared type definitions to replace use of `any`.
 import type { ChatUser, Report, AdminSettings, AuditLog, SocketMessagePayload, DeliveryState } from '@/lib/types';
@@ -81,6 +84,8 @@ interface ChatMessage {
   status?: DeliveryState;
   tempId?: string;
   error?: string;
+  replyToId?: string | null;
+  forwardedFrom?: string | null;
 }
 
 interface ContactUser {
@@ -165,11 +170,26 @@ function ChatDashboardContent() {
   const [isContactLocallyVerified, setIsContactLocallyVerified] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
   const [lastSeenByUser, setLastSeenByUser] = useState<Record<string, string>>({});
+  const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  const [threadRoot, setThreadRoot] = useState<ChatMessage | null>(null);
+  const [threadMessages, setThreadMessages] = useState<ChatMessage[]>([]);
+  const [showThreadView, setShowThreadView] = useState(false);
+  const [forwardMessage, setForwardMessage] = useState<ChatMessage | null>(null);
+  const [showForwardPicker, setShowForwardPicker] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<{ callId: string; fromUserId: string; type: CallType } | null>(null);
+  const [activeCall, setActiveCall] = useState<{ callId: string; peerUserId: string; type: CallType; state: string; startedAt?: number | null } | null>(null);
+  const [callSeconds, setCallSeconds] = useState(0);
+  const [localMuted, setLocalMuted] = useState(false);
+  const [videoEnabled, setVideoEnabled] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentTokensRef = useRef<Record<string, string>>({});
+  const callStateRef = useRef(new CallStateMachine());
+  const peerManagerRef = useRef<PeerConnectionManager | null>(null);
+  const localCallStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const pendingQueueStorageKey = buildPendingQueueStorageKey(currentUser?.id);
   const currentConversationId = buildConversationId(currentUser?.id, selectedRecipient?.id, selectedGroup?.id);
 
@@ -345,6 +365,8 @@ function ChatDashboardContent() {
             createdAt: data.createdAt,
             encrypted: !!data.nonce,
             status: data.deliveryStatus || 'DELIVERED',
+            replyToId: data.replyToId || null,
+            forwardedFrom: data.forwardedFrom || null,
           }]);
           setIsOtherUserTyping(false);
         });
@@ -362,6 +384,88 @@ function ChatDashboardContent() {
           } : msg));
           const remaining = pendingQueueRef.current.filter((item) => item.tempId !== tempId);
           persistPendingQueue(remaining);
+        });
+
+
+        activeSocket.on('thread:updated', () => {
+          if (showThreadView && threadRoot) {
+            void fetchThread(threadRoot);
+          }
+        });
+
+        activeSocket.on('call:ring', (payload: { callId: string; fromUserId: string; type: CallType }) => {
+          setIncomingCall(payload);
+          callStateRef.current.ring(payload.callId, payload.fromUserId, payload.type);
+        });
+
+        activeSocket.on('call:accept', async (payload: { callId: string; toUserId: string; type: CallType }) => {
+          if (!currentUser?.id || payload.toUserId !== currentUser.id) return;
+          const stream = await getCallMediaStream({ type: payload.type });
+          localCallStreamRef.current = stream;
+          const peer = new PeerConnectionManager({
+            turnUrl: process.env.NEXT_PUBLIC_TURN_URL || process.env.NEXT_PUBLIC_TURN_URL_FALLBACK,
+            turnUsername: process.env.NEXT_PUBLIC_TURN_USERNAME,
+            turnCredential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
+          });
+          peer.attachLocalStream(stream);
+          peer.connection.onicecandidate = (event) => {
+            if (!event.candidate || !selectedRecipient?.id) return;
+            activeSocket?.emit('call:ice-candidate', { callId: payload.callId, toUserId: selectedRecipient.id, type: payload.type, candidate: event.candidate.toJSON() });
+          };
+          peer.connection.ontrack = (event) => {
+            const remote = event.streams[0];
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remote;
+          };
+          const offer = await peer.createOffer();
+          activeSocket?.emit('call:offer', { callId: payload.callId, toUserId: selectedRecipient?.id, type: payload.type, offer });
+          peerManagerRef.current = peer;
+          setActiveCall({ callId: payload.callId, peerUserId: selectedRecipient?.id || '', type: payload.type, state: 'connected', startedAt: Date.now() });
+          callStateRef.current.connect();
+        });
+
+        activeSocket.on('call:offer', async (payload: any) => {
+          const stream = await getCallMediaStream({ type: payload.type });
+          localCallStreamRef.current = stream;
+          const peer = new PeerConnectionManager({
+            turnUrl: process.env.NEXT_PUBLIC_TURN_URL || process.env.NEXT_PUBLIC_TURN_URL_FALLBACK,
+            turnUsername: process.env.NEXT_PUBLIC_TURN_USERNAME,
+            turnCredential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
+          });
+          peer.attachLocalStream(stream);
+          await peer.applyRemoteDescription(payload.offer);
+          peer.connection.onicecandidate = (event) => {
+            if (!event.candidate) return;
+            activeSocket?.emit('call:ice-candidate', { callId: payload.callId, toUserId: payload.fromUserId, type: payload.type, candidate: event.candidate.toJSON() });
+          };
+          peer.connection.ontrack = (event) => {
+            const remote = event.streams[0];
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remote;
+          };
+          const answer = await peer.createAnswer();
+          activeSocket?.emit('call:answer', { callId: payload.callId, toUserId: payload.fromUserId, type: payload.type, answer });
+          peerManagerRef.current = peer;
+          setActiveCall({ callId: payload.callId, peerUserId: payload.fromUserId, type: payload.type, state: 'connected', startedAt: Date.now() });
+          callStateRef.current.connect();
+        });
+
+        activeSocket.on('call:answer', async (payload: any) => {
+          await peerManagerRef.current?.applyRemoteDescription(payload.answer);
+        });
+
+        activeSocket.on('call:ice-candidate', async (payload: any) => {
+          await peerManagerRef.current?.addIceCandidate(payload.candidate);
+        });
+
+        activeSocket.on('call:end', () => {
+          peerManagerRef.current?.cleanup();
+          peerManagerRef.current = null;
+          stopMediaStream(localCallStreamRef.current);
+          localCallStreamRef.current = null;
+          setActiveCall(null);
+          setIncomingCall(null);
+          setCallSeconds(0);
+          callStateRef.current.end();
+          callStateRef.current.reset();
         });
 
         activeSocket.on('userTyping', (data: any) => {
@@ -519,6 +623,8 @@ function ChatDashboardContent() {
             createdAt: msg.createdAt ? new Date(msg.createdAt).toISOString() : undefined,
             encrypted: !!msg.nonce,
             status: (msg.deliveryStatus || (msg.readAt ? 'READ' : msg.deliveredAt ? 'DELIVERED' : 'SENT')) as DeliveryState,
+            replyToId: msg.replyToId || null,
+            forwardedFrom: msg.forwardedFrom || null,
           });
         }
         setMessages(decryptedMessages);
@@ -743,6 +849,7 @@ function ChatDashboardContent() {
       nonce,
       plaintext: input,
       type: 0,
+      replyToId: replyTarget?.id,
     };
 
     setMessages((prev) => [...prev, {
@@ -752,6 +859,7 @@ function ChatDashboardContent() {
       sender: 'me',
       encrypted: !!nonce,
       status: isOnline && socket ? 'SENT' : 'QUEUED',
+      replyToId: replyTarget?.id ?? null,
     }]);
 
     if (isOnline && socket) {
@@ -761,6 +869,7 @@ function ChatDashboardContent() {
     }
 
     setInput('');
+    setReplyTarget(null);
     setComposeWarning(null);
     if (currentConversationId) {
       const storageKey = buildDraftStorageKey(currentUser.id, selectedRecipient?.id, selectedGroup?.id);
@@ -995,6 +1104,44 @@ function ChatDashboardContent() {
     router.push('/auth/login');
   };
 
+
+  useEffect(() => {
+    if (!activeCall?.startedAt) return;
+    const t = setInterval(() => setCallSeconds(Math.floor((Date.now() - activeCall.startedAt!) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [activeCall?.startedAt]);
+
+  const startCall = async (type: CallType) => {
+    if (!socket || !selectedRecipient?.id || !currentUser?.id) return;
+    const callId = `${Date.now()}-${currentUser.id}`;
+    socket.emit('call:initiate', { callId, toUserId: selectedRecipient.id, fromUserId: currentUser.id, type });
+    callStateRef.current.ring(callId, selectedRecipient.id, type);
+    setActiveCall({ callId, peerUserId: selectedRecipient.id, type, state: 'ringing', startedAt: null });
+  };
+
+  const acceptIncomingCall = () => {
+    if (!socket || !incomingCall || !currentUser?.id) return;
+    socket.emit('call:accept', { ...incomingCall, fromUserId: incomingCall.fromUserId, toUserId: currentUser.id });
+    setIncomingCall(null);
+  };
+
+  const rejectIncomingCall = () => {
+    if (!socket || !incomingCall || !currentUser?.id) return;
+    socket.emit('call:reject', { ...incomingCall, fromUserId: incomingCall.fromUserId, toUserId: currentUser.id });
+    setIncomingCall(null);
+  };
+
+  const endActiveCall = () => {
+    if (!socket || !activeCall || !currentUser?.id) return;
+    socket.emit('call:end', { callId: activeCall.callId, fromUserId: currentUser.id, toUserId: activeCall.peerUserId, type: activeCall.type });
+    peerManagerRef.current?.cleanup();
+    peerManagerRef.current = null;
+    stopMediaStream(localCallStreamRef.current);
+    localCallStreamRef.current = null;
+    setActiveCall(null);
+    setCallSeconds(0);
+  };
+
   if (!currentUser) return null;
 
   const chatTarget = selectedRecipient || selectedGroup;
@@ -1002,6 +1149,50 @@ function ChatDashboardContent() {
   const channels = communities.filter(c => c.type === 'CHANNEL');
 
   // ── Shared sub-components ──────────────────────
+
+
+  const fetchThread = async (root: ChatMessage) => {
+    const res = await fetch(`/api/messages/thread/${root.id}`, { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data?.success) return;
+    const mapped: ChatMessage[] = [data.root, ...(data.messages || [])].map((msg: any) => ({
+      id: msg.id,
+      text: msg.ciphertext || '',
+      sender: msg.senderId === currentUser?.id ? 'me' : 'them',
+      senderId: msg.senderId,
+      type: msg.type,
+      createdAt: msg.createdAt ? new Date(msg.createdAt).toISOString() : undefined,
+      encrypted: !!msg.nonce,
+      replyToId: msg.replyToId || null,
+      forwardedFrom: msg.forwardedFrom || null,
+    }));
+    setThreadRoot(mapped[0] || null);
+    setThreadMessages(mapped.slice(1));
+    setShowThreadView(true);
+  };
+
+  const replyCountByRoot = messages.reduce<Record<string, number>>((acc, msg) => {
+    if (!msg.replyToId) return acc;
+    acc[msg.replyToId] = (acc[msg.replyToId] || 0) + 1;
+    return acc;
+  }, {});
+
+  const openForwardPicker = (msg: ChatMessage) => {
+    setForwardMessage(msg);
+    setShowForwardPicker(true);
+  };
+
+  const handleForwardTarget = (target: { recipientId?: string; groupId?: string }) => {
+    if (!socket || !forwardMessage) return;
+    socket.emit('message:forward', {
+      messageId: forwardMessage.id,
+      recipientId: target.recipientId,
+      groupId: target.groupId,
+    });
+    setShowForwardPicker(false);
+    setForwardMessage(null);
+  };
 
   const renderSearchBar = () => (
     <div className="p-3">
@@ -1192,6 +1383,12 @@ function ChatDashboardContent() {
             />
             {selectedRecipient && !onlineUsers[selectedRecipient.id] && lastSeenByUser[selectedRecipient.id] ? <p className="text-[10px] text-[var(--text-muted)]">Last seen {new Date(lastSeenByUser[selectedRecipient.id]).toLocaleString()}</p> : null}
           </div>
+          {selectedRecipient ? (
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => void startCall('voice')} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-300" title="Voice call"><Phone className="w-4 h-4" /></button>
+              <button type="button" onClick={() => void startCall('video')} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-300" title="Video call"><Video className="w-4 h-4" /></button>
+            </div>
+          ) : null}
           <LanguageSelector className="hidden md:inline-flex" />
           <ThemeToggleButton />
         </div>
@@ -1243,9 +1440,15 @@ function ChatDashboardContent() {
                       </button>
                     </div>
                   ) : (
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
+                    <div>
+                      {msg.forwardedFrom ? <p className="text-[10px] opacity-70 mb-1">Forwarded from {msg.forwardedFrom}</p> : null}
+                      {msg.replyToId ? <p className="text-[10px] opacity-70 mb-1">Reply in thread</p> : null}
+                      <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
+                    </div>
                   )}
                   <div className="flex items-center gap-2 mt-1 opacity-60 flex-wrap">
+                    <button type="button" onClick={() => setReplyTarget(msg)} className="text-[9px] inline-flex items-center gap-1"><Reply className="w-3 h-3" />Reply</button>
+                    <button type="button" onClick={() => openForwardPicker(msg)} className="text-[9px] inline-flex items-center gap-1"><Forward className="w-3 h-3" />Forward</button>
                     {msg.encrypted && (
                       <div className="flex items-center gap-1">
                         <Lock className="w-2.5 h-2.5" />
@@ -1258,6 +1461,9 @@ function ChatDashboardContent() {
                     )}
                   </div>
                 </div>
+                {replyCountByRoot[msg.id] ? (
+                  <button type="button" onClick={() => void fetchThread(msg)} className="mt-1 text-[10px] text-zinc-400 hover:text-zinc-200">View Thread ({replyCountByRoot[msg.id]} replies)</button>
+                ) : null}
               </div>
             ))
           )}
@@ -1281,6 +1487,15 @@ function ChatDashboardContent() {
               {composeWarning}
             </div>
           )}
+          {replyTarget ? (
+            <div className="mb-2 flex items-start justify-between rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs">
+              <div>
+                <p className="text-zinc-400">Replying to message</p>
+                <p className="truncate max-w-[40ch]">{replyTarget.text}</p>
+              </div>
+              <button type="button" onClick={() => setReplyTarget(null)}><XCircle className="w-4 h-4" /></button>
+            </div>
+          ) : null}
           <form onSubmit={sendMessage} className="flex gap-2">
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
             <button
@@ -1307,6 +1522,86 @@ function ChatDashboardContent() {
             </button>
           </form>
         </div>
+
+        {incomingCall ? (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-4 text-center">
+              <p className="text-sm mb-3">Incoming {incomingCall.type} call</p>
+              <div className="flex justify-center gap-3">
+                <button type="button" onClick={acceptIncomingCall} className="rounded-full bg-emerald-600 p-3"><Phone className="w-5 h-5" /></button>
+                <button type="button" onClick={rejectIncomingCall} className="rounded-full bg-rose-600 p-3"><PhoneOff className="w-5 h-5" /></button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {activeCall ? (
+          <div className="absolute bottom-4 left-1/2 z-20 w-[min(95%,520px)] -translate-x-1/2 rounded-xl border border-zinc-700 bg-zinc-950/95 p-3">
+            <div className="mb-2 flex items-center justify-between text-xs text-zinc-300">
+              <span>{activeCall.type} call • {callSeconds}s</span>
+              <span>{activeCall.state}</span>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <button type="button" onClick={() => {
+                const stream = localCallStreamRef.current;
+                if (!stream) return;
+                const next = !localMuted;
+                stream.getAudioTracks().forEach((track) => { track.enabled = !next; });
+                setLocalMuted(next);
+              }} className="rounded-full bg-zinc-800 p-3">{localMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}</button>
+              {activeCall.type === 'video' ? <button type="button" onClick={() => {
+                const stream = localCallStreamRef.current;
+                if (!stream) return;
+                const next = !videoEnabled;
+                stream.getVideoTracks().forEach((track) => { track.enabled = next; });
+                setVideoEnabled(next);
+              }} className="rounded-full bg-zinc-800 p-3">{videoEnabled ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}</button> : null}
+              <button type="button" onClick={endActiveCall} className="rounded-full bg-rose-600 p-3"><PhoneOff className="w-4 h-4" /></button>
+            </div>
+          </div>
+        ) : null}
+
+        {showThreadView && threadRoot ? (
+          <div className="absolute inset-0 z-20 bg-black/70 p-4">
+            <div className="mx-auto flex h-full max-w-2xl flex-col rounded-xl border border-zinc-700 bg-zinc-900">
+              <div className="flex items-center justify-between border-b border-zinc-700 p-3">
+                <p className="text-sm font-medium">Thread</p>
+                <button type="button" onClick={() => setShowThreadView(false)}><X className="w-4 h-4" /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-2 text-sm">
+                <div className="rounded-lg bg-zinc-800 p-2">{threadRoot.text}</div>
+                {threadMessages.map((threadMsg) => (<div key={threadMsg.id} className="rounded-lg bg-zinc-800/70 p-2">{threadMsg.text}</div>))}
+              </div>
+              <div className="border-t border-zinc-700 p-3">
+                <button type="button" onClick={() => {
+                  setReplyTarget(threadRoot);
+                  setShowThreadView(false);
+                }} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs">Reply in thread</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {showForwardPicker ? (
+          <div className="absolute inset-0 z-20 bg-black/70 p-4">
+            <div className="mx-auto max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-medium">Forward message</p>
+                <button type="button" onClick={() => setShowForwardPicker(false)}><X className="w-4 h-4" /></button>
+              </div>
+              <div className="max-h-72 overflow-y-auto space-y-1">
+                {contacts.map((contact) => (
+                  <button key={contact.id} type="button" onClick={() => handleForwardTarget({ recipientId: contact.id })} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-zinc-800">{getUserDisplayName(contact)}</button>
+                ))}
+                {communities.map((community) => (
+                  <button key={community.id} type="button" onClick={() => handleForwardTarget({ groupId: community.id })} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-zinc-800">#{community.name}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <audio ref={remoteAudioRef} autoPlay className="hidden" />
       </>
     ) : (
       /* No chat selected — only visible on desktop */
@@ -1410,6 +1705,9 @@ function ChatDashboardContent() {
                     </div>
                   )}
                 </div>
+                {replyCountByRoot[msg.id] ? (
+                  <button type="button" onClick={() => void fetchThread(msg)} className="mt-1 text-[10px] text-zinc-400 hover:text-zinc-200">View Thread ({replyCountByRoot[msg.id]} replies)</button>
+                ) : null}
               </div>
             ))}
           </div>

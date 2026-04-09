@@ -51,6 +51,9 @@ model User {
 
   // Relationships
   sentMessages     Message[]      @relation("SentMessages")
+  botProfiles       Bot[]          @relation("BotOwner")
+  initiatedCalls    CallLog[]      @relation("CallLogCaller")
+  receivedCalls     CallLog[]      @relation("CallLogRecipient")
   receivedMessages Message[]      @relation("ReceivedMessages")
   groupMemberships GroupMember[]
   groupSenderKeys GroupSenderKey[]
@@ -118,6 +121,7 @@ model Message {
   replyToId     String?
   expiresAt     DateTime? // When the message should expire
   ttlSeconds    Int?      // TTL value selected at send time
+  forwardedFrom String?
   createdAt   DateTime @default(now())
   isDeleted   Boolean  @default(false)
 
@@ -171,6 +175,41 @@ model MessageDraft {
 
   @@unique([userId, conversationKey])
   @@index([userId, updatedAt])
+}
+
+model CallLog {
+  id          String   @id @default(uuid())
+  callerId    String
+  recipientId String
+  type        String   // voice, video
+  status      String   // initiated, ringing, connected, rejected, ended, missed
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  duration    Int?
+
+  caller    User @relation("CallLogCaller", fields: [callerId], references: [id], onDelete: Cascade)
+  recipient User @relation("CallLogRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([callerId, startedAt])
+  @@index([recipientId, startedAt])
+}
+
+model Bot {
+  id          String   @id @default(uuid())
+  name        String
+  username    String   @unique
+  avatarUrl   String?
+  ownerId     String
+  webhookUrl  String
+  apiToken    String   @unique
+  isActive    Boolean  @default(true)
+  permissions String   @default("[]")
+  createdAt   DateTime @default(now())
+
+  owner User @relation("BotOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, createdAt])
+  @@index([isActive, createdAt])
 }
 
 model Contact {

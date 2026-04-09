@@ -22,6 +22,7 @@ export type SocketMessagePayload = {
   editedAt?: string | null;
   replyToId?: string | null;
   replyTo?: { id: string; senderId: string; ciphertext: string; nonce: string; createdAt: string; isDeleted?: boolean } | null;
+  forwardedFrom?: string | null;
   reactions?: Array<{ emoji: string; userId: string; createdAt: string }> ;
   keyGeneration?: number | null;
   messageIndex?: number | null;

@@ -13,6 +13,7 @@ export type SendMessageDto = {
   tempId?: string | null;
   idempotencyKey?: string | null;
   replyToId?: string | null;
+  forwardedFrom?: string | null;
   keyGeneration?: number | null;
   messageIndex?: number | null;
   ttlSeconds?: number | null;
@@ -41,6 +42,7 @@ export const parseSendMessageDto = (value: unknown): SendMessageDto | null => {
   const tempId = typeof data.tempId === 'string' ? data.tempId.trim() : null;
   const idempotencyKey = typeof data.idempotencyKey === 'string' ? data.idempotencyKey.trim() : tempId;
   const replyToId = typeof data.replyToId === 'string' ? data.replyToId.trim() : null;
+  const forwardedFrom = typeof data.forwardedFrom === 'string' ? data.forwardedFrom.trim().slice(0, 120) : null;
   const wrappedFileKey = typeof data.wrappedFileKey === 'string' ? data.wrappedFileKey.trim() : null;
   const wrappedFileKeyNonce = typeof data.wrappedFileKeyNonce === 'string' ? data.wrappedFileKeyNonce.trim() : null;
   const fileNonce = typeof data.fileNonce === 'string' ? data.fileNonce.trim() : null;
@@ -76,6 +78,7 @@ export const parseSendMessageDto = (value: unknown): SendMessageDto | null => {
     tempId,
     idempotencyKey,
     replyToId,
+    forwardedFrom,
     keyGeneration,
     messageIndex,
     ttlSeconds,
