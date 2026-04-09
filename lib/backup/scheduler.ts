@@ -1,8 +1,8 @@
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import { logger } from '@/lib/logger';
 import { triggerBackupNow } from '@/lib/backup/service';
 
-let backupTask: cron.ScheduledTask | null = null;
+let backupTask: ScheduledTask | null = null;
 
 export const startBackupScheduler = () => {
   const enabled = String(process.env.BACKUP_ENABLED ?? 'true').toLowerCase() === 'true';
