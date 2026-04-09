@@ -61,7 +61,7 @@ jobs:
             ${{ runner.os }}-next-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}-
 
       - name: Install dependencies
-        run: npm ci --no-fund
+        run: npm ci --no-fund --ignore-scripts
 
       - name: Generate Prisma client
         run: npx prisma generate
