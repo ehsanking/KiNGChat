@@ -118,10 +118,12 @@ const mapJobToQueue = (jobName: string) => {
   return 'email' as const;
 };
 
+const shouldUseBullQueue = () => isRedisConfigured() && process.env.NODE_ENV !== 'test';
+
 export const enqueueBackgroundJob = async (job: BackgroundJob) => {
   incrementMetric('background_jobs_enqueued', 1, { job: job.name });
 
-  if (isRedisConfigured()) {
+  if (shouldUseBullQueue()) {
     const queued = await enqueueBullJob(mapJobToQueue(job.name), job.name, job.payload as never, {
       delayMs: job.runAfter && job.runAfter > Date.now() ? job.runAfter - Date.now() : undefined,
       attempts: job.maxAttempts,
@@ -140,7 +142,7 @@ export const startBackgroundJobWorker = async () => {
   if (workerStarted) return;
   workerStarted = true;
   await startQueueWorkers();
-  logger.info('Background job worker started', { mode: isRedisConfigured() ? 'bullmq' : 'memory' });
+  logger.info('Background job worker started', { mode: shouldUseBullQueue() ? 'bullmq' : 'memory' });
 };
 
 export const stopBackgroundJobWorker = async () => {
@@ -149,9 +151,9 @@ export const stopBackgroundJobWorker = async () => {
 };
 
 export const getBackgroundQueueSnapshot = async () => {
-  const bull = await getQueueDashboardSnapshot();
+  const bull = shouldUseBullQueue() ? await getQueueDashboardSnapshot() : {};
   return {
-    mode: isRedisConfigured() ? 'bullmq' : 'local',
+    mode: shouldUseBullQueue() ? 'bullmq' : 'local',
     concurrency: getQueueConcurrency(),
     inMemoryPending: localQueue.size,
     inMemoryActive: localQueue.pending,

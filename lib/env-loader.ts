@@ -26,17 +26,22 @@ const parseEnvFile = (filePath: string): Record<string, string> => {
   return result;
 };
 
-export function loadApplicationEnvironment(options?: { cwd?: string; forceMode?: 'development' | 'production' }) {
+export function loadApplicationEnvironment(options?: {
+  cwd?: string;
+  forceMode?: 'development' | 'production';
+  preserveExisting?: boolean;
+}) {
   const cwd = options?.cwd ?? process.cwd();
   const mode = options?.forceMode ?? (process.env.NODE_ENV === 'production' ? 'production' : 'development');
   const files = mode === 'production' ? ['.env'] : ['.env', '.env.local'];
+  const preserveExisting = options?.preserveExisting ?? !options?.forceMode;
 
   const preexisting = new Set(Object.keys(process.env));
 
   for (const file of files) {
     const values = parseEnvFile(path.join(cwd, file));
     for (const [key, value] of Object.entries(values)) {
-      if (preexisting.has(key)) continue;
+      if (preserveExisting && preexisting.has(key)) continue;
       process.env[key] = value;
     }
   }
