@@ -214,9 +214,9 @@ export async function rateLimit(key: string, options: RateLimitOptions = {}): Pr
 /**
  * Build HTTP response headers for the computed rate-limit result.
  */
-export function getRateLimitHeaders(result: RateLimitResult): Record<string, string> {
+export function getRateLimitHeaders(result: RateLimitResult, max = getDefaultMax()): Record<string, string> {
   return {
-    'X-RateLimit-Limit': String(getDefaultMax()),
+    'X-RateLimit-Limit': String(max),
     'X-RateLimit-Remaining': String(result.remaining),
     'X-RateLimit-Reset': String(Math.ceil(result.resetAt / 1000)),
   };
@@ -247,7 +247,7 @@ export async function withRateLimit(presetName: RateLimitPresetName, handler: Ra
     const key = `${presetName}:${ip}:${request.nextUrl.pathname}`;
     const result = await rateLimit(key, preset);
     const headers = {
-      ...getRateLimitHeaders(result),
+      ...getRateLimitHeaders(result, preset.max),
       'Retry-After': String(Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))),
     };
 

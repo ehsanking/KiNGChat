@@ -1,0 +1,27 @@
+services:
+  api:
+    extends:
+      file: docker-compose.yml
+      service: app
+    container_name: elahe-api
+    environment:
+      - RUNTIME_MODE=api
+
+  worker:
+    extends:
+      file: docker-compose.yml
+      service: app
+    container_name: elahe-worker
+    environment:
+      - RUNTIME_MODE=worker
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    depends_on:
+      api:
+        condition: service_healthy
+
+  app:
+    profiles: ["disabled"]

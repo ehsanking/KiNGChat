@@ -1795,26 +1795,16 @@ verify_post_launch_health() {
 
 print_summary() {
   log_step "Complete"
-  local summary_admin_username summary_admin_password summary_bootstrap_password_file
+  local summary_admin_username
   local summary_db_host summary_db_port summary_db_name summary_db_app_user summary_db_admin_user
-  local summary_db_app_password summary_db_admin_password
   summary_admin_username="${ADMIN_USERNAME_VALUE:-$(env_get ADMIN_USERNAME)}"
-  summary_admin_password="${ADMIN_PASSWORD_VALUE:-}"
   summary_db_host="db"
   summary_db_port="5432"
   summary_db_name="$(env_get APP_DB_NAME)"
   summary_db_app_user="$(env_get APP_DB_USER)"
   summary_db_admin_user="$(env_get POSTGRES_USER)"
-  summary_db_app_password="$(env_get APP_DB_PASSWORD)"
-  summary_db_admin_password="$(env_get POSTGRES_PASSWORD)"
   [ -n "$summary_db_name" ] || summary_db_name="$(env_get POSTGRES_DB)"
   [ -n "$summary_db_app_user" ] || summary_db_app_user="$(env_get POSTGRES_USER)"
-  if [ -z "$summary_admin_password" ]; then
-    summary_bootstrap_password_file="$TARGET_DIR/runtime/admin-bootstrap-password"
-    if [ -f "$summary_bootstrap_password_file" ]; then
-      summary_admin_password="$(head -n 1 "$summary_bootstrap_password_file" | tr -d '\r')"
-    fi
-  fi
 
   echo "Mode: $INSTALL_MODE"
   echo "Source ref: ${INSTALL_REF_RESOLVED:-unknown} (${INSTALL_REF_TYPE:-unknown})"
@@ -1827,10 +1817,8 @@ print_summary() {
   if [ -n "$summary_admin_username" ]; then
     echo "Admin login username: ${summary_admin_username}"
   fi
-  if [ -n "$summary_admin_password" ]; then
-    echo "Admin login password: ${summary_admin_password}"
-  elif [ "$INSTALL_MODE" = "fresh" ] && [ "$ADMIN_AUTO_GENERATED" != true ]; then
-    echo "Admin login password: (the password you entered during installation)"
+  if [ "$INSTALL_MODE" = "fresh" ] && [ "$ADMIN_AUTO_GENERATED" != true ]; then
+    echo "Admin login password: entered interactively (not printed)."
   fi
   if [ "$INSTALL_MODE" = "upgrade" ]; then
     echo "Admin bootstrap env vars are create-only by default and do not overwrite an existing admin user."
@@ -1857,11 +1845,7 @@ print_summary() {
     fi
     echo "DNS guidance: set domain A record to IPv4 and AAAA record to IPv6 (if available)."
   fi
-  if [ -n "$summary_admin_password" ]; then
-    echo "Admin password was printed above for initial login. Keep it secure and rotate after first login."
-  else
-    echo "No admin password was printed to terminal output."
-  fi
+  echo "Admin password is never printed. Use bootstrap secret files for credential handoff."
   if [ "$CADDY_RUNTIME_VALIDATED" = true ]; then
     echo "Caddy runtime config validated inside container."
   fi
@@ -1879,17 +1863,12 @@ print_summary() {
   if [ -n "$summary_db_admin_user" ]; then
     echo "Database admin user: ${summary_db_admin_user}"
   fi
-  if [ -n "$summary_db_app_password" ]; then
-    echo "Database app password: ${summary_db_app_password}"
-  fi
-  if [ -n "$summary_db_admin_password" ]; then
-    echo "Database admin password: ${summary_db_admin_password}"
-  fi
-  echo "Rotate admin and database passwords after initial verification."
+  echo "Rotate bootstrap/admin/database secrets after initial verification per policy."
   echo "PostgreSQL remains internal to Docker network by default (no host 5432 publish)."
   echo "Firewall (UFW) is operator-managed and was not auto-enabled by installer."
   echo "Caddy handles TLS renewals internally; no extra cron entry was installed."
 }
+
 
 main() {
   local os_name

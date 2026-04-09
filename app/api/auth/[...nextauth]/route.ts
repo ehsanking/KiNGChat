@@ -44,13 +44,14 @@ const applyCallbackRateLimit = async (request: NextRequest) => {
   const path = request.nextUrl.pathname;
   if (!path.includes('/api/auth/callback/')) return null;
   const provider = path.split('/').pop() || 'unknown';
-  const result = await rateLimit(`oauth-callback:${provider}:${ip}`, rateLimitPreset('login'));
+  const loginPreset = rateLimitPreset('login');
+  const result = await rateLimit(`oauth-callback:${provider}:${ip}`, loginPreset);
   if (result.allowed) return null;
   return new Response(JSON.stringify({ error: 'Too many OAuth callback attempts. Please try again later.' }), {
     status: 429,
     headers: {
       'content-type': 'application/json',
-      ...getRateLimitHeaders(result),
+      ...getRateLimitHeaders(result, loginPreset.max),
     },
   });
 };

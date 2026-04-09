@@ -79,25 +79,6 @@ services:
       - elahe-net
 
 
-  api:
-    extends:
-      service: app
-    container_name: elahe-api
-    profiles: ["split"]
-    environment:
-      - RUNTIME_MODE=api
-
-  worker:
-    extends:
-      service: app
-    container_name: elahe-worker
-    profiles: ["split"]
-    environment:
-      - RUNTIME_MODE=worker
-    depends_on:
-      db:
-        condition: service_healthy
-
   caddy:
     image: caddy:2-alpine
     container_name: elahe-caddy
@@ -141,34 +122,8 @@ services:
     networks:
       - elahe-net
 
-  # Automated backup service — runs the backup script daily.
-  # Stores up to BACKUP_MAX_RETENTION (default 30) JSON snapshots.
-  backup:
-    image: elahe-app
-    container_name: elahe-backup
-    restart: "no"
-    entrypoint: [""]
-    command: >
-      sh -c "
-        while true; do
-          echo '[backup-cron] Running scheduled backup...'
-          npx tsx scripts/backup.ts 2>&1
-          echo '[backup-cron] Next run in 24h.'
-          sleep 86400
-        done
-      "
-    environment:
-      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
-      - BACKUP_OUTPUT_DIR=/app/backups
-      - BACKUP_MAX_RETENTION=${BACKUP_MAX_RETENTION:-30}
-      - NODE_ENV=production
-    volumes:
-      - backup_data:/app/backups
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - elahe-net
+  # Backup scheduling is handled by the in-process worker scheduler in the
+  # authoritative app runtime. No separate backup container is defined here.
 
   # The MinIO service has been removed in favour of local storage.  If you
   # wish to use object storage, configure an external MinIO or S3 service
@@ -184,4 +139,3 @@ volumes:
   caddy_config:
   object_storage_data:
   runtime_state_data:
-  backup_data:

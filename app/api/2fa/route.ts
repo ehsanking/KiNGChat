@@ -25,8 +25,9 @@ export async function POST(request: Request) {
     // Rate limit 2FA verification attempts per IP and userId to mitigate brute force
     // attacks.  Limit to 5 attempts per five minutes.  A lockout response is
     // returned when the limit is exceeded.
-    const rateResult = await rateLimit(`2fa:${ip}:${userId}`, rateLimitPreset('2fa'));
-    const rateHeaders = getRateLimitHeaders(rateResult);
+    const twoFaPreset = rateLimitPreset('2fa');
+    const rateResult = await rateLimit(`2fa:${ip}:${userId}`, twoFaPreset);
+    const rateHeaders = getRateLimitHeaders(rateResult, twoFaPreset.max);
     if (!rateResult.allowed) {
       return NextResponse.json(
         { error: 'Too many 2FA verification attempts. Please try again later.' },

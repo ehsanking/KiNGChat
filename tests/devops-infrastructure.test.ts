@@ -76,9 +76,9 @@ describe('Docker Compose', () => {
     expect(compose).toContain('object_storage_data:');
   });
 
-  it('should include a backup service', () => {
-    expect(compose).toContain('elahe-backup');
-    expect(compose).toContain('backup_data');
+  it('should keep backup scheduling in worker runtime (no separate backup service)', () => {
+    expect(compose).not.toContain('elahe-backup');
+    expect(compose).not.toContain('backup_data');
   });
 
   it('should require critical secrets', () => {

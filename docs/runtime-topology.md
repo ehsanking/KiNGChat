@@ -36,6 +36,16 @@ The startup responsibilities are now separated into focused runtime modules unde
 - Monolithic app container/process by default (web + socket + worker together).
 - PostgreSQL is the persistence source of truth via Prisma.
 - Redis remains optional for socket scaling and shared rate-limit/queue style behavior.
+- Backup scheduling is authoritative in worker runtime (`scheduled_backup`); there is no separate backup container in the default topology.
+
+## Explicit split topology
+
+When split mode is needed, use `compose.split.yaml` together with the base and production compose files.
+
+- `api` runs API + Socket.IO responsibilities only (`RUNTIME_MODE=api`).
+- `worker` runs background responsibilities only (`RUNTIME_MODE=worker`).
+- `caddy` depends on `api` in split mode.
+- Base `app` service is disabled in split topology to prevent duplicate workers/schedulers.
 
 ## Recommended future split points
 

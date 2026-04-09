@@ -23,8 +23,9 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
 
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-    const rateResult = await rateLimit(`login:${ip}`, rateLimitPreset('login'));
-    const rateHeaders = getRateLimitHeaders(rateResult);
+    const loginPreset = rateLimitPreset('login');
+    const rateResult = await rateLimit(`login:${ip}`, loginPreset);
+    const rateHeaders = getRateLimitHeaders(rateResult, loginPreset.max);
     if (!rateResult.allowed) {
       return NextResponse.json(
         { error: 'Too many login attempts. Please try again later.' },

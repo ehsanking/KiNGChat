@@ -328,6 +328,14 @@ Environment loading policy:
 | `SOCKET_RATE_LIMIT_MAX` | `30` | Max socket events per window |
 
 ---
+### CI Security Automation
+
+- Dependabot is configured for npm, Docker, and GitHub Actions (`.github/dependabot.yml`).
+- Container image scanning runs with Trivy and uploads SARIF to GitHub Security tab (`.github/workflows/container-security.yml`).
+- Repository secret scanning runs with Gitleaks on push/PR (`.github/workflows/secret-scan.yml`).
+
+---
+
 
 ## Docker Deployment
 
@@ -351,6 +359,23 @@ docker compose -f docker-compose.yml -f compose.prod.yaml --env-file .env.produc
 `--env-file .env.production` is required so Compose can interpolate `${VAR}` values in the compose model (while `env_file:` only affects container runtime environment).
 
 > Security note: define production credentials explicitly via `.env.production` (or Docker secrets) before startup.
+
+### Split runtime mode (optional)
+
+Use split mode only when you need independent scaling for API/socket and background workers.
+
+```bash
+# API + worker split using explicit topology override
+docker compose \
+  -f docker-compose.yml \
+  -f compose.prod.yaml \
+  -f compose.split.yaml \
+  --env-file .env.production \
+  up -d --build
+```
+
+In split mode, `api` handles HTTP/Socket.IO only and `worker` handles background jobs only.
+Caddy targets `api` in this topology, and the base `app` service is disabled to avoid duplicate schedulers.
 
 Container names and services:
 
@@ -400,6 +425,7 @@ Container names and services:
 - Database dumps and volume backups can contain sensitive metadata and ciphertext payloads; protect backups with encryption-at-rest and strict access controls.
 - If host disk/volume data (`pgdata`) is unencrypted and host is compromised, DB contents can be copied even without network DB exposure.
 - Keep backup artifacts out of git and out of web-served paths.
+- Automated backups are scheduled by the worker runtime (`scheduled_backup` job). Do not run an additional backup container in parallel.
 
 ### UFW (manual, opt-in, operator-aware)
 

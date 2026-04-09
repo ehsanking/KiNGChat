@@ -62,3 +62,15 @@ docker compose exec -T db sh -lc 'PGPASSWORD="$POSTGRES_PASSWORD" psql -U "$POST
 
 Expected:
 - Exactly one bootstrap admin on first install.
+
+## 6) Secret output smoke check
+
+Installer output must not print raw admin/database passwords. After an install run:
+
+```bash
+grep -E "Admin login password: .*[^)]$|Database (app|admin) password:" /var/log/elahe-installer.log
+```
+
+Expected:
+- No matches.
+- Admin bootstrap handoff should reference secret file paths only (for example `runtime/admin-bootstrap-password` or `.installer-secrets/bootstrap-admin.txt`).

@@ -12,8 +12,9 @@ export async function POST(request: Request) {
     assertSameOrigin(request);
 
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-    const rateResult = await rateLimit(`password-recovery:${ip}`, rateLimitPreset('password-recovery'));
-    const rateHeaders = getRateLimitHeaders(rateResult);
+    const recoveryPreset = rateLimitPreset('password-recovery');
+    const rateResult = await rateLimit(`password-recovery:${ip}`, recoveryPreset);
+    const rateHeaders = getRateLimitHeaders(rateResult, recoveryPreset.max);
     if (!rateResult.allowed) {
       return NextResponse.json(
         { error: 'Too many password recovery attempts. Please try again later.' },

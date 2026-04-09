@@ -57,6 +57,27 @@ describe('Rate Limiter', () => {
     expect(headers['X-RateLimit-Reset']).toBeDefined();
   });
 
+
+  it('should emit header limits that match endpoint presets', async () => {
+    const { rateLimit, getRateLimitHeaders, rateLimitPreset } = await import('@/lib/rate-limit');
+
+    const loginPreset = rateLimitPreset('login');
+    const loginResult = await rateLimit('preset-login-1', loginPreset);
+    expect(getRateLimitHeaders(loginResult, loginPreset.max)['X-RateLimit-Limit']).toBe(String(loginPreset.max));
+
+    const registerPreset = rateLimitPreset('register');
+    const registerResult = await rateLimit('preset-register-1', registerPreset);
+    expect(getRateLimitHeaders(registerResult, registerPreset.max)['X-RateLimit-Limit']).toBe(String(registerPreset.max));
+
+    const twoFaPreset = rateLimitPreset('2fa');
+    const twoFaResult = await rateLimit('preset-2fa-1', twoFaPreset);
+    expect(getRateLimitHeaders(twoFaResult, twoFaPreset.max)['X-RateLimit-Limit']).toBe(String(twoFaPreset.max));
+
+    const apiPreset = rateLimitPreset('api-default');
+    const apiResult = await rateLimit('preset-api-1', apiPreset);
+    expect(getRateLimitHeaders(apiResult, apiPreset.max)['X-RateLimit-Limit']).toBe(String(apiPreset.max));
+  });
+
   it('should report store stats', async () => {
     const { rateLimit, getRateLimitStoreStats } = await import('@/lib/rate-limit');
     await rateLimit('stats-key-1');
