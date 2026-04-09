@@ -1683,6 +1683,28 @@ wait_for_container_health() {
   return 1
 }
 
+wait_for_http_status_with_host_override() {
+  local domain="$1"
+  local timeout="${2:-300}"
+  local elapsed=0
+  local status=""
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    status="$(curl -sS --max-time 12 --resolve "${domain}:443:127.0.0.1" -o /dev/null -w '%{http_code}' "https://${domain}/api/health/live" || true)"
+    case "$status" in
+      200|301|302|307|308)
+        printf '%s' "$status"
+        return 0
+        ;;
+    esac
+    sleep 5
+    elapsed=$((elapsed + 5))
+  done
+
+  printf '%s' "${status:-none}"
+  return 1
+}
+
 print_failure_diagnostics() {
   log_error "Startup verification failed. Collecting diagnostics."
   (
@@ -1743,19 +1765,16 @@ verify_post_launch_health() {
         exit 1
         ;;
     esac
-    https_status="$(curl -sS --max-time 12 --resolve "${DOMAIN_NAME}:443:127.0.0.1" -o /dev/null -w '%{http_code}' "https://${DOMAIN_NAME}/api/health/live" || true)"
-    case "$https_status" in
-      200|301|302|307|308)
-        LOCAL_PROXY_HEALTH_VALIDATED=true
-        log_success "Local Caddy TLS probe passed via Host=${DOMAIN_NAME} (HTTPS status ${https_status})."
-        ;;
-      *)
-        log_error "Local Caddy TLS probe failed for host ${DOMAIN_NAME} (status: ${https_status:-none})."
-        log_error "Check DNS A/AAAA records for ${DOMAIN_NAME}, then inspect Caddy logs for ACME/TLS issues."
-        print_failure_diagnostics
-        exit 1
-        ;;
-    esac
+    log_info "Waiting for Caddy TLS certificate provisioning for ${DOMAIN_NAME} (up to 10 minutes)."
+    if https_status="$(wait_for_http_status_with_host_override "$DOMAIN_NAME" 600)"; then
+      LOCAL_PROXY_HEALTH_VALIDATED=true
+      log_success "Local Caddy TLS probe passed via Host=${DOMAIN_NAME} (HTTPS status ${https_status})."
+    else
+      log_error "Local Caddy TLS probe failed for host ${DOMAIN_NAME} after waiting (last status: ${https_status:-none})."
+      log_error "Check DNS A/AAAA records for ${DOMAIN_NAME}, ensure ports 80/443 are reachable, then inspect Caddy logs for ACME/TLS issues."
+      print_failure_diagnostics
+      exit 1
+    fi
   else
     if curl -fsS --max-time 8 "http://127.0.0.1/api/health/live" >/dev/null 2>&1; then
       LOCAL_PROXY_HEALTH_VALIDATED=true
