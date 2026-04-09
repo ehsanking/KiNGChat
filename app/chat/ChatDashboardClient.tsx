@@ -724,7 +724,20 @@ function ChatDashboardContent() {
         getSystemOverview(),
       ]);
       if ('success' in usersRes && usersRes.success) setAdminUsers(usersRes.users);
-      if ('success' in settingsRes && settingsRes.success) setAdminSettings(settingsRes.settings);
+      if ('success' in settingsRes && settingsRes.success) {
+        setAdminSettings((prev) => ({
+          ...settingsRes.settings,
+          oauthGoogleEnabled: typeof settingsRes.settings.oauthGoogleEnabled === 'boolean'
+            ? settingsRes.settings.oauthGoogleEnabled
+            : (prev?.oauthGoogleEnabled ?? false),
+          oauthGithubEnabled: typeof settingsRes.settings.oauthGithubEnabled === 'boolean'
+            ? settingsRes.settings.oauthGithubEnabled
+            : (prev?.oauthGithubEnabled ?? false),
+          oauthOidcEnabled: typeof settingsRes.settings.oauthOidcEnabled === 'boolean'
+            ? settingsRes.settings.oauthOidcEnabled
+            : (prev?.oauthOidcEnabled ?? false),
+        }));
+      }
       if ('success' in reportsRes && reportsRes.success) setAdminReports(reportsRes.reports);
       if ('success' in auditRes && auditRes.success) setAdminAuditLogs(auditRes.logs);
       if ('success' in overviewRes && overviewRes.success) setAdminOverview(overviewRes.stats);
@@ -1735,9 +1748,6 @@ function ChatDashboardContent() {
                     </div>
                   )}
                 </div>
-                {replyCountByRoot[msg.id] ? (
-                  <button type="button" onClick={() => void fetchThread(msg)} className="mt-1 text-[10px] text-zinc-400 hover:text-zinc-200">View Thread ({replyCountByRoot[msg.id]} replies)</button>
-                ) : null}
               </div>
             ))}
           </div>
