@@ -16,6 +16,7 @@ const MAX_SYNC_BATCH = Number(process.env.OFFLINE_SYNC_BATCH || 200);
 type MessageWithRelations = Message & {
   replyTo?: Pick<Message, 'id' | 'senderId' | 'ciphertext' | 'nonce' | 'createdAt' | 'isDeleted'> | null;
   reactions?: Pick<MessageReaction, 'emoji' | 'userId' | 'createdAt'>[];
+  forwardedFrom?: string | null;
 };
 
 type MessageHistoryResult =

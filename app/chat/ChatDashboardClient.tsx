@@ -190,6 +190,10 @@ function ChatDashboardContent() {
   const peerManagerRef = useRef<PeerConnectionManager | null>(null);
   const localCallStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
+  const selectedRecipientIdRef = useRef<string | null>(null);
+  const threadRootRef = useRef<ChatMessage | null>(null);
+  const showThreadViewRef = useRef(false);
   const pendingQueueStorageKey = buildPendingQueueStorageKey(currentUser?.id);
   const currentConversationId = buildConversationId(currentUser?.id, selectedRecipient?.id, selectedGroup?.id);
 
@@ -210,6 +214,23 @@ function ChatDashboardContent() {
   });
 
   usePushNotifications(currentUser?.id);
+
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUser?.id || null;
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    selectedRecipientIdRef.current = selectedRecipient?.id || null;
+  }, [selectedRecipient?.id]);
+
+  useEffect(() => {
+    threadRootRef.current = threadRoot;
+  }, [threadRoot]);
+
+  useEffect(() => {
+    showThreadViewRef.current = showThreadView;
+  }, [showThreadView]);
 
   useEffect(() => {
     let active = true;
@@ -388,8 +409,8 @@ function ChatDashboardContent() {
 
 
         activeSocket.on('thread:updated', () => {
-          if (showThreadView && threadRoot) {
-            void fetchThread(threadRoot);
+          if (showThreadViewRef.current && threadRootRef.current?.id) {
+            void fetchThreadById(threadRootRef.current.id);
           }
         });
 
@@ -399,7 +420,8 @@ function ChatDashboardContent() {
         });
 
         activeSocket.on('call:accept', async (payload: { callId: string; toUserId: string; type: CallType }) => {
-          if (!currentUser?.id || payload.toUserId !== currentUser.id) return;
+          const actorId = currentUserIdRef.current;
+          if (!actorId || payload.toUserId !== actorId) return;
           const stream = await getCallMediaStream({ type: payload.type });
           localCallStreamRef.current = stream;
           const peer = new PeerConnectionManager({
@@ -409,17 +431,19 @@ function ChatDashboardContent() {
           });
           peer.attachLocalStream(stream);
           peer.connection.onicecandidate = (event) => {
-            if (!event.candidate || !selectedRecipient?.id) return;
-            activeSocket?.emit('call:ice-candidate', { callId: payload.callId, toUserId: selectedRecipient.id, type: payload.type, candidate: event.candidate.toJSON() });
+            const recipientId = selectedRecipientIdRef.current;
+            if (!event.candidate || !recipientId) return;
+            activeSocket?.emit('call:ice-candidate', { callId: payload.callId, toUserId: recipientId, type: payload.type, candidate: event.candidate.toJSON() });
           };
           peer.connection.ontrack = (event) => {
             const remote = event.streams[0];
             if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remote;
           };
           const offer = await peer.createOffer();
-          activeSocket?.emit('call:offer', { callId: payload.callId, toUserId: selectedRecipient?.id, type: payload.type, offer });
+          const recipientId = selectedRecipientIdRef.current || '';
+          activeSocket?.emit('call:offer', { callId: payload.callId, toUserId: recipientId, type: payload.type, offer });
           peerManagerRef.current = peer;
-          setActiveCall({ callId: payload.callId, peerUserId: selectedRecipient?.id || '', type: payload.type, state: 'connected', startedAt: Date.now() });
+          setActiveCall({ callId: payload.callId, peerUserId: recipientId, type: payload.type, state: 'connected', startedAt: Date.now() });
           callStateRef.current.connect();
         });
 
@@ -1151,15 +1175,17 @@ function ChatDashboardContent() {
   // ── Shared sub-components ──────────────────────
 
 
-  const fetchThread = async (root: ChatMessage) => {
-    const res = await fetch(`/api/messages/thread/${root.id}`, { credentials: 'include' });
+
+  const fetchThreadById = async (rootMessageId: string) => {
+    const res = await fetch(`/api/messages/thread/${rootMessageId}`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
     if (!data?.success) return;
+    const actorId = currentUserIdRef.current;
     const mapped: ChatMessage[] = [data.root, ...(data.messages || [])].map((msg: any) => ({
       id: msg.id,
       text: msg.ciphertext || '',
-      sender: msg.senderId === currentUser?.id ? 'me' : 'them',
+      sender: msg.senderId === actorId ? 'me' : 'them',
       senderId: msg.senderId,
       type: msg.type,
       createdAt: msg.createdAt ? new Date(msg.createdAt).toISOString() : undefined,
@@ -1170,6 +1196,10 @@ function ChatDashboardContent() {
     setThreadRoot(mapped[0] || null);
     setThreadMessages(mapped.slice(1));
     setShowThreadView(true);
+  };
+
+  const fetchThread = async (root: ChatMessage) => {
+    await fetchThreadById(root.id);
   };
 
   const replyCountByRoot = messages.reduce<Record<string, number>>((acc, msg) => {
