@@ -1,3 +1,7 @@
+// IMPORTANT: this polyfill MUST be the first import — it sets
+// globalThis.AsyncLocalStorage so Next.js's app-render modules don't fall
+// back to a fake storage that throws on .run()/.enterWith().
+import './lib/runtime/polyfill-async-local-storage';
 import { logger } from './lib/logger';
 import { bootstrapEnvironment } from './lib/runtime/env-bootstrap';
 import { runAdminBootstrapOrExit } from './lib/runtime/admin-bootstrap';

@@ -53,4 +53,29 @@ describe('deployment topology regressions', () => {
     expect(install).toContain('${ADMIN_PASSWORD_VALUE}');
     expect(install).toContain('store this password in a secure vault');
   });
+
+  it('server entry points polyfill globalThis.AsyncLocalStorage before loading Next.js', () => {
+    // Regression: Next.js 15's dist/server/app-render/async-local-storage.js
+    // snapshots `globalThis.AsyncLocalStorage` at module load time. When loaded
+    // via `import next from 'next'` the snapshot happens BEFORE Next.js's own
+    // node-environment-baseline polyfill runs, so the runtime falls back to a
+    // FakeAsyncLocalStorage whose .run()/.enterWith() throw
+    // "Invariant: AsyncLocalStorage accessed in runtime where it is not available".
+    // We must polyfill globalThis.AsyncLocalStorage ourselves before any other
+    // import. Removing this polyfill reintroduces the crash on every request.
+    const server = fs.readFileSync('server.ts', 'utf8');
+    const polyfillImport = "import './lib/runtime/polyfill-async-local-storage'";
+    expect(server).toContain(polyfillImport);
+    // It must be the FIRST import — verify nothing precedes it on a non-comment line.
+    const importLines = server
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('import '));
+    expect(importLines[0]).toBe(`${polyfillImport};`);
+
+    // The polyfill module itself must exist and set globalThis.AsyncLocalStorage.
+    const polyfill = fs.readFileSync('lib/runtime/polyfill-async-local-storage.ts', 'utf8');
+    expect(polyfill).toContain("from 'node:async_hooks'");
+    expect(polyfill).toContain('globalWithAls.AsyncLocalStorage = AsyncLocalStorage');
+  });
 });
