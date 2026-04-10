@@ -11,21 +11,6 @@
   <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
 </p>
 
-<p align="center">
-  <a href="README.md">English</a> |
-  <a href="README.fa.md">فارسی</a> |
-  <a href="README.ru.md">Русский</a> |
-  <a href="README.ar.md">العربية</a> |
-  <a href="README.zh.md">中文</a> |
-  <a href="README.es.md">Español</a> |
-  <a href="README.th.md">ไทย</a> |
-  <a href="README.pt.md">Português</a> |
-  <a href="README.de.md">Deutsch</a> |
-  <a href="README.da.md">Dansk</a> |
-  <a href="README.sv.md">Svenska</a> |
-  <a href="README.tr.md">Türkçe</a>
-</p>
-
 ---
 
 ## Overview
@@ -45,11 +30,16 @@
 - [Manual Installation](#manual-installation)
 - [Configuration](#configuration)
 - [Docker Deployment](#docker-deployment)
+- [Usage Guide](#usage-guide)
+- [API & Integrations](#api--integrations)
+- [Observability](#observability)
+- [Testing](#testing)
 - [Security](#security)
 - [Capability Maturity](#capability-maturity)
 - [Crypto Status](#crypto-status)
 - [Runtime Topology](#runtime-topology)
 - [Threat Model](#threat-model)
+- [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -59,14 +49,22 @@
 
 | Category | Capabilities |
 |---|---|
-| 🔐 **Encryption** | Browser-side E2EE for direct messages (ECDH-P256, HKDF-SHA256, AES-256-GCM); advanced ratcheting remains transitional |
-| 💬 **Messaging** | Real-time DMs, group chats, channels, message reactions, edits, drafts |
+| 🔐 **Encryption** | Browser-side E2EE for direct messages (ECDH-P256, HKDF-SHA256, AES-256-GCM); device-bound key bundles; pre-key rotation; safety-number verification; advanced ratcheting remains transitional |
+| 💬 **Messaging** | Real-time DMs, group chats, channels, message reactions, edits, replies/threads, server-side search, drafts, disappearing messages, read receipts |
+| 📎 **Attachments** | Encrypted secure upload/download with MIME/extension allowlist; pluggable object storage (local filesystem or S3/MinIO) |
+| 🎙️ **Voice & Video** | WebRTC 1:1 calls with TURN/STUN support and media manager |
 | 👥 **Social** | Contact management, community groups, invite links, member roles |
-| 🛡️ **Security** | TOTP/2FA, session binding, rate limiting, local math captcha, audit logs |
-| 🧭 **Admin** | User management, ban/verify controls, settings panel, observability dashboard |
-| 📦 **DevOps** | Docker Compose variants, one-line installer, Caddy auto-SSL, health checks |
-| 📱 **PWA** | Installable app shell with cached static assets (chat sync still requires network) |
+| 🛡️ **Security** | TOTP/2FA (RFC 6238), session binding (IP/User-Agent), CSRF/origin checks, rate limiting (HTTP + WebSocket), local math captcha or reCAPTCHA, audit logs, password policy enforcement |
+| 🔑 **Authentication** | Username/password, OAuth/SSO (Google, GitHub, generic OIDC), password recovery with recovery questions, bootstrap admin workflow |
+| 🤖 **Bot Platform** | Built-in bot framework with webhook registration, programmatic message sending, and per-bot auth tokens |
+| 🧭 **Admin** | User management, ban/verify controls, moderation workflows, settings panel, reports/KPI dashboard, scheduled backups |
+| 📊 **Observability** | OpenTelemetry tracing, structured Pino JSON logs, Prometheus-style metrics endpoint, liveness/readiness probes |
+| 📦 **DevOps** | Docker Compose (base + prod override + split runtime), one-line installer, Caddy auto-SSL, health checks, PgBouncer auto-detection |
+| 🗄️ **Database** | Prisma ORM, PostgreSQL 16 (prod), SQLite (dev), migration deploy fail-fast, bootstrap vs least-privilege runtime roles |
+| 📱 **PWA** | Installable app shell with Workbox service worker, cached static assets, offline draft queue |
 | 🔔 **Push** | VAPID web-push notifications, optional Firebase FCM fallback |
+| 🌐 **i18n** | Localized UI strings with right-to-left support |
+| 🧪 **Testing** | Vitest unit + integration projects, Playwright e2e, CodeQL + Trivy + Gitleaks in CI |
 
 ---
 
@@ -479,6 +477,243 @@ Health endpoints:
 - Registration redirects smoothly into login with `next=/chat` to avoid landing-page bounce loops.
 - Installed PWA sessions that are not authenticated are routed server-side to `/auth/login?next=/chat` (not the public landing page).
 
+---
+
+## Usage Guide
+
+### First-time bootstrap (production)
+
+1. Complete `Quick Start` or `Manual Installation` (above) and wait for the container health checks to report `healthy`.
+2. Open the public URL (`APP_URL`) in a browser — you will land on the marketing page.
+3. Navigate to `/auth/login` and sign in with the bootstrap admin credentials:
+   - Username: value of `ADMIN_USERNAME`
+   - Password: value of `ADMIN_PASSWORD`, **or** the one-time password stored at `./runtime/admin-bootstrap-password` (produced by fresh/reinstall flows)
+4. On first login, `ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE=true` will require you to set a new password.
+5. Enable TOTP/2FA from **Settings → Security Center** and scan the QR code with any RFC 6238 authenticator (Aegis, Authy, Google Authenticator, etc.).
+
+### Registering end users
+
+- Open **Admin → Users** to invite users, send invite links, or enable self-registration.
+- To allow open registration, toggle it in **Admin → Settings → Registration**.
+- Invite links are single-use and expire after the configured TTL.
+
+### Sending encrypted messages
+
+1. Open `/chat` after signing in. The browser will generate E2EE key material and store it in IndexedDB on first load.
+2. Pick a contact from the sidebar and start a 1:1 conversation — each message is encrypted client-side before it leaves the browser.
+3. To create a group, click **New Group**, choose members, and publish. Group E2EE is still transitional (see [Capability Maturity](#capability-maturity)).
+4. Attachments are encrypted through the secure upload flow (`/api/upload-secure`) and served via tokenized download URLs.
+
+### Admin operations
+
+- **Moderation**: ban, verify, or demote users from **Admin → Users**.
+- **Audit log**: every admin action is recorded with IP, timestamp, and actor.
+- **Backups**: the worker runtime schedules a `scheduled_backup` job. Manual backups via `npm run backup` produce a timestamped archive under `BACKUP_OUTPUT_DIR`.
+- **Reports / KPIs**: dashboards available at `/admin/reports`.
+
+### Upgrading
+
+```bash
+# Re-run the installer in upgrade mode (preserves .env, Caddyfile, compose overrides)
+sudo INSTALL_MODE=upgrade INSTALL_REF=<new-release-tag> bash install.sh
+```
+
+Or, for a manual upgrade:
+
+```bash
+git fetch --tags origin
+git checkout <new-release-tag>
+npm ci --no-fund --ignore-scripts
+npx prisma generate
+npm run db:migrate:prod
+npm run build
+# restart the service (systemd / docker compose / PM2)
+```
+
+---
+
+## API & Integrations
+
+### REST API overview
+
+Elahe Messenger ships with a first-class REST API. The full machine-readable spec is served at:
+
+- **OpenAPI JSON**: `GET /api/docs/openapi.json`
+- **Interactive docs**: `GET /api/docs`
+
+Key routes:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/login` | Start a username/password login flow |
+| `POST` | `/api/2fa` | Verify the TOTP challenge |
+| `GET`  | `/api/session` | Introspect the current session |
+| `POST` | `/api/password-recovery` | Initiate recovery with recovery questions |
+| `GET`  | `/api/messages/search` | Full-text search over accessible conversations |
+| `GET`  | `/api/messages/sync` | Delta sync for the chat UI |
+| `GET`  | `/api/messages/thread/[messageId]` | Fetch replies in a thread |
+| `POST` | `/api/drafts` | Persist encrypted drafts |
+| `POST` | `/api/upload-secure` | Encrypted attachment upload |
+| `GET`  | `/api/upload-secure/[fileId]` | Tokenized download |
+| `POST` | `/api/push/subscribe` | Register a VAPID push subscription |
+| `GET`  | `/api/health/live` | Liveness probe |
+| `GET`  | `/api/health/ready` | Readiness probe |
+| `GET`  | `/api/metrics` | Prometheus-style metrics (requires internal scrape auth) |
+
+### E2EE endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/e2ee/register` | Register identity keys |
+| `POST` | `/api/e2ee/register-bundle` | Upload a pre-key bundle |
+| `GET`  | `/api/e2ee/prekey-bundle/[userId]` | Fetch a peer's bundle |
+| `GET`  | `/api/e2ee/public-keys/[userId]` | Fetch peer public keys |
+| `POST` | `/api/e2ee/devices/register` | Register a new device |
+| `GET`  | `/api/e2ee/devices` | List registered devices |
+| `POST` | `/api/e2ee/sessions/bootstrap` | Bootstrap an E2EE session |
+| `GET`  | `/api/e2ee/group-keys` | Fetch group keys |
+| `POST` | `/api/e2ee/group-keys/rotate` | Rotate group keys |
+| `GET`  | `/api/e2ee/migration-readiness` | Check readiness for E2EE migration |
+| `GET`  | `/api/e2ee/runtime-status` | Report runtime E2EE status |
+
+### OAuth / SSO
+
+Elahe Messenger supports optional third-party sign-in through `@auth/core`. Configure any subset of the following providers via environment variables:
+
+```env
+# Google
+OAUTH_GOOGLE_CLIENT_ID=
+OAUTH_GOOGLE_CLIENT_SECRET=
+
+# GitHub
+OAUTH_GITHUB_CLIENT_ID=
+OAUTH_GITHUB_CLIENT_SECRET=
+
+# Generic OIDC
+OAUTH_OIDC_ISSUER=
+OAUTH_OIDC_CLIENT_ID=
+OAUTH_OIDC_CLIENT_SECRET=
+```
+
+The OAuth finalization endpoint is `POST /api/auth/oauth/finalize`. Only configured providers are exposed on the login page.
+
+### Bot platform
+
+Elahe Messenger ships with a built-in bot framework:
+
+```bash
+# Register a bot (admin only)
+curl -X POST https://chat.example.com/api/bots/register \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-bot","webhookUrl":"https://bot.example.com/hook"}'
+
+# Send a message from a bot
+curl -X POST https://chat.example.com/api/bots/<botId>/send \
+  -H "Authorization: Bearer <bot-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"conversationId":"...","content":"Hello from my bot"}'
+```
+
+Incoming events are delivered to the bot's webhook (`POST /api/bots/[botId]/webhook`).
+
+### WebRTC calls
+
+Voice and video use WebRTC with optional TURN/STUN relays. Configure:
+
+```env
+TURN_URL=turn:turn.example.com:3478
+TURN_USERNAME=<turn-user>
+TURN_CREDENTIAL=<turn-credential>
+
+NEXT_PUBLIC_TURN_URL=turn:turn.example.com:3478
+NEXT_PUBLIC_TURN_USERNAME=<public-turn-user>
+NEXT_PUBLIC_TURN_CREDENTIAL=<public-turn-credential>
+```
+
+Only the `NEXT_PUBLIC_*` variants are exposed to the browser bundle.
+
+### Object storage
+
+By default, encrypted attachments are stored on the local filesystem at `OBJECT_STORAGE_ROOT`. Swap to an S3-compatible store (AWS S3, MinIO, Wasabi, Cloudflare R2) by implementing/enabling the S3 driver and providing AWS credentials through `@aws-sdk/client-s3` environment variables.
+
+---
+
+## Observability
+
+Elahe Messenger ships instrumentation out of the box.
+
+### Structured logs (Pino)
+
+- JSON logs emitted to stdout (captured by Docker / systemd).
+- Log level controlled by `LOG_LEVEL` (default `info`).
+- Every error response carries a `requestId` — grep for it to correlate across logs.
+
+### OpenTelemetry tracing
+
+Enable OTLP export with any of these:
+
+```env
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com
+OTEL_SERVICE_NAME=elahe-messenger
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
+```
+
+Tracing is wired via `@opentelemetry/sdk-node` and instruments HTTP, Prisma, and outbound fetches.
+
+### Metrics
+
+- Prometheus-style metrics endpoint: `GET /api/metrics`
+- Health endpoints:
+  - Liveness: `GET /api/health/live`
+  - Readiness: `GET /api/health/ready` (also exposed as the legacy `GET /api/health`)
+
+### Log rotation
+
+- When running via Docker, configure the host's log driver (`json-file` with `max-size` + `max-file`, or switch to `journald`/`fluentd`).
+- When running bare-metal under systemd, rely on `journalctl --vacuum-time=`.
+
+---
+
+## Testing
+
+Elahe Messenger uses Vitest for unit/integration tests and Playwright for end-to-end tests.
+
+```bash
+# Run the full Vitest suite (unit + integration)
+npm test
+
+# Run only the "unit" project
+npm run test -- --project unit
+
+# Run only the "integration" project
+npm run test -- --project integration
+
+# Watch mode for development
+npm run test:watch
+
+# Playwright end-to-end (requires Playwright browsers installed)
+npx playwright install --with-deps
+npx playwright test
+```
+
+Test projects are declared in `vitest.config.ts`:
+
+- **unit** — default test files under `tests/**/*.test.ts` (excluding `tests/e2e/**`).
+- **integration** — installation / deployment smoke tests that validate installer guardrails and compose topology.
+
+The CI pipeline runs both Vitest projects plus a full `npm run build`, Docker image build, `shellcheck` on `install.sh` and `docker-entrypoint.sh`, and deployment smoke tests.
+
+### Security checks in CI
+
+- **CodeQL** static analysis (`.github/workflows/codeql.yml`).
+- **Trivy** container image scanning with SARIF upload (`.github/workflows/container-security.yml`).
+- **Gitleaks** secret scanning on push/PR (`.github/workflows/secret-scan.yml`).
+- **Hadolint** Dockerfile linting (`.github/workflows/hadolint.yml`).
+- **Dependabot** for npm, Docker, and GitHub Actions (`.github/dependabot.yml`).
+
+---
+
 ## Security
 
 Elahe Messenger is designed with a privacy-first model and explicit trust boundaries:
@@ -536,9 +771,9 @@ See [`docs/threat-model.md`](./docs/threat-model.md) for trust assumptions, meta
 elahe-messenger/
 ├── app/                    # Next.js App Router pages and API routes
 │   ├── actions/            # Server Actions (auth, messages, admin)
-│   ├── api/                # REST API route handlers
-│   ├── auth/               # Login, register, 2FA pages
-│   ├── chat/               # Chat UI and profile pages
+│   ├── api/                # REST API route handlers (auth, e2ee, bots, health, metrics, ...)
+│   ├── auth/               # Login, register, 2FA, recovery pages
+│   ├── chat/               # Chat UI, profile, security center
 │   └── admin/              # Admin panel pages
 ├── components/             # Shared React components
 ├── lib/                    # Core server-side modules
@@ -546,13 +781,24 @@ elahe-messenger/
 │   ├── crypto.ts           # E2EE primitives
 │   ├── prisma.ts           # Database client singleton
 │   ├── rate-limit.ts       # Rate limiting logic
-│   └── local-captcha.ts    # Stateless math captcha
+│   ├── local-captcha.ts    # Stateless math captcha
+│   ├── logger.ts           # Pino structured logger
+│   └── telemetry.ts        # OpenTelemetry setup
 ├── prisma/                 # Prisma schema and migrations
-├── public/                 # Static assets (logo, manifest, SW)
-├── scripts/                # Utility scripts (db-setup, backup)
+├── public/                 # Static assets (logo, manifest, service worker)
+├── scripts/                # Utility scripts (db-setup, backup, validate-env)
+├── tests/                  # Vitest unit + integration tests
+│   └── e2e/                # Playwright end-to-end specs
+├── docs/                   # Design docs (crypto status, threat model, topology)
+├── .github/                # GitHub Actions workflows and Dependabot config
 ├── server.ts               # Custom Node.js server (Socket.IO)
+├── instrumentation.ts      # Next.js instrumentation hook (OpenTelemetry)
+├── next.config.ts          # Next.js config (Workbox, standalone output)
 ├── docker-compose.yml      # Development Compose
 ├── compose.prod.yaml       # Production override for docker-compose.yml
+├── compose.split.yaml      # Optional split-runtime topology override
+├── Dockerfile              # Multi-stage production image
+├── docker-entrypoint.sh    # Runtime bootstrap (env validation, migrations, server)
 └── install.sh              # One-line production installer
 ```
 
