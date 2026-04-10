@@ -9,6 +9,20 @@ describe('deployment topology regressions', () => {
     expect(compose).not.toContain('container_name: elahe-backup');
   });
 
+  it('passes APP_DB_USER and APP_DB_PASSWORD to the app service so env-security validation succeeds', () => {
+    // Regression: lib/env-security.ts calls requireEnv('APP_DB_PASSWORD') and
+    // requireEnv('APP_DB_USER') in production. If docker-compose.yml only
+    // exposes these to the db service, the app container crash-loops on
+    // startup with "APP_DB_PASSWORD is required."
+    const compose = fs.readFileSync('docker-compose.yml', 'utf8');
+    const appSection = compose.slice(
+      compose.indexOf('  app:'),
+      compose.indexOf('  db:'),
+    );
+    expect(appSection).toContain('APP_DB_USER=${APP_DB_USER');
+    expect(appSection).toContain('APP_DB_PASSWORD=${APP_DB_PASSWORD');
+  });
+
   it('defines explicit split topology in compose.split.yaml', () => {
     const split = fs.readFileSync('compose.split.yaml', 'utf8');
     expect(split).toContain('container_name: elahe-api');

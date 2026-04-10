@@ -10,6 +10,10 @@ services:
       # Database — PostgreSQL via docker network
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
       - MIGRATION_DATABASE_URL=${MIGRATION_DATABASE_URL:-}
+      # Least-privilege runtime DB credentials — required by lib/env-security.ts
+      # for strict production validation (length, weak-value, etc.).
+      - APP_DB_USER=${APP_DB_USER:?APP_DB_USER is required}
+      - APP_DB_PASSWORD=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
       - PRISMA_CONNECTION_LIMIT=${PRISMA_CONNECTION_LIMIT:-10}
       - PGBOUNCER_ENABLED=${PGBOUNCER_ENABLED:-false}
       - ADMIN_BOOTSTRAP_STATE_DIR=${ADMIN_BOOTSTRAP_STATE_DIR:-/app/runtime_state}

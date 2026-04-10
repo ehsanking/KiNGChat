@@ -109,6 +109,11 @@ export function run() {
   const criticalAppDbEnv = new Set([
     'DATABASE_URL',
     'MIGRATION_DATABASE_URL',
+    // lib/env-security.ts independently validates APP_DB_USER and
+    // APP_DB_PASSWORD in production, so the app container must receive
+    // them in addition to DATABASE_URL.
+    'APP_DB_USER',
+    'APP_DB_PASSWORD',
   ]);
 
   const missingDbComposeKeys = Array.from(criticalDbEnv).filter((key) => !dbEnv.has(key));
