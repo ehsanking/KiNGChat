@@ -47,6 +47,12 @@ prepare_runtime_dirs() {
   chmod 700 "$admin_state_dir" || true
 }
 
+on_err() {
+  line="$1"
+  cmd="${2:-unknown}"
+  echo "[entrypoint] ERROR: bootstrap failed near line ${line} (command: ${cmd}). Check logs above for root cause." >&2
+}
+
 if [ "${1:-}" = "--as-nextjs" ]; then
   shift
 elif [ "$(id -u)" -eq 0 ]; then
@@ -54,17 +60,12 @@ elif [ "$(id -u)" -eq 0 ]; then
   exec su-exec nextjs:nodejs /docker-entrypoint.sh --as-nextjs "$@"
 fi
 
-on_err() {
-  line="$1"
-  cmd="${2:-unknown}"
-  echo "[entrypoint] ERROR: bootstrap failed near line ${line} (command: ${cmd}). Check logs above for root cause." >&2
-}
-
 # NOTE:
 # Alpine's /bin/sh (BusyBox ash) does not support `trap ... ERR`.
 # Unconditionally setting that trap aborts startup with:
 #   trap: ERR: bad trap
 # Keep startup POSIX-compatible by enabling the trap only when supported.
+# shellcheck disable=SC3047 -- runtime guard ensures ERR trap is used only when shell supports it.
 if (trap '' ERR) 2>/dev/null; then
   trap 'on_err $LINENO "${BASH_COMMAND:-unknown}"' ERR
 fi
