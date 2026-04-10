@@ -1833,8 +1833,13 @@ print_summary() {
   if [ -n "$summary_admin_username" ]; then
     echo "Admin login username: ${summary_admin_username}"
   fi
-  if [ "$INSTALL_MODE" = "fresh" ] && [ "$ADMIN_AUTO_GENERATED" != true ]; then
-    echo "Admin login password: entered interactively (not printed)."
+  if [ -n "${ADMIN_PASSWORD_VALUE:-}" ]; then
+    if [ "$ADMIN_AUTO_GENERATED" = true ]; then
+      echo "Admin login password (auto-generated): ${ADMIN_PASSWORD_VALUE}"
+    else
+      echo "Admin login password: ${ADMIN_PASSWORD_VALUE}"
+    fi
+    echo "IMPORTANT: store this password in a secure vault now. Terminal scrollback is the only other copy unless the bootstrap secret file below was written."
   fi
   if [ "$INSTALL_MODE" = "upgrade" ]; then
     echo "Admin bootstrap env vars are create-only by default and do not overwrite an existing admin user."
@@ -1861,7 +1866,7 @@ print_summary() {
     fi
     echo "DNS guidance: set domain A record to IPv4 and AAAA record to IPv6 (if available)."
   fi
-  echo "Admin password is never printed. Use bootstrap secret files for credential handoff."
+  echo "Admin credentials were printed above at operator request. Rotate the password after first login if this terminal is shared or logged."
   if [ "$CADDY_RUNTIME_VALIDATED" = true ]; then
     echo "Caddy runtime config validated inside container."
   fi

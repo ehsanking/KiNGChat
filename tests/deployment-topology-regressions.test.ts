@@ -33,11 +33,24 @@ describe('deployment topology regressions', () => {
     expect(split).toContain('api:');
   });
 
-  it('installer summary never prints raw passwords', () => {
+  it('installer summary never prints raw database passwords', () => {
+    // Database credentials must never appear in the installer summary — they
+    // are long-lived least-privilege secrets and are already recorded in .env.
+    // The admin login password is intentionally printed so the operator can
+    // capture it on first install (see the "prints admin credentials" test).
     const install = fs.readFileSync('install.sh', 'utf8');
-    expect(install).not.toContain('Admin login password: ${summary_admin_password}');
-    expect(install).not.toContain('Database app password: ${summary_db_app_password}');
-    expect(install).not.toContain('Database admin password: ${summary_db_admin_password}');
-    expect(install).toContain('Admin password is never printed.');
+    expect(install).not.toContain('Database app password:');
+    expect(install).not.toContain('Database admin password:');
+    expect(install).not.toContain('POSTGRES_PASSWORD=${POSTGRES_PASSWORD}');
+    expect(install).not.toContain('APP_DB_PASSWORD=${APP_DB_PASSWORD}');
+  });
+
+  it('installer summary prints admin credentials so the operator can capture them', () => {
+    // Operator explicitly requested that the bootstrap admin username and
+    // password be displayed in the success summary after a fresh install.
+    const install = fs.readFileSync('install.sh', 'utf8');
+    expect(install).toContain('Admin login username:');
+    expect(install).toContain('${ADMIN_PASSWORD_VALUE}');
+    expect(install).toContain('store this password in a secure vault');
   });
 });

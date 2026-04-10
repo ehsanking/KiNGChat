@@ -65,12 +65,19 @@ Expected:
 
 ## 6) Secret output smoke check
 
-Installer output must not print raw admin/database passwords. After an install run:
+Installer output intentionally prints the bootstrap admin username and
+password in the success summary so the operator can capture them on first
+install. Database passwords (POSTGRES_PASSWORD, APP_DB_PASSWORD) must NEVER
+appear in installer output — they belong in `.env` only. After an install run:
 
 ```bash
-grep -E "Admin login password: .*[^)]$|Database (app|admin) password:" /var/log/elahe-installer.log
+grep -E "Database (app|admin) password:" /var/log/elahe-installer.log
 ```
 
 Expected:
-- No matches.
-- Admin bootstrap handoff should reference secret file paths only (for example `runtime/admin-bootstrap-password` or `.installer-secrets/bootstrap-admin.txt`).
+- No matches for database passwords.
+- Exactly one line matching `^Admin login username:` and one line matching
+  `^Admin login password( \(auto-generated\))?:` on a fresh install.
+- Operators are expected to store the printed admin password in a secure
+  vault immediately; the installer also writes auto-generated credentials to
+  `.installer-secrets/bootstrap-admin.txt` for later retrieval.
