@@ -12,6 +12,7 @@ import { encryptSecret, isEncryptedSecret } from '@/lib/secret-encryption';
 import os from 'os';
 import fs from 'fs';
 import { getOnlineUsersCount } from '@/lib/presence';
+import { isEmailConfigured } from '@/lib/email';
 
 const allowedRoles = new Set(['USER', 'ADMIN']);
 
@@ -389,7 +390,7 @@ export async function getAdminSettings() {
     const settings = await getOrSetCache('adminSettings', async () => {
       return getOrCreateAdminSettings();
     }, { namespace: 'admin-settings' });
-    return { success: true, settings };
+    return { success: true, settings, smtpConfigured: isEmailConfigured() };
   } catch (error) {
     logger.error('Failed to fetch admin settings.', {
       error: error instanceof Error ? error.message : String(error),
@@ -432,6 +433,8 @@ export async function updateAdminSettings(settingsData: Record<string, unknown>)
     if (typeof settingsData.rules === 'string' || settingsData.rules === null) update.rules = settingsData.rules;
     if (typeof settingsData.firebaseConfig === 'string' || settingsData.firebaseConfig === null)
       update.firebaseConfig = settingsData.firebaseConfig;
+    if (typeof settingsData.requireEmailVerification === 'boolean')
+      update.requireEmailVerification = settingsData.requireEmailVerification;
     if ('maxRegistrations' in settingsData) {
       if (
         settingsData.maxRegistrations === null ||

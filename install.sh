@@ -40,6 +40,7 @@ PROXY_CONFIG_ACTION="generate"
 ADMIN_CREATED_FILE=""
 ADMIN_AUTO_GENERATED=false
 ADMIN_FORCE_PASSWORD_CHANGE=false
+ADMIN_EMAIL_VALUE=""
 UPGRADE_BACKUP_DIR=""
 CADDY_RUNTIME_VALIDATED=false
 LOCAL_PROXY_HEALTH_VALIDATED=false
@@ -914,6 +915,7 @@ prompt_admin_credentials_fresh() {
       ADMIN_AUTO_GENERATED=true
       ADMIN_FORCE_PASSWORD_CHANGE=true
     fi
+    ADMIN_EMAIL_VALUE="${ADMIN_EMAIL:-}"
     return
   fi
 
@@ -972,6 +974,11 @@ prompt_admin_credentials_fresh() {
 
     log_warn "Password does not meet policy."
   done
+
+  # Prompt for optional admin email (used for password recovery and email verification)
+  local input_email
+  input_email=$(trim_space "$(read_tty_input "${CYAN}Admin email address (optional, used for password recovery):${NC} " "")")
+  ADMIN_EMAIL_VALUE="$input_email"
 }
 
 write_admin_secret_file() {
@@ -1456,6 +1463,10 @@ configure_runtime_env() {
       exit 1
     fi
     env_set_if_missing "ADMIN_USERNAME" "$bootstrap_admin_username"
+    # Persist admin email if provided
+    if [ -n "${ADMIN_EMAIL_VALUE:-}" ]; then
+      env_set_if_missing "ADMIN_EMAIL" "$ADMIN_EMAIL_VALUE"
+    fi
     local bootstrap_password_file_host="$TARGET_DIR/runtime/admin-bootstrap-password"
     mkdir -p "$TARGET_DIR/runtime"
     if [ ! -f "$bootstrap_password_file_host" ]; then

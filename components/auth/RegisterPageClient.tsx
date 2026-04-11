@@ -26,6 +26,7 @@ type PublicSettings = {
   isCaptchaEnabled: boolean;
   recaptchaSiteKey: string | null;
   oauthProviders?: { google: boolean; github: boolean; oidc: boolean };
+  requireEmailVerification?: boolean;
 };
 
 type RegistrationStage = 'idle' | 'preparing-keys' | 'creating-account';
@@ -38,6 +39,8 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
   const [recoveryQuestion, setRecoveryQuestion] = useState('');
   const [recoveryAnswer, setRecoveryAnswer] = useState('');
   const [publicSettings, setPublicSettings] = useState<PublicSettings>({
@@ -45,6 +48,7 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
     isCaptchaEnabled: false,
     recaptchaSiteKey: null,
     oauthProviders: { google: false, github: false, oidc: false },
+    requireEmailVerification: false,
   });
   const [captchaToken, setCaptchaToken] = useState('');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -55,6 +59,15 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
   const [stage, setStage] = useState<RegistrationStage>('idle');
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+
+  const trimmedEmail = email.trim().toLowerCase();
+  const emailError = useMemo(() => {
+    if (!publicSettings.requireEmailVerification && !trimmedEmail) return '';
+    if (publicSettings.requireEmailVerification && !trimmedEmail) return 'Email is required.';
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail))
+      return 'Enter a valid email address.';
+    return '';
+  }, [trimmedEmail, publicSettings.requireEmailVerification]);
 
   const trimmedUsername = username.trim();
   const usernameError = useMemo(() => {
@@ -120,6 +133,7 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
               github: Boolean(data.settings.oauthProviders?.github),
               oidc: Boolean(data.settings.oauthProviders?.oidc),
             },
+            requireEmailVerification: Boolean(data.settings.requireEmailVerification),
           });
           setSettingsLoadFailed(false);
           setSettingsLoaded(true);
@@ -141,8 +155,9 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
 
     setUsernameTouched(true);
     setPasswordTouched(true);
+    setEmailTouched(true);
 
-    if (usernameError || passwordError) {
+    if (usernameError || passwordError || emailError) {
       return;
     }
 
@@ -173,10 +188,15 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
         recoveryQuestion,
         recoveryAnswer,
         captchaToken,
+        email: trimmedEmail || undefined,
       });
 
       if (result?.error) {
         setError(result.error);
+      } else if (result?.requiresEmailVerification) {
+        router.replace(
+          `/auth/verify-email?next=${encodeURIComponent(nextPath || '/chat')}`,
+        );
       } else {
         router.replace(
           `/auth/login?next=${encodeURIComponent(
@@ -196,6 +216,7 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
     isLoading ||
     !!usernameError ||
     !!passwordError ||
+    !!emailError ||
     !settingsLoaded ||
     settingsLoadFailed ||
     !publicSettings.isRegistrationEnabled ||
@@ -345,6 +366,38 @@ export default function RegisterPageClient({ nextPath }: RegisterPageClientProps
               <CheckItem ok={passwordChecks.number} label="A number" />
               <CheckItem ok={passwordChecks.symbol} label="A symbol" />
             </ul>
+          </div>
+
+          {/* Email field */}
+          <div className="space-y-2">
+            <div className="relative">
+              <input
+                id="reg-email"
+                className="peer w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)]/80 px-4 pb-2.5 pt-6 text-sm text-[var(--text-primary)] backdrop-blur transition-colors placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none"
+                placeholder=" "
+                type="email"
+                value={email}
+                onBlur={() => setEmailTouched(true)}
+                onChange={(e) => setEmail(e.target.value)}
+                required={publicSettings.requireEmailVerification}
+                aria-invalid={emailTouched && !!emailError}
+              />
+              <label
+                htmlFor="reg-email"
+                className="pointer-events-none absolute start-4 top-2 text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]"
+              >
+                Email{publicSettings.requireEmailVerification ? '' : ' (optional)'}
+              </label>
+            </div>
+            {emailTouched && emailError ? (
+              <p className="text-xs text-[color:var(--warning)]">{emailError}</p>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)]">
+                {publicSettings.requireEmailVerification
+                  ? 'Required for account verification and password recovery.'
+                  : 'Optional — used for password recovery.'}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

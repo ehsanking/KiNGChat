@@ -83,6 +83,7 @@ type RegisterUserInput = {
   recoveryQuestion?: string;
   recoveryAnswer?: string;
   captchaToken?: string;
+  email?: string;
 };
 
 type GetRecoveryQuestionInput = {
@@ -284,6 +285,7 @@ export async function registerUser(formData: RegisterUserInput) {
   const recoveryQuestion = asTrimmedString(formData.recoveryQuestion);
   const recoveryAnswer = typeof formData.recoveryAnswer === 'string' ? formData.recoveryAnswer : '';
   const captchaToken = asTrimmedString(formData.captchaToken);
+  const email = typeof formData.email === 'string' ? formData.email.trim().toLowerCase() : '';
 
   if (!username || !password || !confirmPassword || !identityKeyPublic || !signedPreKey || !signedPreKeySig) {
     return { error: 'Missing required registration fields.' };
@@ -353,6 +355,16 @@ export async function registerUser(formData: RegisterUserInput) {
     return { error: 'Recovery answer must be between 1 and 200 characters.' };
   }
 
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const requireEmailVerification = Boolean((settings as Record<string, unknown>).requireEmailVerification);
+  if (requireEmailVerification && !email) {
+    return { error: 'An email address is required to register.' };
+  }
+  if (email && !emailRegex.test(email)) {
+    return { error: 'Please enter a valid email address.' };
+  }
+
   try {
     const existingUser = await prisma.user.findUnique({
       where: { username },
@@ -360,6 +372,13 @@ export async function registerUser(formData: RegisterUserInput) {
 
     if (existingUser) {
       return { error: 'Username already taken' };
+    }
+
+    if (email) {
+      const existingEmail = await prisma.user.findUnique({ where: { email } });
+      if (existingEmail) {
+        return { error: 'An account with this email already exists.' };
+      }
     }
 
     const passwordHash = await argon2.hash(password);
@@ -392,12 +411,16 @@ export async function registerUser(formData: RegisterUserInput) {
         e2eeVersion: signingPublicKey ? 'v2' : 'legacy',
         recoveryQuestion: recoveryQuestion || null,
         recoveryAnswerHash,
+        ...(email ? { email, emailVerified: false } : {}),
       },
     });
 
     await logAuditAction('USER_REGISTERED', undefined, user.id, { username });
 
-    return { success: true, userId: user.id };
+    // If email verification is required, the client will receive requiresEmailVerification: true
+    // and should redirect to the verification page.
+    const needsEmailVerification = requireEmailVerification && Boolean(email);
+    return { success: true, userId: user.id, requiresEmailVerification: needsEmailVerification };
   } catch (error) {
     logger.error('Registration error.', {
       error: error instanceof Error ? error.message : String(error)

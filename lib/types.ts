@@ -14,6 +14,8 @@ export type ChatUser = {
   isVerified: boolean;
   isBanned?: boolean;
   needsPasswordChange?: boolean;
+  email?: string | null;
+  emailVerified?: boolean;
 };
 
 export type Report = {

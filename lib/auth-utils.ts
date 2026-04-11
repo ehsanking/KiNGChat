@@ -63,6 +63,7 @@ export async function initializeAdmin() {
       return result;
     }
     const adminPassword = resolveBootstrapPassword();
+    const adminEmail = process.env.ADMIN_EMAIL?.trim() || null;
 
     if (!adminPassword) {
       logger.info('No bootstrap admin password source is configured. Skipping admin bootstrap.', { adminUsername });
@@ -94,6 +95,8 @@ export async function initializeAdmin() {
           role: 'ADMIN',
           isApproved: true,
           needsPasswordChange: bootstrapForcePasswordChange,
+          // Admin's own email is pre-verified — no verification email needed.
+          ...(adminEmail ? { email: adminEmail, emailVerified: true } : {}),
           // Bootstrap admin accounts are created without E2EE identity material by design.
           // Keys are expected to be provisioned from the client on first authenticated use.
           identityKeyPublic: '',
@@ -113,6 +116,8 @@ export async function initializeAdmin() {
           isApproved: true,
           passwordHash,
           needsPasswordChange: bootstrapForcePasswordChange,
+          // Update email only if explicitly provided and not already set
+          ...(adminEmail && !adminExists.email ? { email: adminEmail, emailVerified: true } : {}),
         },
       });
       logger.warn('Existing admin credentials were reset from env because ADMIN_BOOTSTRAP_RESET_EXISTING=true.', {

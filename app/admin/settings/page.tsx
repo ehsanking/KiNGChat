@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getAdminSettings, updateAdminSettings, updateFileUploadSettings, updateFirebaseSettings } from '@/app/actions/admin';
-import { Save, Shield, FileText, HardDrive, CheckCircle2, AlertCircle, Loader2, Database } from 'lucide-react';
+import { Save, Shield, FileText, HardDrive, CheckCircle2, AlertCircle, Loader2, Database, Mail } from 'lucide-react';
 
 export default function AdminSettingsPage() {
   const [maxSize, setMaxSize] = useState(10); // MB
@@ -15,6 +15,8 @@ export default function AdminSettingsPage() {
   const [oauthOidcEnabled, setOauthOidcEnabled] = useState(false);
   const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
   const [recaptchaSecretKey, setRecaptchaSecretKey] = useState('');
+  const [requireEmailVerification, setRequireEmailVerification] = useState(false);
+  const [smtpConfigured, setSmtpConfigured] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -35,7 +37,9 @@ export default function AdminSettingsPage() {
         setOauthOidcEnabled(Boolean(dynamicSettings.oauthOidcEnabled));
         setRecaptchaSiteKey(typeof dynamicSettings.recaptchaSiteKey === 'string' ? dynamicSettings.recaptchaSiteKey : '');
         setRecaptchaSecretKey(typeof dynamicSettings.recaptchaSecretKey === 'string' ? dynamicSettings.recaptchaSecretKey : '');
+        setRequireEmailVerification(Boolean(dynamicSettings.requireEmailVerification));
       }
+      setSmtpConfigured(Boolean((result as Record<string, unknown>).smtpConfigured));
       setIsLoading(false);
     }
     loadSettings();
@@ -57,6 +61,7 @@ export default function AdminSettingsPage() {
       oauthGoogleEnabled,
       oauthGithubEnabled,
       oauthOidcEnabled,
+      requireEmailVerification,
     });
 
     if (success && !fbSuccess.error && !captchaResult.error) {
@@ -161,6 +166,41 @@ export default function AdminSettingsPage() {
             <p className="text-xs text-zinc-500">
               When enabled, both keys are required and verification is enforced server-side.
             </p>
+          </div>
+
+          {/* Email Verification */}
+          <div className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-3xl space-y-4 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-brand-gold">
+                <Mail className="w-5 h-5" />
+                <h2 className="font-bold">Email Verification</h2>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <span className="text-sm text-zinc-400">Require email on registration</span>
+                <input
+                  type="checkbox"
+                  checked={requireEmailVerification}
+                  onChange={(e) => setRequireEmailVerification(e.target.checked)}
+                  disabled={!smtpConfigured}
+                  className="w-4 h-4 rounded border-zinc-800 text-brand-gold focus:ring-brand-gold bg-zinc-950 disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+              </label>
+            </div>
+            <p className="text-sm text-zinc-400">
+              When enabled, new users must provide an email address and verify it with a 6-digit code before accessing the app.
+              The admin account email is pre-verified and not affected by this setting.
+            </p>
+            {!smtpConfigured && (
+              <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs p-3 rounded-xl">
+                SMTP is not configured. Set <code className="bg-zinc-800 px-1 rounded">SMTP_HOST</code>,{' '}
+                <code className="bg-zinc-800 px-1 rounded">SMTP_USER</code>,{' '}
+                <code className="bg-zinc-800 px-1 rounded">SMTP_PASS</code>, and{' '}
+                <code className="bg-zinc-800 px-1 rounded">SMTP_FROM</code> in your environment to enable email.
+              </div>
+            )}
+            {smtpConfigured && (
+              <p className="text-xs text-emerald-400">SMTP is configured and ready to send emails.</p>
+            )}
           </div>
 
           {/* Firebase Configuration */}

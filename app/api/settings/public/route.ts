@@ -31,6 +31,7 @@ export async function GET() {
         ),
         recaptchaSiteKey,
         localCaptcha,
+        requireEmailVerification: Boolean((settings as Record<string, unknown>).requireEmailVerification),
         oauthProviders: {
           google: Boolean((settings as Record<string, unknown>).oauthGoogleEnabled),
           github: Boolean((settings as Record<string, unknown>).oauthGithubEnabled),
@@ -50,6 +51,7 @@ export async function GET() {
         isCaptchaEnabled: false,
         recaptchaSiteKey: null,
         localCaptcha: null,
+        requireEmailVerification: false,
         oauthProviders: {
           google: false,
           github: false,

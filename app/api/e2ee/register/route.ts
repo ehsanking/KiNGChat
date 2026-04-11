@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     const recoveryQuestion = typeof body?.recoveryQuestion === 'string' ? body.recoveryQuestion : '';
     const recoveryAnswer = typeof body?.recoveryAnswer === 'string' ? body.recoveryAnswer : '';
     const captchaToken = typeof body?.captchaToken === 'string' ? body.captchaToken : '';
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
 
     if (!agreementPublicKey || !signingPublicKey || !signedPreKey || !signedPreKeySig) {
       return NextResponse.json({ error: 'Missing v2 registration bundle.' }, { status: 400 });
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
       recoveryQuestion,
       recoveryAnswer,
       captchaToken,
+      email,
     });
 
     if ('error' in result) {
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       userId: result.userId,
+      requiresEmailVerification: result.requiresEmailVerification ?? false,
     });
   } catch (error) {
     return NextResponse.json(

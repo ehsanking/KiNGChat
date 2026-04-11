@@ -26,6 +26,11 @@ export default function SetupAdminPage() {
     }
   }, [currentUser, isLoadingSession, router]);
 
+  // Block rendering until we confirm the user truly needs a password change.
+  // Without this guard the form flashes briefly before the redirect fires, and
+  // a malicious submission could reach the server action.
+  if (isLoadingSession || !currentUser || !currentUser.needsPasswordChange) return null;
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -65,8 +70,6 @@ export default function SetupAdminPage() {
       setIsLoading(false);
     }
   };
-
-  if (isLoadingSession || !currentUser) return null;
 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">

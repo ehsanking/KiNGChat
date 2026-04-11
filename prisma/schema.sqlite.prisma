@@ -32,6 +32,8 @@ model User {
   needsPasswordChange Boolean @default(false)
   failedLoginAttempts Int @default(0)
   lockoutUntil DateTime?
+  email          String?  @unique
+  emailVerified  Boolean  @default(false)
   recoveryQuestion String?
   recoveryAnswerHash String?
   createdAt    DateTime @default(now())
@@ -365,6 +367,21 @@ model AdminSettings {
   reservedUsernames  String  @default("admin,administrator,support,moderator,root,sys")
   rules              String? // System rules/TOS
   firebaseConfig     String? // JSON string containing Firebase keys
+  requireEmailVerification Boolean @default(false) // Require users to verify email after registration
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  userId    String
+  email     String
+  code      String   // 6-digit numeric code (hashed)
+  purpose   String   @default("EMAIL_VERIFY") // EMAIL_VERIFY, PASSWORD_RESET
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose, createdAt])
+  @@index([expiresAt])
 }
 
 model Captcha {
