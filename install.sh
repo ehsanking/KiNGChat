@@ -175,7 +175,8 @@ apt_upgrade_quiet() {
 detect_linux_distribution() {
   local distro_id=""
   if [ -r /etc/os-release ]; then
-    # shellcheck disable=SC1091 -- /etc/os-release is provided by the base OS.
+    # /etc/os-release is provided by the base OS.
+    # shellcheck disable=SC1091
     distro_id="$(. /etc/os-release && printf '%s' "${ID:-}")"
   fi
   printf '%s' "${distro_id,,}"

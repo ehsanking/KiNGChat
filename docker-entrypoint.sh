@@ -65,7 +65,8 @@ fi
 # Unconditionally setting that trap aborts startup with:
 #   trap: ERR: bad trap
 # Keep startup POSIX-compatible by enabling the trap only when supported.
-# shellcheck disable=SC3047 -- runtime guard ensures ERR trap is used only when shell supports it.
+# Runtime guard ensures ERR trap is used only when shell supports it.
+# shellcheck disable=SC3047
 if (trap '' ERR) 2>/dev/null; then
   trap 'on_err $LINENO "${BASH_COMMAND:-unknown}"' ERR
 fi
