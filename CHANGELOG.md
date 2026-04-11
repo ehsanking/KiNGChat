@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.0.0 — 2026-04-11
+
+### Runtime fixes
+- Fixed a crash loop that prevented the `elahe-app` container from starting on
+  a fresh install: `Error: Invariant: AsyncLocalStorage accessed in runtime
+  where it is not available`. Next.js 15 expects `globalThis.AsyncLocalStorage`
+  to be populated before any of its app-render modules are evaluated. When the
+  Next.js CLI boots the server it installs that polyfill via
+  `next/dist/server/node-environment-baseline.js`. The custom
+  `server.ts` entry (which is launched through `tsx` so it can attach
+  Socket.IO) bypasses that bootstrap chain, so the `work-async-storage-instance`
+  module ended up constructing a `FakeAsyncLocalStorage` whose `.run()` method
+  unconditionally throws the invariant error.
+  Added `lib/runtime/node-environment-baseline.ts` (a direct mirror of the
+  upstream Next.js baseline) and import it as the very first statement of
+  `server.ts`, `server-api.ts`, and `server-worker.ts` so the polyfill runs
+  before any `next` import is evaluated. Verified end-to-end via a smoke boot
+  of `server.ts` that now reaches `> Ready on http://0.0.0.0:3999` with zero
+  Invariant errors.
+- Removed an ESM-hoisting bug in `server-api.ts` / `server-worker.ts` where
+  `process.env.RUNTIME_MODE = '...'` was written *after* the hoisted
+  `import './server'` statement and therefore never took effect. The runtime
+  mode is now propagated from `scripts/start-server.mjs` (`env.RUNTIME_MODE`)
+  before the child is spawned, which means split `api` / `worker` deployments
+  actually honour their mode.
+
+### Dependency alignment
+Bumped a small set of first-party dependencies to the latest patch/minor
+releases that are known-compatible with Next.js 15.5 + React 19.2. Held back
+deliberately on every major version that would introduce breaking changes
+(`next@16`, `prisma@7`, `typescript@6`, `zod@4`, `eslint@10`, `vitest@4`,
+`lucide-react@1`).
+
+- `next` 15.5.14 → 15.5.15 (patch)
+- `eslint-config-next` 15.5.14 → 15.5.15 (patch, must match `next`)
+- `react` 19.2.4 → 19.2.5 (patch)
+- `react-dom` 19.2.4 → 19.2.5 (patch, must match `react`)
+- `tailwindcss` 4.1.11 → 4.2.2 (minor, v4 line)
+- `@tailwindcss/postcss` 4.1.11 → 4.2.2 (minor, must match `tailwindcss`)
+
+`@prisma/client`, `prisma`, and `@prisma/instrumentation` are already pinned
+to `^6.19.3` and resolve against the same major/minor, which is the newest
+compatible trio. `tsx@4.21.0`, `typescript@5.9.3`, `zod@3.25.76`, and the
+Socket.IO 4.8.x family are already at the latest stable on their major lines.
+
+### Release metadata
+- Bumped project description in `package.json` to match the messaging stack
+  (`Next.js 15 + React 19 + Prisma 6 + Socket.IO`).
+
 ## Unreleased
 
 ### Bug fixes and code quality

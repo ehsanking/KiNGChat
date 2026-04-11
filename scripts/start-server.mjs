@@ -22,6 +22,11 @@ if (!existsSync(tsxBin)) {
 const runtimeMode = (env.RUNTIME_MODE || 'all').toLowerCase();
 const entry = runtimeMode === 'api' ? 'server-api.ts' : runtimeMode === 'worker' ? 'server-worker.ts' : 'server.ts';
 
+// Propagate the normalized runtime mode to the child so the wrapper entries
+// (server-api.ts / server-worker.ts) don't have to rely on top-level env
+// assignments, which are brittle under ESM hoisting.
+env.RUNTIME_MODE = runtimeMode;
+
 const child = spawn(tsxBin, [entry], {
   stdio: 'inherit',
   env,

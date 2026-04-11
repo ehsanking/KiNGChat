@@ -1,3 +1,8 @@
+// IMPORTANT: `node-environment-baseline` MUST be the first import so that
+// `globalThis.AsyncLocalStorage` is installed before any Next.js module is
+// evaluated. Re-ordering these imports will break the production boot path
+// (see lib/runtime/node-environment-baseline.ts for rationale).
+import './lib/runtime/node-environment-baseline';
 import { logger } from './lib/logger';
 import { bootstrapEnvironment } from './lib/runtime/env-bootstrap';
 import { runAdminBootstrapOrExit } from './lib/runtime/admin-bootstrap';
