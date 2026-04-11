@@ -7,7 +7,7 @@ import { getOrSetCache } from '@/lib/cache';
 import { countFailedIpAttempts, createLoginAttempt } from '@/lib/login-attempts';
 import { getMessageHistoryExtended, syncConversation, markMessagesDelivered, toggleReaction, editMessage, saveDraft, listDrafts, deleteDraft, searchMessages } from '@/lib/messaging-service';
 import { rateLimit } from '@/lib/rate-limit';
-import argon2 from 'argon2';
+import * as argon2 from '@node-rs/argon2';
 import { headers, cookies } from 'next/headers';
 
 // Import admin-specific server actions from admin.ts to reduce duplication.

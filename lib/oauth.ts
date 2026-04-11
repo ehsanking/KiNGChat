@@ -1,4 +1,4 @@
-import argon2 from 'argon2';
+import * as argon2 from '@node-rs/argon2';
 import crypto from 'crypto';
 import type { JWT } from '@auth/core/jwt';
 import Google from '@auth/core/providers/google';
