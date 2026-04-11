@@ -47,9 +47,17 @@ prepare_runtime_dirs() {
   chmod 700 "$admin_state_dir" || true
 }
 
+# on_err is installed via `trap … ERR` below. The shell invokes it
+# indirectly, so shellcheck 0.9.0's reachability analysis cannot see the
+# call path and reports SC2317 on the handler body. Suppress the false
+# positive the same way the existing SC3047 disable does further down.
+# shellcheck disable=SC2317
 on_err() {
+  # shellcheck disable=SC2317
   line="$1"
+  # shellcheck disable=SC2317
   cmd="${2:-unknown}"
+  # shellcheck disable=SC2317
   echo "[entrypoint] ERROR: bootstrap failed near line ${line} (command: ${cmd}). Check logs above for root cause." >&2
 }
 
