@@ -154,10 +154,10 @@ export async function rateLimit(key: string, options: RateLimitOptions = {}): Pr
       // Atomically increment the request count for this key.
       const count: number = await client.incr(scopedKey);
       // Fetch the current TTL (in milliseconds). Returns -2 if the key does not exist and -1 if no expiry set.
-      let pttl: number = await client.pttl(scopedKey);
+      let pttl: number = await client.pTTL(scopedKey);
       // If there is no TTL on the key or the key didn't exist before, set the TTL.
       if (pttl === -1 || pttl === -2) {
-        await client.pexpire(scopedKey, windowMs);
+        await client.pExpire(scopedKey, windowMs);
         pttl = windowMs;
       }
       // Determine remaining attempts and when the window resets.
