@@ -22,8 +22,8 @@ export interface RedisClientLike {
   incr(key: string): Promise<number>;
 
   // TTL commands
-  pttl(key: string): Promise<number>;
-  pexpire(key: string, ms: number): Promise<boolean>;
+  pTTL(key: string): Promise<number>;
+  pExpire(key: string, ms: number): Promise<number>;
   scan(
     cursor: string,
     options?: {

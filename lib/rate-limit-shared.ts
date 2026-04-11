@@ -31,10 +31,10 @@ export async function rateLimitShared(key: string, options: RateLimitOptions = {
 
   const currentCount = await client.incr(redisKey);
   if (currentCount === 1) {
-    await client.pexpire(redisKey, windowMs);
+    await client.pExpire(redisKey, windowMs);
   }
 
-  const ttlMs = await client.pttl(redisKey);
+  const ttlMs = await client.pTTL(redisKey);
   const effectiveResetAt = ttlMs > 0 ? now + ttlMs : resetAt;
   const remaining = Math.max(max - currentCount, 0);
 
