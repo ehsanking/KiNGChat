@@ -2,8 +2,10 @@
 
 FROM node:20-alpine AS deps
 WORKDIR /app
+ARG OPENSSL_VERSION=3.5.4-r0
+ARG LIBC6_COMPAT_VERSION=1.2.5-r1
 
-RUN apk add --no-cache openssl~3 libc6-compat~1
+RUN apk add --no-cache openssl=${OPENSSL_VERSION} libc6-compat=${LIBC6_COMPAT_VERSION}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json lockfile-check.js .npmrc ./
@@ -13,8 +15,10 @@ RUN --mount=type=cache,target=/root/.npm \
 
 FROM node:20-alpine AS build
 WORKDIR /app
+ARG OPENSSL_VERSION=3.5.4-r0
+ARG LIBC6_COMPAT_VERSION=1.2.5-r1
 
-RUN apk add --no-cache openssl~3 libc6-compat~1
+RUN apk add --no-cache openssl=${OPENSSL_VERSION} libc6-compat=${LIBC6_COMPAT_VERSION}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -24,8 +28,18 @@ RUN npx prisma generate && npm run build && npm prune --omit=dev && rm -rf .next
 
 FROM node:20-alpine AS runner
 WORKDIR /app
+ARG OPENSSL_VERSION=3.5.4-r0
+ARG LIBC6_COMPAT_VERSION=1.2.5-r1
+ARG WGET_VERSION=1.25.0-r0
+ARG TINI_VERSION=0.19.0-r3
+ARG SU_EXEC_VERSION=0.3-r3
 
-RUN apk add --no-cache openssl~3 libc6-compat~1 wget~1 tini~0.19 su-exec~0.3
+RUN apk add --no-cache \
+    openssl=${OPENSSL_VERSION} \
+    libc6-compat=${LIBC6_COMPAT_VERSION} \
+    wget=${WGET_VERSION} \
+    tini=${TINI_VERSION} \
+    su-exec=${SU_EXEC_VERSION}
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
