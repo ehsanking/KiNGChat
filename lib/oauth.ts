@@ -18,12 +18,12 @@ const sanitizeUsernameCandidate = (value: string) => {
   return stripped;
 };
 
-const randomDigits = () => Math.floor(1000000000 + Math.random() * 9000000000).toString();
+const randomDigits = () => crypto.randomInt(1_000_000_000, 10_000_000_000).toString();
 
 const ensureUniqueUsername = async (baseCandidate: string) => {
-  const base = sanitizeUsernameCandidate(baseCandidate) || `user${Math.floor(Math.random() * 100000)}`;
+  const base = sanitizeUsernameCandidate(baseCandidate) || `user${crypto.randomInt(100_000)}`;
   for (let i = 0; i < 20; i += 1) {
-    const suffix = i === 0 ? '' : String(Math.floor(Math.random() * 9999)).padStart(2, '0');
+    const suffix = i === 0 ? '' : String(crypto.randomInt(10_000)).padStart(2, '0');
     const candidate = (base.slice(0, Math.max(3, 20 - suffix.length)) + suffix).slice(0, 20);
     if (!usernameRegex.test(candidate)) continue;
     const existing = await prisma.user.findUnique({ where: { username: candidate }, select: { id: true } });
