@@ -319,10 +319,6 @@ function ChatDashboardContent() {
           return;
         }
         setCsrfToken(typeof data.csrfToken === 'string' ? data.csrfToken : null);
-        if (data.user.needsPasswordChange) {
-          router.push('/auth/setup-admin');
-          return;
-        }
         const user = data.user;
         setCurrentUser(user);
         setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);

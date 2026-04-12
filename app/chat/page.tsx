@@ -14,9 +14,5 @@ export default async function ChatPage() {
     redirect(`/auth/login?next=${encodeURIComponent(CHAT_NEXT_PATH)}`);
   }
 
-  if (session.needsPasswordChange) {
-    redirect('/auth/setup-admin');
-  }
-
   return <ChatShell />;
 }

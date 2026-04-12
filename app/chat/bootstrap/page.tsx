@@ -25,11 +25,6 @@ export default function ChatBootstrapPage() {
           return;
         }
 
-        if (data.user.needsPasswordChange) {
-          router.replace('/auth/setup-admin');
-          return;
-        }
-
         // Session is valid, redirect directly to chat
         router.replace('/chat');
       } catch {
