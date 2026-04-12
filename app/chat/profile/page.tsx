@@ -163,14 +163,22 @@ export default function UserProfile() {
             <div className="relative group">
               <div className="w-32 h-32 rounded-full bg-zinc-800 border-4 border-zinc-950 overflow-hidden flex items-center justify-center relative">
                 {profilePhoto ? (
-                  <Image 
-                    src={profilePhoto} 
-                    alt="Profile" 
-                    fill 
-                    sizes="128px"
-                    className="object-cover"
-                    unoptimized
-                  />
+                  profilePhoto.startsWith('data:') ? (
+                    <img
+                      src={profilePhoto}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={profilePhoto}
+                      alt="Profile"
+                      fill
+                      sizes="128px"
+                      className="object-cover"
+                      unoptimized
+                    />
+                  )
                 ) : (
                   <User className="w-12 h-12 text-zinc-500" />
                 )}

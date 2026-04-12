@@ -126,6 +126,8 @@ const adminSettingToggles: Array<{ label: string; key: keyof Pick<AdminSettings,
   { label: 'User Registration', key: 'isRegistrationEnabled', desc: 'Allow new users' },
 ];
 
+const isDataUri = (value: string) => value.startsWith('data:');
+
 function ChatDashboardContent() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -143,7 +145,6 @@ function ChatDashboardContent() {
   const [sidebarTab, setSidebarTab] = useState<'contacts' | 'groups'>('contacts');
   const [adminTab, setAdminTab] = useState<'overview' | 'users' | 'reports' | 'settings' | 'data' | 'audit'>('overview');
   const [adminUsers, setAdminUsers] = useState<ChatUser[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [adminReports, setAdminReports] = useState<Report[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
   const [adminAuditLogs, setAdminAuditLogs] = useState<AuditLog[]>([]);
@@ -786,7 +787,6 @@ function ChatDashboardContent() {
     else alert('error' in res ? res.error : 'Request failed.');
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleExportData = async () => {
     if (!currentUser) return;
     const res = await exportSystemData();
@@ -800,7 +800,6 @@ function ChatDashboardContent() {
     } else alert('error' in res ? res.error : 'Failed to create community.');
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleResolveReport = async (reportId: string, status: 'RESOLVED' | 'DISMISSED') => {
     if (!currentUser) return;
     const res = await resolveReport(reportId, status);
@@ -1264,7 +1263,11 @@ function ChatDashboardContent() {
           <div key={user.id} className="p-3 flex items-center gap-3 hover:bg-zinc-800/50 cursor-pointer transition-colors border-b border-zinc-800/50">
             <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden relative shrink-0">
               {user.profilePhoto ? (
-                <Image src={user.profilePhoto} alt={getUserDisplayName(user)} fill sizes="40px" className="object-cover" unoptimized />
+                isDataUri(user.profilePhoto) ? (
+                  <img src={user.profilePhoto} alt={getUserDisplayName(user)} className="w-full h-full object-cover" />
+                ) : (
+                  <Image src={user.profilePhoto} alt={getUserDisplayName(user)} fill sizes="40px" className="object-cover" unoptimized />
+                )
               ) : (
                 <User className="w-5 h-5 text-zinc-400" />
               )}
@@ -1307,7 +1310,11 @@ function ChatDashboardContent() {
         >
           <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden relative shrink-0">
             {contact.profilePhoto ? (
-              <Image src={contact.profilePhoto} alt={getUserDisplayName(contact)} fill sizes="40px" className="object-cover" unoptimized />
+              isDataUri(contact.profilePhoto) ? (
+                <img src={contact.profilePhoto} alt={getUserDisplayName(contact)} className="w-full h-full object-cover" />
+              ) : (
+                <Image src={contact.profilePhoto} alt={getUserDisplayName(contact)} fill sizes="40px" className="object-cover" unoptimized />
+              )
             ) : (
               <User className="w-5 h-5 text-zinc-400" />
             )}
@@ -1376,7 +1383,11 @@ function ChatDashboardContent() {
           <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden relative shrink-0">
             {selectedRecipient ? (
               selectedRecipient.profilePhoto ? (
-                <Image src={selectedRecipient.profilePhoto} alt={getUserDisplayName(selectedRecipient)} fill sizes="40px" className="object-cover" unoptimized />
+                isDataUri(selectedRecipient.profilePhoto) ? (
+                  <img src={selectedRecipient.profilePhoto} alt={getUserDisplayName(selectedRecipient)} className="w-full h-full object-cover" />
+                ) : (
+                  <Image src={selectedRecipient.profilePhoto} alt={getUserDisplayName(selectedRecipient)} fill sizes="40px" className="object-cover" unoptimized />
+                )
               ) : (
                 <User className="w-5 h-5 text-zinc-400" />
               )
@@ -1789,6 +1800,48 @@ function ChatDashboardContent() {
               </tbody>
             </table>
           </div>
+        ) : adminTab === 'reports' ? (
+          <div className="space-y-3">
+            {adminReports.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-8 text-center text-zinc-500">
+                No pending reports.
+              </div>
+            ) : adminReports.map((report) => (
+              <div key={report.id} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-100">{report.reason}</p>
+                    <p className="text-xs text-zinc-500">
+                      {new Date(report.createdAt).toLocaleString()} • Report ID: {report.id}
+                    </p>
+                  </div>
+                  <span className={`rounded px-2 py-1 text-[10px] font-semibold ${
+                    report.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300' : report.status === 'RESOLVED' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-700 text-zinc-300'
+                  }`}>{report.status}</span>
+                </div>
+                {report.status === 'PENDING' ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => handleResolveReport(report.id, 'RESOLVED')} className="rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20">
+                      Mark Resolved
+                    </button>
+                    <button type="button" onClick={() => handleResolveReport(report.id, 'DISMISSED')} className="rounded-lg bg-zinc-700 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-600">
+                      Dismiss
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : adminTab === 'data' ? (
+          <div className="max-w-xl rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+            <h3 className="text-sm font-semibold text-zinc-100">System Data Export</h3>
+            <p className="mt-2 text-xs text-zinc-500">
+              Download an administrative snapshot for audits and migration workflows.
+            </p>
+            <button type="button" onClick={handleExportData} className="mt-4 rounded-xl bg-brand-gold px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-brand-gold/90">
+              Export Data (JSON)
+            </button>
+          </div>
         ) : (
           <div className="text-center py-20 text-zinc-500"><p>Select a tab to view data.</p></div>
         )}
@@ -1803,7 +1856,11 @@ function ChatDashboardContent() {
         <div className="flex items-center gap-3">
           <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center overflow-hidden relative">
             {currentUser.profilePhoto ? (
-              <Image src={currentUser.profilePhoto} alt={getUserDisplayName(currentUser)} fill sizes="56px" className="object-cover" unoptimized />
+              isDataUri(currentUser.profilePhoto) ? (
+                <img src={currentUser.profilePhoto} alt={getUserDisplayName(currentUser)} className="w-full h-full object-cover" />
+              ) : (
+                <Image src={currentUser.profilePhoto} alt={getUserDisplayName(currentUser)} fill sizes="56px" className="object-cover" unoptimized />
+              )
             ) : (
               <User className="w-6 h-6 text-emerald-500" />
             )}
@@ -1951,7 +2008,11 @@ function ChatDashboardContent() {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center overflow-hidden relative">
               {currentUser.profilePhoto ? (
-                <Image src={currentUser.profilePhoto} alt={getUserDisplayName(currentUser)} fill sizes="32px" className="object-cover" unoptimized />
+                isDataUri(currentUser.profilePhoto) ? (
+                  <img src={currentUser.profilePhoto} alt={getUserDisplayName(currentUser)} className="w-full h-full object-cover" />
+                ) : (
+                  <Image src={currentUser.profilePhoto} alt={getUserDisplayName(currentUser)} fill sizes="32px" className="object-cover" unoptimized />
+                )
               ) : (
                 <User className="w-4 h-4 text-emerald-500" />
               )}
@@ -2121,7 +2182,11 @@ function ChatDashboardContent() {
             <div className="p-6 flex flex-col items-center text-center gap-3">
               <div className="w-24 h-24 rounded-full bg-zinc-800 relative overflow-hidden flex items-center justify-center">
                 {recipientProfile.profilePhoto ? (
-                  <Image src={recipientProfile.profilePhoto} alt={getUserDisplayName(recipientProfile)} fill sizes="96px" className="object-cover" unoptimized />
+                  isDataUri(recipientProfile.profilePhoto) ? (
+                    <img src={recipientProfile.profilePhoto} alt={getUserDisplayName(recipientProfile)} className="w-full h-full object-cover" />
+                  ) : (
+                    <Image src={recipientProfile.profilePhoto} alt={getUserDisplayName(recipientProfile)} fill sizes="96px" className="object-cover" unoptimized />
+                  )
                 ) : (
                   <User className="w-8 h-8 text-zinc-500" />
                 )}
