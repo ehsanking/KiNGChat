@@ -514,7 +514,12 @@ function ChatDashboardContent() {
       window.removeEventListener('offline', handleOffline);
       activeSocket?.disconnect();
     };
-  }, [flushPendingQueue, loadPendingQueue, pendingQueueRef, persistPendingQueue, router]);
+    // NOTE: We intentionally avoid depending on queue helpers here.
+    // Their identities can change as queue storage/socket state changes, which
+    // would re-run this initialization effect and continuously reconnect socket
+    // + refetch session/admin data (visible as loading loops in admin settings).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   // Load contacts & communities when the session user is available.
   // loadContacts and loadCommunities are stable functions defined in the same
