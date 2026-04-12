@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { getAdminSettings, updateAdminSettings, updateFileUploadSettings, updateFirebaseSettings } from '@/app/actions/admin';
-import { Save, Shield, FileText, HardDrive, CheckCircle2, AlertCircle, Loader2, Database, Mail } from 'lucide-react';
+import { changeAdminPassword } from '@/app/actions/auth.actions';
+import { Save, Shield, FileText, HardDrive, CheckCircle2, AlertCircle, Loader2, Database, Mail, KeyRound } from 'lucide-react';
 
 export default function AdminSettingsPage() {
   const [maxSize, setMaxSize] = useState(10); // MB
@@ -20,6 +21,11 @@ export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
     async function loadSettings() {
@@ -70,6 +76,23 @@ export default function AdminSettingsPage() {
       setMessage({ type: 'error', text: error || fbSuccess.error || captchaResult.error || 'Failed to update settings' });
     }
     setIsSaving(false);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsChangingPassword(true);
+    setPasswordMessage({ type: '', text: '' });
+    const result = await changeAdminPassword({ currentPassword, newPassword, confirmPassword: confirmNewPassword });
+    if ('error' in result && result.error) {
+      setPasswordMessage({ type: 'error', text: result.error });
+    } else {
+      setPasswordMessage({ type: 'success', text: 'Password updated successfully. You will be logged out shortly.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setTimeout(() => { window.location.assign('/auth/login'); }, 2000);
+    }
+    setIsChangingPassword(false);
   };
 
   if (isLoading) {
@@ -267,6 +290,57 @@ export default function AdminSettingsPage() {
             >
               {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               Save Changes
+            </button>
+          </div>
+        </form>
+
+        {/* Change Admin Password */}
+        <form onSubmit={handlePasswordChange} className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-3xl space-y-4">
+          <div className="flex items-center gap-3 text-brand-gold">
+            <KeyRound className="w-5 h-5" />
+            <h2 className="font-bold">Change Admin Password</h2>
+          </div>
+          <p className="text-sm text-zinc-400">Update your admin account password. You will be logged out after a successful change.</p>
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Current Password"
+            required
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-gold transition-colors"
+          />
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="New Password"
+            required
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-gold transition-colors"
+          />
+          <input
+            type="password"
+            value={confirmNewPassword}
+            onChange={(e) => setConfirmNewPassword(e.target.value)}
+            placeholder="Confirm New Password"
+            required
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-gold transition-colors"
+          />
+          {passwordMessage.text && (
+            <div className={`p-3 rounded-xl flex items-center gap-3 text-sm ${
+              passwordMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'
+            }`}>
+              {passwordMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              {passwordMessage.text}
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={isChangingPassword}
+              className="flex items-center gap-2 px-6 py-3 bg-brand-gold hover:bg-brand-gold/90 text-zinc-950 font-bold rounded-2xl transition-all disabled:opacity-50"
+            >
+              {isChangingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              Update Password
             </button>
           </div>
         </form>

@@ -81,7 +81,7 @@ export async function initializeAdmin() {
       },
     });
     const allowResetExisting = (process.env.ADMIN_BOOTSTRAP_RESET_EXISTING ?? 'false').toLowerCase() === 'true';
-    const bootstrapForcePasswordChange = (process.env.ADMIN_BOOTSTRAP_FORCE_PASSWORD_CHANGE ?? 'true').toLowerCase() === 'true';
+    const bootstrapForcePasswordChange = false;
     const resetStateFingerprint = await makeResetStateFingerprint(adminUsername, adminPassword, bootstrapForcePasswordChange);
     const resetAlreadyConsumed = allowResetExisting ? await hasConsumedAdminReset(resetStateFingerprint) : false;
 

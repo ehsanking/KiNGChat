@@ -11,10 +11,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = (await searchParams) ?? {};
   const session = await getServerSession();
 
-  if (session?.needsPasswordChange) {
-    redirect('/auth/setup-admin');
-  }
-
   if (session) {
     redirect('/chat');
   }

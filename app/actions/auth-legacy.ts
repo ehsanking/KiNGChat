@@ -526,21 +526,6 @@ export async function loginUser(formData: LoginUserInput) {
       }
     });
 
-    const defaultAdminUsername = process.env.ADMIN_USERNAME;
-    const defaultAdminPassword = process.env.ADMIN_PASSWORD;
-
-    // Force password change if admin still uses initial credentials
-    if (defaultAdminUsername && user.username === defaultAdminUsername && defaultAdminPassword && !user.needsPasswordChange) {
-      const isDefaultPassword = await argon2.verify(user.passwordHash, defaultAdminPassword);
-      if (isDefaultPassword) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { needsPasswordChange: true }
-        });
-        user.needsPasswordChange = true;
-      }
-    }
-
     await createLoginAttempt(ip, username, true);
     await logAuditAction('LOGIN_SUCCESS', undefined, user.id, { username });
 
@@ -755,6 +740,67 @@ export async function updateAdminCredentials(formData: UpdateAdminCredentialsInp
       error: error instanceof Error ? error.message : String(error)
     });
     return internalActionError('admin credential update');
+  }
+}
+
+/**
+ * Changes the admin's password after verifying the current password.
+ * This action is available from the admin panel settings.
+ */
+export async function changeAdminPassword(formData: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}) {
+  const adminSession = await requireAdminUser();
+  if (!adminSession) return { error: 'Unauthorized' };
+  const adminId = adminSession.userId;
+
+  const currentPassword = asTrimmedString(formData.currentPassword);
+  const newPassword = asTrimmedString(formData.newPassword);
+  const confirmPassword = asTrimmedString(formData.confirmPassword);
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return { error: 'All fields are required.' };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { error: 'New passwords do not match.' };
+  }
+
+  if (!isPasswordPolicyCompliant(newPassword)) {
+    return { error: PASSWORD_POLICY_MESSAGE };
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: adminId } });
+    if (!user || user.role !== 'ADMIN') {
+      return { error: 'Unauthorized' };
+    }
+
+    const isCurrentValid = await argon2.verify(user.passwordHash, currentPassword);
+    if (!isCurrentValid) {
+      return { error: 'Current password is incorrect.' };
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+    await prisma.user.update({
+      where: { id: adminId },
+      data: {
+        passwordHash,
+        sessionVersion: { increment: 1 },
+        needsPasswordChange: false,
+      },
+    });
+
+    await logAuditAction('ADMIN_PASSWORD_CHANGED', adminId, adminId, {});
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Change admin password error.', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return internalActionError('admin password change');
   }
 }
 

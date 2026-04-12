@@ -45,10 +45,6 @@ export default function UserProfile() {
           router.push('/auth/login');
           return;
         }
-        if (data.user.needsPasswordChange) {
-          router.push('/auth/setup-admin');
-          return;
-        }
         const user = data.user;
         setCurrentUser(user);
 

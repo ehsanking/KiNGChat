@@ -3,7 +3,6 @@ import { applySecurityHeaders } from '@/lib/security-headers';
 import { getSessionFromCookieHeaderEdge } from '@/lib/session-edge';
 
 const AUTH_ROUTES = ['/auth/login', '/auth/register'];
-const SETUP_ADMIN_ROUTE = '/auth/setup-admin';
 const CHAT_ROUTE = '/chat';
 const LEGACY_CHAT_ROUTE = '/chat-v2';
 const ADMIN_ROUTE = '/admin';
@@ -24,8 +23,8 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // If no session and user is trying to access chat or admin setup, redirect to login
-  if (!session && (pathname === CHAT_ROUTE || pathname.startsWith(`${CHAT_ROUTE}/`) || pathname === SETUP_ADMIN_ROUTE)) {
+  // If no session and user is trying to access chat, redirect to login
+  if (!session && (pathname === CHAT_ROUTE || pathname.startsWith(`${CHAT_ROUTE}/`))) {
     const loginUrl = new URL('/auth/login', request.url);
     if (pathname === CHAT_ROUTE || pathname.startsWith(`${CHAT_ROUTE}/`)) {
       loginUrl.searchParams.set('next', CHAT_ROUTE);
@@ -35,15 +34,8 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // If session exists but user needs to change password, enforce setup-admin page
-  if (session?.needsPasswordChange && pathname === CHAT_ROUTE) {
-    const response = NextResponse.redirect(new URL(SETUP_ADMIN_ROUTE, request.url));
-    applySecurityHeaders(response.headers, cspNonce);
-    return response;
-  }
-
   // If session exists and user visits auth routes, redirect to chat
-  if (session && AUTH_ROUTES.includes(pathname) && !session.needsPasswordChange) {
+  if (session && AUTH_ROUTES.includes(pathname)) {
     const response = NextResponse.redirect(new URL(CHAT_ROUTE, request.url));
     applySecurityHeaders(response.headers, cspNonce);
     return response;
@@ -132,7 +124,6 @@ export const config = {
   matcher: [
     '/auth/login',
     '/auth/register',
-    '/auth/setup-admin',
     '/chat',
     '/chat/:path*',
     '/chat-v2',
