@@ -41,7 +41,7 @@
     "@tanstack/react-virtual": "^3.13.23",
     "@types/nodemailer": "^8.0.0",
     "argon2": "^0.44.0",
-    "bullmq": "^5.73.4",
+    "bullmq": "^5.74.1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "geist": "^1.7.0",
